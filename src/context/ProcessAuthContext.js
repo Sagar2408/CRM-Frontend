@@ -29,10 +29,10 @@ export const ProcessProvider = ({ children }) => {
 // ---------------------------------------
 // Login Handler
 // ---------------------------------------
-  const login = async (email, password) => {
+  const login = async (email, password, companyCode) => {
     setLoading(true);
     try {
-      const data = await loginUser(email, password);
+      const data = await loginUser(email, password, companyCode);
 
       const userPayload = {
         ...(data.customer || data.person),
@@ -73,10 +73,10 @@ export const ProcessProvider = ({ children }) => {
 // ---------------------------------------
 // Signup Handler
 // ---------------------------------------
-const signup = async (fullName, email, password, userType) => {
+const signup = async (fullName, email, password, userType, companyCode) => {
   setLoading(true);
   try {
-    const data = await signupUser(fullName, email, password, userType);
+    const data = await signupUser(fullName, email, password, userType, companyCode);
     toast.success(
       <div className="toast-content">
         <div className="textToast">Signup Successful</div>

@@ -86,7 +86,6 @@ const [, setManagers] = useState([]);
     setAlerts((prev) => prev.filter((alert) => alert.id !== id));
   };
 
-// eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const savedCooldowns = JSON.parse(
       localStorage.getItem("cooldownUsers") || "{}"
@@ -119,7 +118,10 @@ const [, setManagers] = useState([]);
         }
       });
     };
-  }, [cooldownTimers]);
+    // Mount-only: must not depend on cooldownTimers/cooldownUsers, which this
+    // effect itself sets — that self-reference was the infinite-loop bug.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const startCooldown = (userId, initialTime = 15) => {
     const cooldownDuration = initialTime; // seconds

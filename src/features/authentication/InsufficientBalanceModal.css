@@ -1,0 +1,82 @@
+.insufficient-balance-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 100vw;
+  background-color: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.insufficient-balance-box {
+  background-color: #1e1e2f;
+  color: #fff;
+  width: 92%;
+  max-width: 440px;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  text-align: left;
+}
+
+.insufficient-balance-icon {
+  font-size: 2.2rem;
+  color: #ff3333;
+  margin-bottom: 0.5rem;
+}
+
+.insufficient-balance-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: #ff5a5a;
+}
+
+.insufficient-balance-message {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #e5e5e5;
+  margin-bottom: 1rem;
+}
+
+.insufficient-balance-details {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.88rem;
+}
+
+.insufficient-balance-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.2rem 0;
+}
+
+.insufficient-balance-details span:first-child {
+  color: #a0a0b0;
+}
+
+.insufficient-balance-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.insufficient-balance-close-btn {
+  background-color: #ff3333;
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.insufficient-balance-close-btn:hover {
+  background-color: #e62e2e;
+}

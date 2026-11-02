@@ -4,7 +4,8 @@ import {
   getCompaniesForMaster,
   pauseCompanyById,
   resumeCompanyById,
-  setCompanyExpiry
+  setCompanyExpiry,
+  regenerateAdminSignupToken,
 } from "../services/companyService";
 
 // 1. Create Context
@@ -96,6 +97,19 @@ export const CompanyProvider = ({ children }) => {
       throw err;
     }
   };
+
+  // -------------------------
+  // Regenerate a company's one-time Admin signup token
+  // -------------------------
+  const regenerateAdminToken = async (companyId) => {
+    try {
+      const res = await regenerateAdminSignupToken(companyId);
+      await fetchCompanies();
+      return res;
+    } catch (err) {
+      throw err;
+    }
+  };
   // -------------------------
   // Provider Return
   // -------------------------
@@ -110,6 +124,7 @@ export const CompanyProvider = ({ children }) => {
         updateCompanyExpiry,
         pauseCompany,
         resumeCompany,
+        regenerateAdminToken,
       }}
     >
       {children}

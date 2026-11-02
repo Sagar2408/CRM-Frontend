@@ -12,11 +12,16 @@ const PageAccessControl = () => {
   } = usePermissionContext();
 
   const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
   const [selectedUser, setSelectedUser] = useState(""); // Stores "id-role" (e.g., "4-Manager")
   const [selectedRole, setSelectedRole] = useState("");
   const [createStatus, setCreateStatus] = useState("");
   const [permissions, setPermissions] = useState([]);
+  const [permissionsLoading, setPermissionsLoading] = useState(true);
+  const [permissionsError, setPermissionsError] = useState("");
   const [selectedPermission, setSelectedPermission] = useState(null);
+  const [toggleError, setToggleError] = useState("");
 
   const [pageAccess, setPageAccess] = useState({});
   const [emailPreferences, setEmailPreferences] = useState({});
@@ -34,12 +39,17 @@ const PageAccessControl = () => {
   // Fetch users
   useEffect(() => {
     const fetchAllUsers = async () => {
+      setUsersLoading(true);
+      setUsersError("");
       try {
         const data = await fetchUsers();
         const parsedUsers = Array.isArray(data) ? data : data.users || [];
         setUsers(parsedUsers);
       } catch (err) {
         console.error("Error fetching users:", err);
+        setUsersError("Failed to load users. Please refresh and try again.");
+      } finally {
+        setUsersLoading(false);
       }
     };
 
@@ -91,11 +101,16 @@ const PageAccessControl = () => {
   // Fetch all permissions for dropdown
   useEffect(() => {
     const fetchAllPermissions = async () => {
+      setPermissionsLoading(true);
+      setPermissionsError("");
       try {
         const data = await fetchAllRolePermissions();
-        setPermissions(data);
+        setPermissions(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error fetching role permissions:", err);
+        setPermissionsError("Failed to load permissions. Please refresh and try again.");
+      } finally {
+        setPermissionsLoading(false);
       }
     };
 
@@ -208,8 +223,10 @@ const PageAccessControl = () => {
     try {
       await togglePermission(selectedPermission.id, permissionKey);
       setState((prev) => ({ ...prev, [permissionKey]: !currentState }));
+      setToggleError("");
     } catch (err) {
       console.error("Toggle failed:", err);
+      setToggleError(`Failed to update "${funcKey}". Please try again.`);
     }
   };
 
@@ -223,6 +240,7 @@ const PageAccessControl = () => {
         <div className="form-row">
         <select
   value={selectedUser}
+  disabled={usersLoading}
   onChange={(e) => {
     const selectedValue = e.target.value;
     if (!selectedValue) {
@@ -235,7 +253,13 @@ const PageAccessControl = () => {
     setSelectedRole(role);
   }}
 >
-  <option value="">Select User</option>
+  <option value="">
+    {usersLoading
+      ? "Loading users..."
+      : users.length === 0
+      ? "No users available"
+      : "Select User"}
+  </option>
 
   {["Executive", "Manager", "TL", "HR", "Process"].map((roleGroup) => {
   const roleUsers = users.filter((u) => {
@@ -267,10 +291,18 @@ const PageAccessControl = () => {
 
 
 
-          <button className="primary-btn" onClick={handleCreatePermission}>
+          <button
+            className="primary-btn"
+            onClick={handleCreatePermission}
+            disabled={usersLoading}
+          >
             Grant Access
           </button>
         </div>
+
+        {usersError && (
+          <p style={{ marginTop: "10px", color: "red" }}>{usersError}</p>
+        )}
 
         {createStatus && (
           <p
@@ -288,13 +320,21 @@ const PageAccessControl = () => {
         <h3>Select From Existing Permissions</h3>
         <select
   value={selectedPermission?.id || ""}
+  disabled={permissionsLoading}
   onChange={(e) => {
     const selected = permissions.find((p) => p.id === e.target.value);
     setSelectedPermission(selected);
+    setToggleError("");
   }}
   style={{ fontFamily: "monospace", whiteSpace: "pre" }}
 >
-  <option value="">Select Permissions for users</option>
+  <option value="">
+    {permissionsLoading
+      ? "Loading permissions..."
+      : permissions.length === 0
+      ? "No permissions found"
+      : "Select Permissions for users"}
+  </option>
 
   {(() => {
     // Group permissions by role
@@ -326,6 +366,9 @@ const PageAccessControl = () => {
   })()}
 </select>
 
+        {permissionsError && (
+          <p style={{ marginTop: "10px", color: "red" }}>{permissionsError}</p>
+        )}
       </div>
 
       {selectedPermission && (
@@ -334,6 +377,10 @@ const PageAccessControl = () => {
             <div className="header-cell">Functionalities</div>
             <div className="header-cell">{selectedPermission.role}</div>
           </div>
+
+          {toggleError && (
+            <p style={{ marginTop: "10px", color: "red" }}>{toggleError}</p>
+          )}
 
           {[
             {

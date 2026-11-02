@@ -61,7 +61,7 @@ const fetchAdminUserData = useCallback(async () => {
   setUserLoading(true);
   try {
     const response = await apiService.fetchAdminProfile();
-    const { username, email, role } = response;
+    const { username, email, role } = response.admin || {};
     setUser({ username, email, role });
   } catch (error) {
     console.error("❌ Error fetching Admin user data:", error);
@@ -123,7 +123,8 @@ const fetchAdminUserData = useCallback(async () => {
   const fetchAdmin = useCallback(async () => {
   try {
     setLoading(true);
-    const data = await apiService.fetchAdminProfile();
+    const response = await apiService.fetchAdminProfile();
+    const data = response?.admin;
 
     if (data && data.username && data.email && data.role) {
       const mappedData = {
@@ -133,7 +134,7 @@ const fetchAdminUserData = useCallback(async () => {
       };
       setAdminProfile(mappedData);
     } else {
-      console.warn("⚠️ Unexpected API response format:", data);
+      console.warn("⚠️ Unexpected API response format:", response);
     }
   } catch (error) {
     console.error("🔴 Error fetching admin profile:", error);
@@ -229,14 +230,14 @@ const fetchExecutives = useCallback(async () => {
     }
   }, []);
 
-  const createCopyNotification = async (userId, userRole, message) => {
+  const createCopyNotification = useCallback(async (userId, userRole, message) => {
     try {
       await apiService.createCopyNotification({ userId, userRole, message });
       fetchNotifications({userId,userRole});
     } catch (error) {
       console.error("❌ Failed to create copy notification:", error);
     }
-  };
+  }, [fetchNotifications]);
 
   const markNotificationReadAPI = async (notificationId) => {
     try {
@@ -442,14 +443,14 @@ const fetchFollowUpHistoriesAPI = useCallback(async () => {
   const [userSettings, setUserSettings] = useState(null); 
 
 // Fetch user settings
-const fetchSettings = async () => {
+const fetchSettings = useCallback(async () => {
   try {
-    const settings = await apiService.fetchUserSettings();  
-    setUserSettings(settings); 
+    const settings = await apiService.fetchUserSettings();
+    setUserSettings(settings);
   } catch (error) {
     console.error("Error fetching user settings:", error);
   }
-};
+}, []);
 
 // Update user settings
 const updateSettings = async (updatedSettings) => {
@@ -463,7 +464,7 @@ const updateSettings = async (updatedSettings) => {
 const [meetings, setMeetings] = useState([]);
 const [meetingsLoading, setMeetingsLoading] = useState(false);
 
-const refreshMeetings = async () => {
+const refreshMeetings = useCallback(async () => {
   setMeetingsLoading(true); // Add this to use setMeetingsLoading
   try {
     const all = await apiService.fetchMeetings();
@@ -475,7 +476,7 @@ const refreshMeetings = async () => {
   } finally {
     setMeetingsLoading(false); // Add this to use setMeetingsLoading
   }
-};
+}, []);
 
 const adminMeeting = useCallback(async () => {
   try {
@@ -596,7 +597,7 @@ const fetchAllCloseLeadsAPI = useCallback(async () => {
  const [executiveDashboardData, setExecutiveDashboardData] = useState([]);
  const [executiveDashboardLoading, setExecutiveDashboardLoading] = useState(false);
 
-  const fetchExecutiveDashboardData = async () => {
+  const fetchExecutiveDashboardData = useCallback(async () => {
     setExecutiveDashboardLoading(true);
     try {
       const data = await apiService.fetchAdminExecutiveDashboard(); // already defined in your services
@@ -608,7 +609,7 @@ const fetchAllCloseLeadsAPI = useCallback(async () => {
     } finally {
       setExecutiveDashboardLoading(false);
     }
-  };
+  }, []);
 const [opportunities, setOpportunities] = useState([]);
 const [opportunitiesLoading, setOpportunitiesLoading] = useState(false);
 
@@ -626,7 +627,7 @@ const [opportunitiesLoading, setOpportunitiesLoading] = useState(false);
 
  const [dealFunnel, setDealFunnel] = useState(null);
  
-  const getDealFunnel = async () => {
+  const getDealFunnel = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiService.fetchDealFunnelData();
@@ -636,13 +637,13 @@ const [opportunitiesLoading, setOpportunitiesLoading] = useState(false);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // ✅ Revenue Chart Data State
 const [revenueChartData, setRevenueChartData] = useState([]);
 const [revenueChartLoading, setRevenueChartLoading] = useState(false);
 
-const fetchRevenueChartDataAPI = async () => {
+const fetchRevenueChartDataAPI = useCallback(async () => {
   setRevenueChartLoading(true);
   try {
     const data = await apiService.fetchRevenueChartData();
@@ -654,7 +655,7 @@ const fetchRevenueChartDataAPI = async () => {
   } finally {
     setRevenueChartLoading(false);
   }
-};
+}, []);
 
 // Add updateUserLoginStatus to ApiContext
 const updateUserLoginStatus = async (userId, canLogin) => {
@@ -821,7 +822,7 @@ const fetchFollowUpClientsAPI = async () => {
 };
 const [allClientsLoading, setallClientsLoading] = useState(false);
 const[allClients,setAllClients]=useState();
-  const fetchAllClients= async () => {
+  const fetchAllClients= useCallback(async () => {
     setallClientsLoading(true);
     try {
       const data = await apiService.fetchAllClientLeads(); // already defined in your services
@@ -833,8 +834,8 @@ const[allClients,setAllClients]=useState();
     } finally {
       setallClientsLoading(false);
     }
-  };
-  
+  }, []);
+
 const createSingleLeadAPI = async (leadData) => {
   if (!leadData || !leadData.name) {
     setUploadError("Name is required for lead creation!");
@@ -975,7 +976,7 @@ const updateManagerProfile = async (managerId, profileData) => {
     setManagerLoading(false);
   }
 };
-const fetchAllExecutiveActivitiesByDateAPI = async () => {
+const fetchAllExecutiveActivitiesByDateAPI = useCallback(async () => {
   setExecutiveDashboardLoading(true);
   try {
     const data = await apiService.fetchAllExecutiveActivitiesByDate();
@@ -1001,17 +1002,17 @@ const fetchAllExecutiveActivitiesByDateAPI = async () => {
   } finally {
     setExecutiveDashboardLoading(false);
   }
-};
+}, []);
 
-const getAllProfile = async () => {
+const getAllProfile = useCallback(async () => {
   try {
-    const response = await apiService.getUserProfile(); 
+    const response = await apiService.getUserProfile();
     return response;
   } catch (error) {
     console.error("❌ Error creating close lead:", error);
     throw error;
   }
-};
+}, []);
 const [templateLoading, setTemplateLoading] = useState(false);
 const [templateSuccess, setTemplateSuccess] = useState(false);
 const [templateError, setTemplateError] = useState(null);
@@ -1394,15 +1395,15 @@ const fetchConvertedByExecutive = async (execName) => {
     return [];
   }
 };
-const getAllConverted = async () => {
+const getAllConverted = useCallback(async () => {
   try {
-    const response = await apiService.getAllConvertedClientsApi(); 
+    const response = await apiService.getAllConvertedClientsApi();
     return response;
   } catch (error) {
     console.error("❌ Error creating close lead:", error);
     throw error;
   }
-};
+}, []);
 // Closed by executive
 const fetchClosedByExecutive = async (execName) => {
   if (!execName) return [];

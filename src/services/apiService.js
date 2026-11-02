@@ -1,4 +1,5 @@
 import axios from "axios";
+import { stashPendingSubscriptionExpired } from "../utils/authEvents";
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 const apiService = axios.create({
@@ -9,25 +10,48 @@ const apiService = axios.create({
   },
 });
 
-// ✅ Automatically attach token to requests (if available)
+// Automatically attach token to requests
 apiService.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token"); // ONLY executive/admin token
+    const token = localStorage.getItem("token");
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      delete config.headers.Authorization; // Remove malformed header
-    }    
-    // 🔥 Add x-company-id (hardcoded or from localStorage)
-    config.headers["x-company-id"] = "0aa80c0b-0999-4d79-8980-e945b4ea700d"; // Hardcoded
-    // Or use:
-    // config.headers["x-company-id"] = localStorage.getItem("Company-Id") || "1";
+      delete config.headers.Authorization;
+    }
 
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+// An already-logged-in session is re-checked against the company's
+// current payment status on every protected request (tenantResolver
+// runs again server-side each time) — so an old token cannot bypass a
+// payment expiry that happened after login. When that happens mid-use,
+// end the stale session and surface the same Insufficient Balance
+// popup used at login, instead of leaving the user stuck on a page
+// whose API calls now silently fail.
+apiService.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const data = error.response?.data;
+    if (error.response?.status === 403 && data?.code === "SUBSCRIPTION_EXPIRED") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      stashPendingSubscriptionExpired({
+        companyName: data.companyName,
+        expiryDate: data.expiryDate,
+        message: data.message,
+      });
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 export const updateUserLoginStatus = async (userId, canLogin) => {
   try {
     const response = await apiService.put("/login-status", { userId, canLogin });
@@ -652,8 +676,15 @@ export const sendEodReport = async ({  executiveId,executiveName,email,fields,st
     throw error;
   }
 };
+// TEMPORARY: Admin's Create Executive flow bypasses OTP verification.
+// Uses the direct "/create-exec" endpoint (same secure create path used
+// by TL/Admin creation) instead of "/create-executive", which creates an
+// UnverifiedUser pending email OTP confirmation via /verify-otp.
+// To restore OTP verification for Create Executive, point this back at
+// "/create-executive" and restore the navigate("/admin/verify") step in
+// ExecutiveCredentialsForm.js's handleSubmit.
 export const createExecutiveAPI = async (executiveData) => {
-  const response = await apiService.post("/create-executive", executiveData);
+  const response = await apiService.post("/create-exec", executiveData);
   return response.data;
 };
 

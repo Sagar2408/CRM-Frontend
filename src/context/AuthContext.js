@@ -6,6 +6,7 @@ import * as authService from "../services/auth";
 import { recordStartWork, recordStopWork } from "../services/executiveService";
 import useWorkTimer from "../features/executive/useLoginTimer";
 import { ThemeContext } from "../features/admin/ThemeContext";
+import { emitSubscriptionExpired } from "../utils/authEvents";
 // Removed unused import: import { useBreakTimer } from "./breakTimerContext";
 
 // 1. Create Auth Context
@@ -37,8 +38,8 @@ export const AuthProvider = ({ children }) => {
   // -----------------------
   // LOGIN
   // -----------------------
-  const login = async (email, password,role) => {
-    if (!email || !password) {
+  const login = async (email, password, role, companyCode) => {
+    if (!email || !password || !companyCode) {
       toast.error(<div className="textToast">All fields are required</div>, {
         className: "custom-toast-error",
       });
@@ -47,7 +48,7 @@ export const AuthProvider = ({ children }) => {
 
     try {
       setLoading(true);
-      const response = await authService.loginUser(email, password,role);
+      const response = await authService.loginUser(email, password, role, companyCode);
       const user = response.user;
 
       // Save session data
@@ -91,20 +92,28 @@ export const AuthProvider = ({ children }) => {
         else if (role === "tl") navigate("/team-lead");
       }, 2000);
     } catch (err) {
-      toast.error(
-        <div className="textToast">{err.message || "Login Failed"}</div>,
-        {
-          className: "custom-toast-error",
-        }
-      );
+      if (err.code === "SUBSCRIPTION_EXPIRED") {
+        emitSubscriptionExpired({
+          companyName: err.companyName,
+          expiryDate: err.expiryDate,
+          message: err.message,
+        });
+      } else {
+        toast.error(
+          <div className="textToast">{err.message || "Login Failed"}</div>,
+          {
+            className: "custom-toast-error",
+          }
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
 
-  const handleLoginManager = async (email, password,role) => {
-    if (!email || !password) {
+  const handleLoginManager = async (email, password, companyCode) => {
+    if (!email || !password || !companyCode) {
       toast.error(<div className="textToast">All fields are required</div>, {
         className: "custom-toast-error",
       });
@@ -113,7 +122,7 @@ export const AuthProvider = ({ children }) => {
 
     try {
       setLoading(true);
-         const response = await authService.loginManager(email, password);
+         const response = await authService.loginManager(email, password, companyCode);
       const manager = response.manager;
         setUser(manager);
 
@@ -154,12 +163,20 @@ export const AuthProvider = ({ children }) => {
   if (role === "manager") navigate("/manager");
 }, 2000);
     } catch (err) {
-      toast.error(
-        <div className="textToast">{err.message || "Login Failed"}</div>,
-        {
-          className: "custom-toast-error",
-        }
-      );
+      if (err.code === "SUBSCRIPTION_EXPIRED") {
+        emitSubscriptionExpired({
+          companyName: err.companyName,
+          expiryDate: err.expiryDate,
+          message: err.message,
+        });
+      } else {
+        toast.error(
+          <div className="textToast">{err.message || "Login Failed"}</div>,
+          {
+            className: "custom-toast-error",
+          }
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -199,8 +216,8 @@ const handleLogoutManager = async () => {
 };
 
 
-const handleLoginHr = async (email, password,role) => {
-  if (!email || !password) {
+const handleLoginHr = async (email, password, companyCode) => {
+  if (!email || !password || !companyCode) {
     toast.error(<div className="textToast">All fields are required</div>, {
       className: "custom-toast-error",
     });
@@ -209,7 +226,7 @@ const handleLoginHr = async (email, password,role) => {
 
   try {
     setLoading(true);
-       const response = await authService.loginHr(email, password);
+       const response = await authService.loginHr(email, password, companyCode);
     const hr = response.hr;
       setUser(hr);
 
@@ -250,91 +267,24 @@ const role = hr.role?.toLowerCase();
 if (role === "hr") navigate("/hr");
 }, 2000);
   } catch (err) {
-    toast.error(
-      <div className="textToast">{err.message || "Login Failed"}</div>,
-      {
-        className: "custom-toast-error",
-      }
-    );
+    if (err.code === "SUBSCRIPTION_EXPIRED") {
+      emitSubscriptionExpired({
+        companyName: err.companyName,
+        expiryDate: err.expiryDate,
+        message: err.message,
+      });
+    } else {
+      toast.error(
+        <div className="textToast">{err.message || "Login Failed"}</div>,
+        {
+          className: "custom-toast-error",
+        }
+      );
+    }
   } finally {
     setLoading(false);
   }
 };
-  // -----------------------
-  // SIGNUP
-  // -----------------------
-  const signup = async (username, email, password, role) => {
-    if (!username || !email || !password || !role) {
-      toast.error(<div className="textToast">All fields are required!</div>, {
-        className: "custom-toast-error",
-      });
-      return;
-    }
-
-    if (password.length < 6) {
-      toast.error(
-        <div className="textToast">
-          Password must be at least 6 characters long.
-        </div>,
-        {
-          className: "custom-toast-error",
-          bodyClassName: "custom-toast-body-error",
-        }
-      );
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = await authService.signupUser(username, email, password, role);
-
-      toast.success(
-        <div className="toast-content">
-          <div className="textToast">Signup successful! Redirecting...</div>
-        </div>,
-        {
-          className: "custom-toast",
-          bodyClassName: "custom-toast-body",
-        }
-      );
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("userRole", data.user.role);
-      localStorage.setItem("theme", "light");
-
-      forceLightTheme();
-
-      localStorage.setItem(
-        "currentUser",
-        JSON.stringify({
-          id: data.user.id,
-          username: data.user.username,
-          email: data.user.email,
-          role: data.user.role,
-        })
-      );
-
-      setTimeout(() => {
-        const redirectPath =
-          data.user.role === "Admin" || data.user.role === "Executive"
-            ? "/login"
-            : "/user";
-        navigate(redirectPath);
-      }, 2000);
-    } catch (error) {
-      console.error("Signup error:", error);
-      toast.error(
-        <div className="textToast">{error.message || "Signup failed"}</div>,
-        {
-          className: "custom-toast-error",
-          bodyClassName: "custom-toast-body-error",
-        }
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogoutHr = async () => {
     try {
       setLoading(true);
@@ -393,15 +343,15 @@ if (role === "hr") navigate("/hr");
   // -----------------------
   // FORGOT PASSWORD
   // -----------------------
-  const forgotPassword = async (email) => {
-    if (!email) {
-      toast.error("Please enter your email!");
+  const forgotPassword = async (email, companyCode) => {
+    if (!email || !companyCode) {
+      toast.error("Please enter your email and company code!");
       return;
     }
 
     try {
       setLoading(true);
-      const data = await authService.forgotPassword(email);
+      const data = await authService.forgotPassword(email, companyCode);
       toast.success(data.message);
       navigate("/login");
     } catch (error) {
@@ -414,15 +364,15 @@ if (role === "hr") navigate("/hr");
   // -----------------------
   // RESET PASSWORD
   // -----------------------
-  const resetPassword = async (token, newPassword) => {
-    if (!newPassword) {
-      toast.error("Please enter a new password!");
+  const resetPassword = async (token, newPassword, companyCode) => {
+    if (!newPassword || !companyCode) {
+      toast.error("Please enter a new password and company code!");
       return;
     }
 
     try {
       setLoading(true);
-      const data = await authService.resetPassword(token, newPassword);
+      const data = await authService.resetPassword(token, newPassword, companyCode);
       toast.success(data.message);
       navigate("/login");
     } catch (error) {
@@ -444,7 +394,6 @@ if (role === "hr") navigate("/hr");
         logout,
         forgotPassword,
         resetPassword,
-        signup,
         handleLoginManager,
         handleLogoutManager,
         handleLoginHr,

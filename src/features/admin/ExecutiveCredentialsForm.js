@@ -131,11 +131,35 @@ const ExecutiveCredentialsForm = () => {
         },
       ]);
       soundManager.playSound("success");
-      localStorage.setItem("executiveData", JSON.stringify({ email: formData.email }));
 
-      setTimeout(() => {
-        navigate("/admin/verify");
-      }, 100); // 100ms gives browser enough time to store it
+      if (role === "Executive") {
+        // TEMPORARY: Create Executive no longer requires email OTP
+        // verification, so there is no pending UnverifiedUser to confirm
+        // on the /admin/verify page. Reset the form instead of
+        // redirecting there. See apiService.js createExecutiveAPI for
+        // how to restore the OTP step.
+        setFormData({
+          username: "",
+          email: "",
+          password: "",
+          firstname: "",
+          lastname: "",
+          country: "",
+          city: "",
+          state: "",
+          postal_code: "",
+          tax_id: "",
+          profile_picture: null,
+          role: "",
+          team_id: "",
+        });
+      } else {
+        localStorage.setItem("executiveData", JSON.stringify({ email: formData.email }));
+
+        setTimeout(() => {
+          navigate("/admin/verify");
+        }, 100); // 100ms gives browser enough time to store it
+      }
       } catch (err) {
       console.error(`Failed to create ${formData.role}:`, err.message || err);
       setAlerts([

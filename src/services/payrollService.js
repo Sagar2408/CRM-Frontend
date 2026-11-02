@@ -20,11 +20,6 @@ payrollService.interceptors.request.use(
       delete config.headers.Authorization; // Remove malformed header
     }
 
-    // 🔥 Add x-company-id (hardcoded or from localStorage)
-    config.headers["x-company-id"] = "0aa80c0b-0999-4d79-8980-e945b4ea700d"; // Hardcoded
-    // Or use:
-    // config.headers["x-company-id"] = localStorage.getItem("Company-Id") || "1";
-
     return config;
   },
   (error) => Promise.reject(error)

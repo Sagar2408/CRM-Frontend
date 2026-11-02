@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 const ResetPassword = () => {
   const { resetPassword, loading } = useAuth();
   const [newPassword, setNewPassword] = useState("");
+  const [companyCode, setCompanyCode] = useState("");
   // const navigate = useNavigate();
   const location = useLocation();
 
@@ -14,7 +15,7 @@ const ResetPassword = () => {
 
   const handleResetPassword = (e) => {
     e.preventDefault();
-    resetPassword(token, newPassword);
+    resetPassword(token, newPassword, companyCode);
   };
 
   return (
@@ -28,6 +29,13 @@ const ResetPassword = () => {
         <h2>Reset Password</h2>
         <p>Enter your new password below.</p>
         <form onSubmit={handleResetPassword}>
+          <input
+            type="text"
+            placeholder="Company Code"
+            required
+            value={companyCode}
+            onChange={(e) => setCompanyCode(e.target.value)}
+          />
           <input
             type="password"
             placeholder="Enter new password"

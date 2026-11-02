@@ -4,6 +4,8 @@ import "react-calendar/dist/Calendar.css";
 import axios from "axios";
 import "../../styles/calendar.css";
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
 const AdminCalendar = () => {
   const [holidays, setHolidays] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -18,10 +20,9 @@ const AdminCalendar = () => {
       try {
         const getToken = () => localStorage.getItem("token");
         const res = await axios.get(
-          `https://crm-backend-production-c208.up.railway.app/api/holidays?year=${year}&month=${month}`,
+          `${API_BASE_URL}/holidays?year=${year}&month=${month}`,
           {
             headers: {
-              "x-company-id": "549403a0-8e59-440f-a381-17ae457c60c4",
               Authorization: `Bearer ${getToken()}`,
             },
           }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
 import "react-toastify/dist/ReactToastify.css";
@@ -9,9 +9,11 @@ import img4 from "../../assets/img3.jpg";
 
 const LoginHr = ({ userType }) => {
   const { handleLoginHr } = useAuth();
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [companyCode, setCompanyCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -29,8 +31,9 @@ const LoginHr = ({ userType }) => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % slides.length);
     }, 3000);
+
     return () => clearInterval(interval);
-  }, [slides.length]); // Now slides.length is stable due to useMemo
+  }, [slides.length]);
 
   const handleLogin = useCallback(
     async (e) => {
@@ -38,16 +41,17 @@ const LoginHr = ({ userType }) => {
       setLoading(true);
 
       try {
-        await handleLoginHr(email, password);
-        // Navigate after successful login if needed
-        // navigate('/hr-dashboard'); // Uncomment and adjust route as needed
+        await handleLoginHr(email, password, companyCode);
+
+        // Navigate to HR dashboard after successful login
+        navigate("/hr");
       } catch (error) {
         console.error("Login failed:", error);
       } finally {
         setLoading(false);
       }
     },
-    [email, password, handleLoginHr]
+    [email, password, companyCode, handleLoginHr, navigate]
   );
 
   return (
@@ -67,8 +71,12 @@ const LoginHr = ({ userType }) => {
               alt="Slide"
               className="background-img"
             />
+
             <div className="slider-overlay">
-              <div className="slider-text">{slides[currentIndex].text}</div>
+              <div className="slider-text">
+                {slides[currentIndex].text}
+              </div>
+
               <div className="indicator-container">
                 {slides.map((_, i) => (
                   <div
@@ -86,8 +94,20 @@ const LoginHr = ({ userType }) => {
         <div className="right-half">
           <div className="login-form">
             <div className="create">Login to your Account</div>
-            <p style={{ paddingTop: "10px" }}>Enter your credentials</p>
+
+            <p style={{ paddingTop: "10px" }}>
+              Enter your credentials
+            </p>
+
             <form onSubmit={handleLogin}>
+              <input
+                type="text"
+                placeholder="Company Code"
+                required
+                value={companyCode}
+                onChange={(e) => setCompanyCode(e.target.value)}
+              />
+
               <input
                 type="email"
                 placeholder="Email"
@@ -95,6 +115,7 @@ const LoginHr = ({ userType }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+
               <input
                 type="password"
                 placeholder="Password"
@@ -102,19 +123,18 @@ const LoginHr = ({ userType }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+
               <button type="submit" disabled={loading}>
                 {loading ? "Logging in..." : "SIGN IN"}
               </button>
 
               <div className="text-bottom">
-                {/* {isAdmin && (
-                  <p className="small-text">
-                    Don't have an account? <Link to="/admin/signup">Signup</Link>
-                  </p>
-                )} */}
                 <Link
                   to="/forgot-password"
-                  style={{ color: "black", marginTop: "10px" }}
+                  style={{
+                    color: "black",
+                    marginTop: "10px",
+                  }}
                 >
                   Forgot Password
                 </Link>

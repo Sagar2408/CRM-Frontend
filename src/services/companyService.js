@@ -73,3 +73,14 @@ export const resumeCompanyById = async (companyId) => {
     throw error.response?.data || { error: "Failed to resume company" };
   }
 };
+
+export const regenerateAdminSignupToken = async (companyId) => {
+  try {
+    const response = await companyApi.post(
+      `/company/companies/${companyId}/regenerate-admin-token`
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { error: "Failed to regenerate admin token" };
+  }
+};

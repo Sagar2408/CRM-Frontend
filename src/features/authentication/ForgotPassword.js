@@ -6,10 +6,11 @@ import { FaLock } from "react-icons/fa";
 const ForgotPassword = () => {
   const { forgotPassword, loading } = useAuth();
   const [email, setEmail] = useState("");
+  const [companyCode, setCompanyCode] = useState("");
 
   const handleForgotPassword = (e) => {
     e.preventDefault();
-    forgotPassword(email);
+    forgotPassword(email, companyCode);
   };
 
   return (
@@ -19,6 +20,13 @@ const ForgotPassword = () => {
         <h2>Forgot Password</h2>
         <p>Enter your email to receive a password reset link.</p>
         <form onSubmit={handleForgotPassword}>
+          <input
+            type="text"
+            placeholder="Company Code"
+            required
+            value={companyCode}
+            onChange={(e) => setCompanyCode(e.target.value)}
+          />
           <input
             type="email"
             placeholder="Enter your email"

@@ -347,7 +347,7 @@ const fetchCustomers = useCallback(async () => {
     }
   };
 
-  const getProcessAllFollowup = async () => {
+  const getProcessAllFollowup = useCallback(async () => {
     try {
       const data = await getAllProcessFollowupsApi();
       return data;
@@ -356,7 +356,7 @@ const fetchCustomers = useCallback(async () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const getProcessFollowupHistory = useCallback(async (id) => {
       setLoading(true);
@@ -493,7 +493,7 @@ const fetchCustomers = useCallback(async () => {
     }
   },[])
 
-  const getAllProcessPersons = async () => {
+  const getAllProcessPersons = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getAllProcessPersonsApi();
@@ -503,7 +503,7 @@ const fetchCustomers = useCallback(async () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const createProcesstoConverted = async (payload) => {
     try {

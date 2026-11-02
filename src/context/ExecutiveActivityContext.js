@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
   recordStartWork,
   recordStopWork,
@@ -159,7 +159,7 @@ export const ExecutiveActivityProvider = ({ children }) => {
   // ---------------------------------------
   // Lead Visit Tracking
   // ---------------------------------------
-  const leadtrack = async (executiveId) => {
+  const leadtrack = useCallback(async (executiveId) => {
     try {
       setLoading(true);
       if (!executiveId) {
@@ -172,7 +172,7 @@ export const ExecutiveActivityProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // ---------------------------------------
   // Email Sending Handler
@@ -200,7 +200,7 @@ export const ExecutiveActivityProvider = ({ children }) => {
     }
   };
 
-  const handleGetAttendance = async (startDate, endDate) => {
+  const handleGetAttendance = useCallback(async (startDate, endDate) => {
     try {
       setLoading(true);
       const data = await getAttendance(startDate, endDate);
@@ -210,7 +210,7 @@ export const ExecutiveActivityProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
   // ---------------------------------------
   // Provider Return
   // ---------------------------------------

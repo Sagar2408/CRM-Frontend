@@ -3,7 +3,6 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 const BASE_HEADERS = {
   "Content-Type": "application/json",
-  "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
 };
 
 
@@ -14,7 +13,6 @@ const getHeaders = () => {
 
   return {
     "Content-Type": "application/json",
-    "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
     Authorization: `Bearer ${token}`,
   };
 };
@@ -186,7 +184,6 @@ const res = await fetch(`${API_BASE_URL}/customer/document/upload`,{
 method: "POST",
 headers: {
   // "Content-Type": "multipart/formData",
-     "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
        Authorization: `Bearer ${token}`,
 },
 credentials: "include",
@@ -238,7 +235,6 @@ export const createProcessFollowUpApi = async (payload) => {
 method: "POST",
 headers: {
   "Content-Type": "application/json",
-     "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
        Authorization: `Bearer ${token}`,
 },
 credentials: "include",

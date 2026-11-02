@@ -6,49 +6,66 @@ const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 // Shared headers
 const BASE_HEADERS = {
   "Content-Type": "application/json",
-  "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
 };
 
+/**
+ * Builds an Error carrying the backend's structured fields (e.g.
+ * `code: "SUBSCRIPTION_EXPIRED"`, `companyName`, `expiryDate`) so
+ * callers can distinguish an expired-subscription login from any other
+ * login failure, instead of only getting a flat message string.
+ */
+function loginError(body) {
+  const error = new Error(body?.message || "Login failed");
+  if (body?.code) error.code = body.code;
+  if (body?.companyName) error.companyName = body.companyName;
+  if (body?.expiryDate) error.expiryDate = body.expiryDate;
+  return error;
+}
+
 /*------------------------------LOGIN (fetch)---------------------------*/
-export const loginUser = async (email, password,role) => {
+export const loginUser = async (email, password, role, companyCode) => {
   const res = await fetch(`${API_BASE_URL}/login`, {
     method: "POST",
     headers: BASE_HEADERS,
-    body: JSON.stringify({ email, password ,role}),
+    body: JSON.stringify({
+      email,
+      password,
+      role,
+      companyCode,
+    }),
   });
 
   if (!res.ok) {
-    
-
     const err = await res.json();
-    throw new Error(err.message || "Login failed");
+    throw loginError(err);
   }
 
   return await res.json();
 };
-export const loginManager = async (email, password) => {
+
+/*------------------------------MANAGER LOGIN---------------------------*/
+export const loginManager = async (email, password, companyCode) => {
   const res = await fetch(`${API_BASE_URL}/manager/login`, {
     method: "POST",
     headers: BASE_HEADERS,
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, companyCode }),
   });
 
   if (!res.ok) {
-
     const err = await res.json();
-    throw new Error(err.message || "Login failed");
+    throw loginError(err);
   }
 
   return await res.json();
 };
 
-// ✅ Logout for manager
+/*------------------------------MANAGER LOGOUT---------------------------*/
 export const logoutManager = async () => {
-  const token = localStorage.getItem("token"); // get token from storage
+  const token = localStorage.getItem("token");
 
   const res = await fetch(`${API_BASE_URL}/manager/logout`, {
     method: "POST",
-    credentials: "include", // ensures cookie (like manager_token) is sent
+    credentials: "include",
     headers: {
       ...BASE_HEADERS,
       Authorization: `Bearer ${token}`,
@@ -63,24 +80,27 @@ export const logoutManager = async () => {
   return await res.json();
 };
 
-export const loginHr = async (email, password) => {
+/*------------------------------HR LOGIN---------------------------*/
+export const loginHr = async (email, password, companyCode) => {
   const res = await fetch(`${API_BASE_URL}/hr/login`, {
     method: "POST",
     headers: BASE_HEADERS,
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, companyCode }),
   });
 
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.message || "Login failed");
+    throw loginError(err);
   }
 
   return await res.json();
 };
+
+/*------------------------------HR LOGOUT---------------------------*/
 export const logoutHr = async () => {
   const res = await fetch(`${API_BASE_URL}/hr/logout`, {
     method: "POST",
-    credentials: "include", // ensures cookie (manager_token) is sent
+    credentials: "include",
     headers: BASE_HEADERS,
   });
 
@@ -91,48 +111,46 @@ export const logoutHr = async () => {
 
   return await res.json();
 };
-/*------------------------------SIGNUP (fetch)---------------------------*/
-export const signupUser = async (username, email, password, role) => {
-  const res = await fetch(`${API_BASE_URL}/signup`, {
-    method: "POST",
-    headers: BASE_HEADERS,
-    body: JSON.stringify({ username, email, password, role }),
-  });
-
-  const errorBody = await res.json();
-  if (!res.ok) {
-    console.error("Signup API error details:", errorBody);
-    throw new Error(errorBody.message || "Signup failed");
-  }
-
-  return errorBody;
-};
 
 /*------------------------------FORGOT PASSWORD---------------------------*/
-export const forgotPassword = async (email) => {
+export const forgotPassword = async (email, companyCode) => {
   try {
     const response = await apiService.post(
       "/forgot-password",
-      { email },
-      { headers: BASE_HEADERS }
+      { email, companyCode },
+      {
+        headers: BASE_HEADERS,
+      }
     );
+
     return response.data;
   } catch (error) {
-    throw new Error(error.response?.data?.error || "Failed to send reset link!");
+    throw new Error(
+      error.response?.data?.error || "Failed to send reset link!"
+    );
   }
 };
 
 /*------------------------------RESET PASSWORD---------------------------*/
-export const resetPassword = async (token, newPassword) => {
+export const resetPassword = async (token, newPassword, companyCode) => {
   try {
     const response = await apiService.post(
       "/reset-password",
-      { token, newPassword },
-      { headers: BASE_HEADERS }
+      {
+        token,
+        newPassword,
+        companyCode,
+      },
+      {
+        headers: BASE_HEADERS,
+      }
     );
+
     return response.data;
   } catch (error) {
-    throw new Error(error.response?.data?.error || "Failed to reset password!");
+    throw new Error(
+      error.response?.data?.error || "Failed to reset password!"
+    );
   }
 };
 
@@ -144,7 +162,7 @@ export const logoutUser = async (executiveName) => {
     const response = await apiService.post(
       "/logout",
       {
-        executiveName, // Now included in the request body
+        executiveName,
       },
       {
         headers: {
@@ -154,6 +172,7 @@ export const logoutUser = async (executiveName) => {
         withCredentials: true,
       }
     );
+
     return response;
   } catch (error) {
     console.error("Error in logoutUser:", error);
@@ -161,13 +180,13 @@ export const logoutUser = async (executiveName) => {
   }
 };
 
- //Add this to services/auth.js
+/*------------------------------AUTHENTICATED CHECK---------------------------*/
 export const isAuthenticated = () => {
   const token = localStorage.getItem("token");
   return Boolean(token);
 };
 
-/*------------------------------AUTH HELPERS---------------------------*/
+/*------------------------------PRIVATE ROUTES---------------------------*/
 export const PrivateRoute = ({ children, allowedRoles = [] }) => {
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user"));
@@ -179,13 +198,14 @@ export const PrivateRoute = ({ children, allowedRoles = [] }) => {
   const role = user.role.toLowerCase();
 
   if (!allowedRoles.includes(role)) {
-    const fallback = `/${role}`; // e.g., /manager
+    const fallback = `/${role}`;
     return <Navigate to={fallback} replace />;
   }
 
   return children;
 };
-/*-------------------------------PUBLIC ROUTES-----------------*/
+
+/*------------------------------PUBLIC ROUTES---------------------------*/
 export const PublicRoute = ({ children }) => {
   const user = JSON.parse(localStorage.getItem("user"));
   const token = localStorage.getItem("token");
@@ -206,6 +226,6 @@ export const PublicRoute = ({ children }) => {
     return <Navigate to="/executive" replace />;
   }
 
-  // If the current path already matches the role, block public route access
+  // If current path already matches the role
   return <Navigate to={currentPath} replace />;
 };

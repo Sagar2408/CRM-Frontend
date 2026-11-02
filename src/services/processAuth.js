@@ -5,17 +5,16 @@ const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 // Shared headers
 const BASE_HEADERS = {
   "Content-Type": "application/json",
-  "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
 };
 
 // ------------------------------LOGIN--------------------------- //
-export const loginUser = async (email, password) => {
+export const loginUser = async (email, password, companyCode) => {
   const tryLogin = async (userType) => {
     const res = await fetch(`${API_BASE_URL}/${userType}/login`, {
       method: "POST",
       headers: BASE_HEADERS,
       credentials: "include",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, companyCode }),
     });
 
     if (!res.ok) throw await res.json();
@@ -38,12 +37,12 @@ export const loginUser = async (email, password) => {
 };
 
 // ------------------------------SIGNUP--------------------------- //
-export const signupUser = async (fullName, email, password, userType = "processperson") => {
+export const signupUser = async (fullName, email, password, userType = "processperson", companyCode) => {
   const res = await fetch(`${API_BASE_URL}/${userType}/signup`, {
     method: "POST",
     headers: BASE_HEADERS,
     credentials: "include",
-    body: JSON.stringify({ fullName, email, password }),
+    body: JSON.stringify({ fullName, email, password, companyCode }),
   });
 
   const responseBody = await res.json();

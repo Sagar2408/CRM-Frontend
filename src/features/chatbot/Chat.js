@@ -4,11 +4,13 @@ import { MdSmartToy } from "react-icons/md";
 import { BsRecordCircle } from "react-icons/bs";
 import { jwtDecode } from "jwt-decode";
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-const Chat = ({ isCallActive , token}) => {
+const Chat = ({ isCallActive, token, enableBotpress = true }) => {
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [requestError, setRequestError] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -45,21 +47,26 @@ const Chat = ({ isCallActive , token}) => {
     }
   }, [token]); 
 useEffect(() => {
+  if (!enableBotpress) return undefined;
+
   const script = document.createElement("script");
   script.src = "https://cdn.botpress.cloud/webchat/v3.0/webchat.js";
   script.async = true;
   script.onload = () => {
-    window.botpressWebChat.init({
+    window.botpressWebChat?.init?.({
       configUrl: "https://files.bpcontent.cloud/2025/06/28/09/20250628095833-D0OMUHIV.json"
     });
   };
   document.body.appendChild(script);
-}, []);
+  return () => script.remove();
+}, [enableBotpress]);
 
 
 
   useEffect(() => {
-    chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -76,30 +83,43 @@ useEffect(() => {
   }, [token]);
 
   const handleSend = async (input) => {
-    if (!input.trim()) return;
-    setMessages((prev) => [...prev, { text: input, isUser: true }]);
+    const question = input.trim();
+    if (!question || isTyping) return;
+    if (!authToken) {
+      setRequestError("Please sign in again to use the assistant.");
+      return;
+    }
+    if (!API_BASE_URL) {
+      setRequestError("The chat service is not configured.");
+      return;
+    }
+
+    setRequestError("");
+    setMessages((prev) => [...prev, { text: question, isUser: true }]);
     setUserInput("");
     setIsTyping(true);
   
     try {
-      console.log("📤 Sending:", input);
-      const response = await fetch("https://crm-backend-production-c208.up.railway.app/api/crew/crew/executive", {
+      const response = await fetch(`${API_BASE_URL}/crew/executive`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${authToken}`,
-          "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
         },
-        body: JSON.stringify({ question: input }), // ✅ key change here
+        body: JSON.stringify({ question }),
       });
   
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to fetch response");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || `Chat request failed (${response.status}).`);
+      }
+      if (typeof data?.answer !== "string" || !data.answer.trim()) {
+        throw new Error("The assistant returned an empty response.");
+      }
   
-      setMessages((prev) => [...prev, { text: data.answer, isUser: false }]); // backend sends { answer: "..." }
+      setMessages((prev) => [...prev, { text: data.answer, isUser: false }]);
     } catch (error) {
-      console.error("❌ API Error:", error);
-      setMessages((prev) => [...prev, { text: "Error: Unable to get response.", isUser: false }]);
+      setRequestError(error.message || "Unable to get a response from the assistant.");
     } finally {
       setIsTyping(false);
     }
@@ -173,11 +193,10 @@ useEffect(() => {
         formData.append("recordingPath", fakePath);
 
         try {
-          const res = await fetch("https://crm-backend-production-c208.up.railway.app/api/calldetails", {
+          const res = await fetch(`${API_BASE_URL}/calldetails`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
-              "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
             },
             body: formData,
           });
@@ -256,6 +275,9 @@ useEffect(() => {
         </div>
 
         <div className="chat-messages" ref={chatContainerRef}>
+          {messages.length === 0 && !isTyping && (
+            <p className="chat-empty-state">Ask a question to start chatting.</p>
+          )}
           {messages.map((msg, index) => (
             <div className="message-row" key={index}>
               <div className="bot-side">
@@ -280,13 +302,24 @@ useEffect(() => {
               </div>
             </div>
           ))}
-          {isTyping && <div className="typing-indicator">...</div>}
+          {isTyping && (
+            <div className="typing-indicator" role="status">
+              Assistant is responding...
+            </div>
+          )}
         </div>
+
+        {requestError && (
+          <div className="chat-error" role="alert">
+            {requestError}
+          </div>
+        )}
 
         <div className="chat-input-container">
           <input
             type="text"
             value={userInput}
+            aria-label="Message"
             onChange={(e) => setUserInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -296,13 +329,19 @@ useEffect(() => {
             }}
             placeholder="Type your message..."
           />
-          <button onClick={() => handleSend(userInput)} className="send-button">
+          <button
+            type="button"
+            onClick={() => handleSend(userInput)}
+            className="send-button"
+            aria-label="Send message"
+            disabled={isTyping}
+          >
             <FaPaperPlane />
           </button>
-          <button onClick={handleMicClick} className={`mic-button ${isListening ? "active" : ""}`}>
+          <button type="button" onClick={handleMicClick} className={`mic-button ${isListening ? "active" : ""}`} aria-label="Use microphone">
             <FaMicrophone />
           </button>
-          <button onClick={toggleRecording} className={`record-button ${isRecording ? "active" : ""}`}>
+          <button type="button" onClick={toggleRecording} className={`record-button ${isRecording ? "active" : ""}`} aria-label={isRecording ? "Stop recording" : "Record call"}>
             {isRecording ? <FaStopCircle /> : <BsRecordCircle />}
           </button>
         </div>

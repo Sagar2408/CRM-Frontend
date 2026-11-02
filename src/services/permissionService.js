@@ -1,10 +1,12 @@
 // src/services/permissionService.js
 import axios from "axios";
 
-const BASE_URL = process.env.REACT_APP_API_BASE_URL;
+// Backend mounts this router at /api/role-permissions (see server.js
+// app.use("/api/role-permissions", ..., require("./routes/RolePermission.routes"))),
+// not directly at /api — every call below was 404ing without this segment.
+const BASE_URL = `${process.env.REACT_APP_API_BASE_URL}/role-permissions`;
 const getToken = () => localStorage.getItem("token");
 const getHeaders = () => ({
-  "x-company-id": "0aa80c0b-0999-4d79-8980-e945b4ea700d",
   Authorization: `Bearer ${getToken()}`,
   "Content-Type": "application/json",
 });

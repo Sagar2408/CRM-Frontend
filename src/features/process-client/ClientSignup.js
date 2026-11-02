@@ -9,11 +9,12 @@ const ClientSignup = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [companyCode, setCompanyCode] = useState("");
 
 
   const handleSignup = async () => {
     try {
-      await signup(fullName, email, password);
+      await signup(fullName, email, password, "processperson", companyCode);
       alert("Signup successful!");
 
       // ✅ Redirect to login after 2 seconds
@@ -30,6 +31,12 @@ const ClientSignup = () => {
         <h2>Create your account</h2>
         <p>Sign up to join the community of book lovers.</p>
 
+        <input
+          type="text"
+          placeholder="Company Code"
+          value={companyCode}
+          onChange={(e) => setCompanyCode(e.target.value)}
+        />
         <input
           type="text"
           placeholder="Enter your name"

@@ -10,10 +10,11 @@ const ClientLogin = () => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [companyCode, setCompanyCode] = useState("");
 
   const handleLogin = async () => {
     try {
-      await login(email, password);
+      await login(email, password, companyCode);
     
 
       localStorage.setItem("userType", "processperson");
@@ -49,6 +50,12 @@ const ClientLogin = () => {
         <h2>Welcome back!</h2>
         <p>Log in to your account to continue exchanging books and discovering new editions.</p>
 
+        <input
+          type="text"
+          placeholder="Company Code"
+          value={companyCode}
+          onChange={(e) => setCompanyCode(e.target.value)}
+        />
         <input
           type="email"
           placeholder="Enter your email"

@@ -47,7 +47,7 @@ function AdminNavbar() {
         userRole: localStorageUser.role,
       });
     }
-}, [fetchNotifications, localStorageUser.id, localStorageUser.role, notifications]);
+}, [fetchNotifications, localStorageUser?.id, localStorageUser?.role, notifications.length]);
 
 
   useEffect(() => {

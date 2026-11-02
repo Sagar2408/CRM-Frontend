@@ -2,7 +2,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PrivateRoute } from "./services/auth";
 import Login from "./features/authentication/Login";
-import Signup from "./features/authentication/Signup";
+import CompanyAdminSignup from "./features/authentication/CompanyAdminSignup";
 import LoginMaster from "./features/masteruser/LoginMaster";
 import SignupMaster from "./features/masteruser/SignupMaster";
 import { PrivateMasterRoute } from './context/MasterContext';
@@ -33,6 +33,7 @@ import SettingsRouteWrapper from "./routes/SettingsRouteWrapper";
 import ProcessDashboardRoutes from "./routes/ProcessDashboardRoutes";
 import ClientCustomerRoutes from "./routes/ClientCustomer";
 import SessionTimeout from "./features/authentication/SessionTimeout";
+import InsufficientBalanceModal from "./features/authentication/InsufficientBalanceModal";
 const App = () => {
   const [followUpText, setFollowUpText] = useState(() => {
     const saved = localStorage.getItem('followUpText');
@@ -67,11 +68,12 @@ useEffect(() => {
 
   return (
     <ThemeProvider>
-      <SessionTimeout timeout={45 * 60 * 1000} />  
+      <SessionTimeout timeout={45 * 60 * 1000} />
+      <InsufficientBalanceModal />
 
       <Routes>
       <Route path="/admin/login" element={<Login userType="admin" />} />
-      <Route path="/admin/signup" element={<Signup userType="admin" />} />
+      <Route path="/admin/signup" element={<CompanyAdminSignup />} />
       <Route path="/login" element={<Login userType="executive" />} />
       <Route path="/manager/login" element={<LoginManager userType="Manager" />} />
       <Route path="/hr/login" element={<LoginHr userType="Hr" />} />

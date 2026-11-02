@@ -215,6 +215,36 @@
     background-color: #fdeeee;
     color: #ff3333;
   }
+
+  /* Subscription / Payment Expiry Status Badges */
+  .sub-status-badge {
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .sub-badge-active {
+    background-color: #e6f9ed;
+    color: #00a854;
+  }
+
+  .sub-badge-expiring {
+    background-color: #fff6e0;
+    color: #c98a00;
+  }
+
+  .sub-badge-expired {
+    background-color: #fdeeee;
+    color: #ff3333;
+  }
+
+  .sub-badge-unconfigured {
+    background-color: #eef0f3;
+    color: #6b7280;
+  }
 /* MODAL STRUCTURE */
 .modal-overlay {
   position: fixed;

@@ -11,6 +11,7 @@ const Login = ({ userType }) => {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [companyCode, setCompanyCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -37,7 +38,7 @@ const Login = ({ userType }) => {
       setLoading(true);
 
       try {
-        await login(email, password, userType?.toLowerCase());
+        await login(email, password, userType?.toLowerCase(), companyCode);
         // Navigate after successful login if needed
         // navigate('/dashboard'); // Uncomment and adjust route as needed
       } catch (error) {
@@ -46,7 +47,7 @@ const Login = ({ userType }) => {
         setLoading(false);
       }
     },
-    [email, password, userType, login]
+    [email, password, companyCode, userType, login]
   );
 
   const isAdmin = userType === "admin";
@@ -91,6 +92,13 @@ const Login = ({ userType }) => {
             </div>
             <p style={{ paddingTop: "10px" }}>Enter your credentials</p>
             <form onSubmit={handleLogin}>
+              <input
+                type="text"
+                placeholder="Company Code"
+                required
+                value={companyCode}
+                onChange={(e) => setCompanyCode(e.target.value)}
+              />
               <input
                 type="email"
                 placeholder="Email"

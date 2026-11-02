@@ -54,6 +54,28 @@
   box-sizing: border-box;
 }
 
+.chat-empty-state {
+  margin: auto;
+  color: #536171;
+  text-align: center;
+}
+
+.chat-error {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  color: #8a1f2d;
+  background: #fff0f1;
+  border-top: 1px solid #e8b8bd;
+  font-size: 14px;
+}
+
+.typing-indicator {
+  align-self: flex-start;
+  padding: 8px 12px;
+  color: #536171;
+  font-size: 14px;
+}
+
 /* Custom Scrollbar */
 .chat-messages::-webkit-scrollbar {
   width: 6px;
@@ -222,6 +244,12 @@
 .chat-input-container button:hover {
   transform: scale(1.1);
   box-shadow: 0px 0px 10px rgba(79, 146, 255, 0.5);
+}
+
+.chat-input-container button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+  transform: none;
 }
 
 /* Microphone Button */

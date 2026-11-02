@@ -14,6 +14,7 @@ const LoginManager = ({ userType }) => {
   // const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [companyCode, setCompanyCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -40,7 +41,7 @@ const LoginManager = ({ userType }) => {
       setLoading(true);
 
       try {
-        await handleLoginManager(email, password);
+        await handleLoginManager(email, password, companyCode);
         // Navigate after successful login if needed
         // navigate('/manager-dashboard'); // Uncomment and adjust route as needed
       } catch (error) {
@@ -49,7 +50,7 @@ const LoginManager = ({ userType }) => {
         setLoading(false);
       }
     },
-    [email, password, handleLoginManager]
+    [email, password, companyCode, handleLoginManager]
   );
 
   return (
@@ -90,6 +91,13 @@ const LoginManager = ({ userType }) => {
             <div className="create">Login to your Account</div>
             <p style={{ paddingTop: "10px" }}>Enter your credentials</p>
             <form onSubmit={handleLogin}>
+              <input
+                type="text"
+                placeholder="Company Code"
+                required
+                value={companyCode}
+                onChange={(e) => setCompanyCode(e.target.value)}
+              />
               <input
                 type="email"
                 placeholder="Email"

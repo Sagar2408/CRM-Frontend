@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import "../styles/sidebar.css";
 import BeepNotification from "../BeepNotification";
 import ExecutiveActivity from "../features/executive/ExecutiveActivity";
+import ChatbotAssistantModal from "../features/chatbot/ChatbotAssistantModal";
 import { useApi } from "../context/ApiContext";
 import { useAuth } from "../context/AuthContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
@@ -38,7 +39,6 @@ import {
   faYinYang,
   faStopCircle,
   faSpinner,
-  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import { FaPlay, FaPause } from "react-icons/fa";
 
@@ -520,45 +520,12 @@ const SidebarandNavbar = () => {
 
         {/* Chatbot Popup Overlay */}
         {showChatbot && (
-          <div
-            className="chatbot-popup-overlay"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowChatbot(false);
-              }
-            }}
-          >
-            <div className="chatbot-popup-container" ref={chatbotRef}>
-              <div className="chatbot-popup-header" ref={chatbotHeaderRef}>
-                <h3>ChatBot Assistant</h3>
-                <button
-                  className="chatbot-close-btn"
-                  onClick={() => setShowChatbot(false)}
-                  aria-label="Close chatbot"
-                >
-                  <FontAwesomeIcon icon={faTimes} />
-                </button>
-              </div>
-              <div
-                className="chatbot-popup-content"
-                style={{ height: "500px" }}
-              >
-                <iframe
-                  src={process.env.REACT_APP_BOTPRESS_URL}
-                  title="Botpress Chatbot"
-                  width="100%"
-                  height="100%"
-                  allow="microphone; camera"
-                  style={{
-                    border: "none",
-                    borderRadius: "8px",
-                    width: "100%",
-                    height: "100%",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+          <ChatbotAssistantModal
+            onClose={() => setShowChatbot(false)}
+            token={localStorage.getItem("token")}
+            popupRef={chatbotRef}
+            headerRef={chatbotHeaderRef}
+          />
         )}
       </section>
 
