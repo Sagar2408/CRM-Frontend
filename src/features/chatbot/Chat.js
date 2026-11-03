@@ -49,9 +49,24 @@ const Chat = ({ isCallActive, token, enableBotpress = true }) => {
 useEffect(() => {
   if (!enableBotpress) return undefined;
 
+  // Phase 5 (SECURITY_AUDIT.md FRONT-005): this URL is Botpress's own
+  // "v3.0" line, not a specific pinned release — Botpress pushes
+  // updates to this exact path on their CDN over time. A fixed
+  // Subresource Integrity hash computed against today's file content
+  // would start failing the moment Botpress ships an update, and with
+  // SRI the browser then REFUSES to run the script at all — silently
+  // breaking the chatbot for every user until someone notices and
+  // recomputes the hash. That's a worse outcome than the supply-chain
+  // risk SRI is meant to reduce, so a pinned hash was deliberately not
+  // added here. Instead: public/index.html's CSP restricts script-src
+  // to exactly https://cdn.botpress.cloud (no wildcard), which is the
+  // defense that's actually safe to keep in place unattended — it
+  // still means only Botpress's own origin can ever be loaded as a
+  // script here, just without pinning the exact file content.
   const script = document.createElement("script");
   script.src = "https://cdn.botpress.cloud/webchat/v3.0/webchat.js";
   script.async = true;
+  script.crossOrigin = "anonymous";
   script.onload = () => {
     window.botpressWebChat?.init?.({
       configUrl: "https://files.bpcontent.cloud/2025/06/28/09/20250628095833-D0OMUHIV.json"

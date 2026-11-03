@@ -9,6 +9,60 @@
       name="description"
       content="Web site created using create-react-app"
     />
+    <!--
+      Phase 5 (SECURITY_AUDIT.md CONFIG-004): Content-Security-Policy
+      for this static SPA. A <meta> CSP is the only option available
+      without touching the production web server/CDN config (out of
+      this phase's scope) — it cannot set frame-ancestors or sandbox
+      (browsers ignore those in a <meta> tag), so clickjacking
+      protection for this app still needs X-Frame-Options or
+      frame-ancestors added at the hosting/Nginx layer in a later
+      phase; everything else below IS enforced.
+
+      Each allowance below was traced to a real, currently-used
+      integration (grepped across src/ before writing this):
+        - script-src 'self' https://cdn.botpress.cloud:
+          the Botpress webchat widget (src/features/chatbot/Chat.js)
+          is loaded as an external <script src> — never inline, so no
+          'unsafe-inline'/'unsafe-eval' is needed for scripts.
+        - style-src 'unsafe-inline': required because @mui/material and
+          @emotion/react (both in use) inject <style> tags into the DOM
+          at runtime via CSS-in-JS — there is no nonce/hash alternative
+          without an app-level Emotion CacheProvider + server-issued
+          nonce, which would be a frontend architecture change outside
+          this phase's scope. style-src https://fonts.googleapis.com is
+          for the @import in src/styles/*.css.
+        - font-src https://fonts.gstatic.com: where Google Fonts'
+          actual font files are served from, data: for inlined icon
+          fonts.
+        - connect-src: the backend API (same-origin in most
+          deployments, via REACT_APP_API_BASE_URL — if a production
+          deployment puts the API on a different origin than this
+          frontend, that origin must be added here too, since a <meta>
+          CSP cannot read environment variables), plus
+          https://cdn.botpress.cloud / https://files.bpcontent.cloud /
+          wss://*.botpress.cloud (Botpress's own config fetch + live
+          chat socket), https://monitoring-w28p.onrender.com and
+          wss://monitoring-w28p.onrender.com (src/pages/StreamPlayer.js,
+          src/features/admin/Monitoring.js — a separate monitoring
+          service this app talks to), and https://api.allorigins.win
+          (src/features/executive/NewsComponent.js's CORS proxy for an
+          external news feed).
+        - frame-src: https://www.openstreetmap.org (an embedded map
+          iframe in src/features/executive/MapDisplay.js) and
+          https://cdn.botpress.cloud (the webchat widget, in case its
+          v3 build renders via an iframe rather than directly in the
+          page).
+        - img-src https: is intentionally broad (data: and any https
+          image) since no specific external image host could be
+          enumerated from the icon/avatar code paths — narrowing this
+          further wasn't verified safe to do without live testing.
+      No wildcard '*' source and no 'unsafe-eval' appear anywhere.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://cdn.botpress.cloud; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://cdn.botpress.cloud https://files.bpcontent.cloud wss://*.botpress.cloud https://monitoring-w28p.onrender.com wss://monitoring-w28p.onrender.com https://api.allorigins.win; frame-src https://www.openstreetmap.org https://cdn.botpress.cloud; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
