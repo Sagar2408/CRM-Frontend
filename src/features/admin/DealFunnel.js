@@ -4,6 +4,15 @@ import { motion } from "framer-motion";
 import io from "socket.io-client";
 import { useApi } from "../../context/ApiContext";
 
+// CSP-regression fix: this was hardcoded to "http://localhost:5000",
+// which only ever worked in local dev and never in any other
+// deployment. Derive the Socket.IO target from the same
+// REACT_APP_API_BASE_URL every other service in this app already uses
+// (apiService.js, executiveService.js, companyService.js), stripping
+// its trailing /api path — Socket.IO connects to the bare origin, not
+// a REST path.
+const SOCKET_ORIGIN = (process.env.REACT_APP_API_BASE_URL || "").replace(/\/api\/?$/, "");
+
 const DealFunnel = ({ executiveName }) => {
   const { fetchDealFunnelData, fetchAssignedLeads } = useApi();
   const [data, setData] = useState([]);
@@ -63,7 +72,7 @@ const DealFunnel = ({ executiveName }) => {
   }, [executiveName, fetchDealFunnelData, fetchAssignedLeads]);
 
   useEffect(() => {
-    const socket = io("http://localhost:5000");
+    const socket = io(SOCKET_ORIGIN);
     socket.on("lead_status_update", fetchData);
 
     // Initial load

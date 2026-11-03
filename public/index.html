@@ -19,6 +19,25 @@
       frame-ancestors added at the hosting/Nginx layer in a later
       phase; everything else below IS enforced.
 
+      Post-Phase-5 regression fix: the first version of this policy's
+      connect-src only had 'self', which does NOT cover the backend —
+      the frontend (this origin, e.g. http://localhost:3000 in dev) and
+      the backend (REACT_APP_API_BASE_URL, e.g. http://localhost:5000)
+      are different origins even in local development (different
+      port), so every plain API call (companyService.js, apiService.js,
+      executiveService.js, ...) and the Socket.IO connection
+      (src/features/admin/DealFunnel.js) were being blocked by the
+      browser before ever reaching the network. Fixed by interpolating
+      %REACT_APP_API_ORIGIN% (a bare host[:port], no scheme — see .env)
+      into connect-src for all four scheme variants this app actually
+      needs (http/https for the REST API, ws/wss for Socket.IO) via
+      CRA's own built-in %REACT_APP_X% HTML substitution (react-scripts'
+      existing InterpolateHtmlPlugin — not a new dependency, not a build
+      change). A production deployment sets REACT_APP_API_ORIGIN (and
+      the existing REACT_APP_API_BASE_URL) to its real backend host at
+      build time; this file itself never hardcodes an environment-
+      specific origin.
+
       Each allowance below was traced to a real, currently-used
       integration (grepped across src/ before writing this):
         - script-src 'self' https://cdn.botpress.cloud:
@@ -35,11 +54,9 @@
         - font-src https://fonts.gstatic.com: where Google Fonts'
           actual font files are served from, data: for inlined icon
           fonts.
-        - connect-src: the backend API (same-origin in most
-          deployments, via REACT_APP_API_BASE_URL — if a production
-          deployment puts the API on a different origin than this
-          frontend, that origin must be added here too, since a <meta>
-          CSP cannot read environment variables), plus
+        - connect-src: http(s)/ws(s) %REACT_APP_API_ORIGIN% is this
+          app's own backend — every REST call plus the one real
+          Socket.IO connection (DealFunnel.js) go here. Also:
           https://cdn.botpress.cloud / https://files.bpcontent.cloud /
           wss://*.botpress.cloud (Botpress's own config fetch + live
           chat socket), https://monitoring-w28p.onrender.com and
@@ -61,7 +78,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://cdn.botpress.cloud; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://cdn.botpress.cloud https://files.bpcontent.cloud wss://*.botpress.cloud https://monitoring-w28p.onrender.com wss://monitoring-w28p.onrender.com https://api.allorigins.win; frame-src https://www.openstreetmap.org https://cdn.botpress.cloud; object-src 'none'; base-uri 'self'; form-action 'self'"
+      content="default-src 'self'; script-src 'self' https://cdn.botpress.cloud; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' http://%REACT_APP_API_ORIGIN% https://%REACT_APP_API_ORIGIN% ws://%REACT_APP_API_ORIGIN% wss://%REACT_APP_API_ORIGIN% https://cdn.botpress.cloud https://files.bpcontent.cloud wss://*.botpress.cloud https://monitoring-w28p.onrender.com wss://monitoring-w28p.onrender.com https://api.allorigins.win; frame-src https://www.openstreetmap.org https://cdn.botpress.cloud; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--

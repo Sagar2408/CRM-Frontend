@@ -534,6 +534,7 @@ const SidebarandNavbar = () => {
         unreadCount={unreadCount}
         onDismissPopup={handleDismissBeepNotification}
         onMarkAllRead={handleMarkAllAsRead}
+        onViewNotification={() => navigate("/executive/notification")}
       />
     </>
   );

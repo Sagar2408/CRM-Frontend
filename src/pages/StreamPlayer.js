@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
 
-const socket = io("https://monitoring-w28p.onrender.com");
-
 const StreamPlayer = ({ executiveId, executiveName, type }) => {
   const [screenImage, setScreenImage] = useState("");
   const [videoImage, setVideoImage] = useState("");
@@ -10,6 +8,13 @@ const StreamPlayer = ({ executiveId, executiveName, type }) => {
 
   useEffect(() => {
     if (!executiveId || !executiveName || !type) return;
+
+    // Created per-mount (not a module-level singleton) and disconnected
+    // on cleanup below, so this connection only ever exists while this
+    // component is actually mounted and rendering a stream — it used to
+    // connect as soon as this file was merely imported, with no
+    // disconnect at all, regardless of whether a stream was ever shown.
+    const socket = io("https://monitoring-w28p.onrender.com");
 
     const matchExec = (data) =>
       data.executiveId === executiveId || data.executiveName === executiveName;
@@ -42,6 +47,7 @@ const StreamPlayer = ({ executiveId, executiveName, type }) => {
       socket.off('screen-data', handleScreenData);
       socket.off('video-data', handleVideoData);
       socket.off('audio-data', handleAudioData);
+      socket.disconnect();
     };
   }, [executiveId, executiveName, type]);
 

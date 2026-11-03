@@ -22,9 +22,21 @@ export const PermissionProvider = ({ children }) => {
 
       const res = await permissionService.fetchPermissionsForUser(user.id, user.role);
       setPermissions(res);
+      setError(null);
     } catch (err) {
-      setError(err.message || "Failed to fetch permissions");
-      console.error("Permissions error:", err);
+      if (err.response?.status === 404) {
+        // No RolePermission row exists yet for this user (e.g. an Admin
+        // hasn't configured Page Access Control for them). That's a
+        // normal, expected state — not a failed request — so it should
+        // flow into RequirePermission's own `!permissions` fallback
+        // (UnauthorizedAccess) instead of being surfaced as a raw
+        // "Request failed with status code 404" error.
+        setPermissions(null);
+        setError(null);
+      } else {
+        setError(err.message || "Failed to fetch permissions");
+        console.error("Permissions error:", err);
+      }
     } finally {
       setLoading(false);
     }

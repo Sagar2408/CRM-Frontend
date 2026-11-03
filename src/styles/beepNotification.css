@@ -1,8 +1,11 @@
 
 /* BeepNotification Styles */
+/* top: 90px (not 20px) keeps this clear of the sticky .navbar (sidebar.css,
+   70px tall) so the popup never covers the notification bell/badge that
+   live inside it, regardless of z-index stacking. */
 .beep-notification-overlay {
     position: fixed;
-    top: 20px;
+    top: 90px;
     right: 20px;
     z-index: 9999;
     pointer-events: none;
@@ -171,7 +174,7 @@
   /* Mobile responsiveness */
   @media (max-width: 640px) {
     .beep-notification-overlay {
-      top: 10px;
+      top: 90px;
       right: 10px;
       left: 10px;
     }

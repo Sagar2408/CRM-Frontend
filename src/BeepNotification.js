@@ -4,27 +4,41 @@ import { BeepSettingsContext } from './context/BeepSettingsContext';
 import { SoundGenerator, soundOptions } from './features/settings/SoundGenerator';
 import '../src/styles/beepNotification.css';
 
-const BeepNotification = ({ 
-  notifications, 
-  unreadCount, 
-  onDismissPopup, 
+// Popup auto-hides on its own after this long — the Executive is never
+// required to interact with it just to make it (and its sound) stop.
+export const POPUP_AUTO_DISMISS_MS = 4000;
+// New unread notifications that arrive within this window of each other
+// (e.g. several leads assigned back-to-back) are coalesced into a single
+// popup + a single sound, instead of one per notification.
+const BATCH_WINDOW_MS = 400;
+
+const BeepNotification = ({
+  notifications,
+  unreadCount,
+  onDismissPopup,
+  onViewNotification,
 }) => {
   const { settings } = useContext(BeepSettingsContext);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
-  const [reminderMessage, setReminderMessage] = useState('');
   const [notificationType, setNotificationType] = useState('');
-  const [isFirstMessage, setIsFirstMessage] = useState(true);
-  const timeoutRef = useRef(null);
-  const dismissTimeoutRef = useRef(null);
-  const intervalRef = useRef(null);
-  const soundGeneratorRef = useRef(null);
 
-  // Initialize sound generator
+  const soundGeneratorRef = useRef(null);
+  const autoDismissTimeoutRef = useRef(null);
+  const batchTimeoutRef = useRef(null);
+  const pendingBatchRef = useRef([]);
+  // Notification ids we've already alerted on, so a re-render, a
+  // reconnect, or the same notification coming back from another fetch
+  // never plays its sound or re-shows its popup a second time.
+  const alertedIdsRef = useRef(new Set());
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
     soundGeneratorRef.current = new SoundGenerator();
-    
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
       if (soundGeneratorRef.current) {
         soundGeneratorRef.current.close();
       }
@@ -32,176 +46,125 @@ const BeepNotification = ({
   }, []);
 
   const playNotificationSound = useCallback(async () => {
-    if (settings.enabled && soundGeneratorRef.current) {
-      const selectedSound = soundOptions.find(s => s.id === settings.selectedSound);
-      if (selectedSound) {
-        try {
-          await selectedSound.generator(soundGeneratorRef.current, settings.volume);
-        } catch (error) {
-          console.log('Audio play failed:', error);
-        }
-      }
+    if (!settings.enabled || !soundGeneratorRef.current) return;
+    const selectedSound = soundOptions.find((s) => s.id === settings.selectedSound);
+    if (!selectedSound) return;
+    try {
+      // Also absorbs the browser's autoplay restriction, which can reject
+      // this before any user gesture has happened on the page.
+      await selectedSound.generator(soundGeneratorRef.current, settings.volume);
+    } catch (error) {
+      console.log('Audio play failed:', error);
     }
   }, [settings.enabled, settings.selectedSound, settings.volume]);
 
-  // Function to determine notification type and generate appropriate messages
-  const getNotificationMessages = useCallback((notifications) => {
-    if (!notifications || notifications.length === 0) {
-      return { 
-        initialMessage: 'New notification', 
-        reminderMessage: "Haven't you checked the notification yet?",
-        type: 'general'
-      };
-    }
+  const getNotificationMessage = useCallback((unreadBatch) => {
+    const latest = unreadBatch[unreadBatch.length - 1];
+    const message = latest?.message?.toLowerCase() || '';
 
-    // Get the latest unread notification to determine type
-    const latestUnread = notifications.find(n => !n.is_read);
-    
-    if (!latestUnread) {
-      return { 
-        initialMessage: 'New notification', 
-        reminderMessage: "Haven't you checked the notification yet?",
-        type: 'general'
-      };
-    }
-
-    const message = latestUnread.message?.toLowerCase() || '';
-
-    // Check for lead assignment notifications
     if (message.includes('you have been assigned a new lead')) {
       return {
-        initialMessage: 'New leads assigned',
-        reminderMessage: "Haven't you checked the new leads yet?",
-        type: 'lead'
+        initialMessage:
+          unreadBatch.length > 1
+            ? `${unreadBatch.length} new leads assigned`
+            : 'New lead assigned',
+        type: 'lead',
       };
     }
-    
-    // Check for reminder notifications (follow-up or meeting)
+
     if (message.includes('reminder:') || message.includes('⏰ reminder:')) {
       if (message.includes('follow up')) {
-        return {
-          initialMessage: 'Follow-up reminder',
-          reminderMessage: "Don't forget your follow-up task!",
-          type: 'followup'
-        };
-      } else if (message.includes('meeting')) {
-        return {
-          initialMessage: 'Meeting reminder',
-          reminderMessage: "You have an upcoming meeting!",
-          type: 'meeting'
-        };
-      } else {
-        return {
-          initialMessage: 'Reminder notification',
-          reminderMessage: "Don't forget your scheduled task!",
-          type: 'reminder'
-        };
+        return { initialMessage: 'Follow-up reminder', type: 'followup' };
       }
+      if (message.includes('meeting')) {
+        return { initialMessage: 'Meeting reminder', type: 'meeting' };
+      }
+      return { initialMessage: 'Reminder notification', type: 'reminder' };
     }
-    
-    // Default for other notification types
-    return {
-      initialMessage: 'New notification',
-      reminderMessage: "Haven't you checked the notification yet?",
-      type: 'general'
-    };
+
+    return { initialMessage: 'New notification', type: 'general' };
   }, []);
 
-  const showNotificationPopup = useCallback((message) => {
-    setPopupMessage(message);
-    setShowPopup(true);
-    playNotificationSound();
-  }, [playNotificationSound]);
+  const clearAutoDismiss = useCallback(() => {
+    if (autoDismissTimeoutRef.current) {
+      clearTimeout(autoDismissTimeoutRef.current);
+      autoDismissTimeoutRef.current = null;
+    }
+  }, []);
+
+  const triggerAlert = useCallback(
+    (batch) => {
+      if (!isMountedRef.current || batch.length === 0) return;
+
+      const { initialMessage, type } = getNotificationMessage(batch);
+      setPopupMessage(initialMessage);
+      setNotificationType(type);
+      setShowPopup(true);
+      playNotificationSound(); // one short sound per batch, never a loop
+
+      clearAutoDismiss();
+      autoDismissTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) setShowPopup(false);
+      }, POPUP_AUTO_DISMISS_MS);
+    },
+    [getNotificationMessage, playNotificationSound, clearAutoDismiss]
+  );
+
+  useEffect(() => {
+    if (!notifications || notifications.length === 0) return;
+
+    const freshUnread = notifications.filter(
+      (n) => !n.is_read && !alertedIdsRef.current.has(n.id)
+    );
+    if (freshUnread.length === 0) return;
+
+    freshUnread.forEach((n) => alertedIdsRef.current.add(n.id));
+    pendingBatchRef.current = pendingBatchRef.current.concat(freshUnread);
+
+    if (batchTimeoutRef.current) clearTimeout(batchTimeoutRef.current);
+    batchTimeoutRef.current = setTimeout(() => {
+      const batch = pendingBatchRef.current;
+      pendingBatchRef.current = [];
+      batchTimeoutRef.current = null;
+      triggerAlert(batch);
+    }, BATCH_WINDOW_MS);
+  }, [notifications, triggerAlert]);
+
+  // If everything gets marked read elsewhere (e.g. the Executive opened
+  // the notification panel from the bell) drop an open popup immediately
+  // instead of leaving it displayed, and never on this account mark
+  // anything as read ourselves.
+  useEffect(() => {
+    if (unreadCount === 0 && showPopup) {
+      setShowPopup(false);
+      clearAutoDismiss();
+    }
+  }, [unreadCount, showPopup, clearAutoDismiss]);
+
+  useEffect(() => {
+    return () => {
+      clearAutoDismiss();
+      if (batchTimeoutRef.current) {
+        clearTimeout(batchTimeoutRef.current);
+        batchTimeoutRef.current = null;
+      }
+    };
+  }, [clearAutoDismiss]);
 
   const handleDismissPopup = useCallback(() => {
     setShowPopup(false);
-    
-    // Clear all timeouts and intervals
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    
-    // Set timeout for reminder message
-    dismissTimeoutRef.current = setTimeout(() => {
-      if (unreadCount > 0) {
-        showNotificationPopup(reminderMessage);
-        setIsFirstMessage(false);
-      }
-    }, (settings.reminderDelay || 30) * 1000);
-    
+    clearAutoDismiss();
     if (onDismissPopup) onDismissPopup();
-  }, [unreadCount, onDismissPopup, reminderMessage, showNotificationPopup, settings.reminderDelay]);
+  }, [onDismissPopup, clearAutoDismiss]);
 
-  // Effect to handle beep interval when popup is shown
-  useEffect(() => {
-    // Clear previous interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    if (showPopup && unreadCount > 0 && settings.enabled && settings.timing > 0) {
-      // Set new interval based on current settings
-      intervalRef.current = setInterval(() => {
-        playNotificationSound();
-      }, settings.timing * 1000);
-    }
-
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [showPopup, unreadCount, settings.enabled, settings.timing, playNotificationSound]);
-
-  // Effect to handle notification logic
-  useEffect(() => {
-    if (unreadCount > 0) {
-      const { initialMessage, reminderMessage: remMessage, type } = getNotificationMessages(notifications);
-      
-      setReminderMessage(remMessage);
-      setNotificationType(type);
-      
-      if (isFirstMessage) {
-        showNotificationPopup(initialMessage);
-        timeoutRef.current = setTimeout(() => {
-          if (showPopup) {
-            setPopupMessage(remMessage);
-            setIsFirstMessage(false);
-          }
-        }, 30000);
-      } else {
-        showNotificationPopup(remMessage);
-      }
-    } else {
-      setShowPopup(false);
-      setIsFirstMessage(true);
-      
-      // Clear all timeouts and intervals when no unread messages
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (dismissTimeoutRef.current) clearTimeout(dismissTimeoutRef.current);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-  }, [unreadCount, notifications, isFirstMessage, showNotificationPopup, showPopup, getNotificationMessages]);
-
-  // Update first message state when popup message changes
-  useEffect(() => {
-    if (popupMessage === reminderMessage) {
-      setIsFirstMessage(false);
-    }
-  }, [popupMessage, reminderMessage]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (dismissTimeoutRef.current) clearTimeout(dismissTimeoutRef.current);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
+  const handleViewNotification = useCallback(() => {
+    setShowPopup(false);
+    clearAutoDismiss();
+    if (onViewNotification) onViewNotification();
+  }, [onViewNotification, clearAutoDismiss]);
 
   if (!showPopup) return null;
 
-  // Get appropriate title based on notification type
   const getNotificationTitle = () => {
     switch (notificationType) {
       case 'lead':
@@ -217,67 +180,48 @@ const BeepNotification = ({
     }
   };
 
-  // Get appropriate button text based on message type
-  const getButtonText = () => {
-    if (popupMessage === reminderMessage) {
-      switch (notificationType) {
-        case 'lead':
-          return "Yes, I'll check leads";
-        case 'followup':
-          return "Yes, I'll follow up";
-        case 'meeting':
-          return "Yes, I'll check meeting";
-        case 'reminder':
-          return "Yes, I'll check task";
-        default:
-          return "Yes, I'll check";
-      }
-    }
-    return 'Dismiss';
-  };
-
   return (
-    <>
-      <div className="beep-notification-overlay">
-        <div className="beep-notification-popup">
-          <div className="beep-notification-header">
-            <div className="beep-notification-icon">
-              <FaBell size={24} />
-            </div>
-            <div className="beep-notification-content">
-              <h3 className="beep-notification-title">{getNotificationTitle()}</h3>
-              <p className="beep-notification-message">{popupMessage}</p>
-              {unreadCount > 0 && (
-                <p className="beep-notification-count">
-                  You have {unreadCount} unread notification{unreadCount > 1 ? 's' : ''}
-                </p>
-              )}
-            </div>
-            <button
-              className="beep-notification-close"
-              onClick={handleDismissPopup}
-              aria-label="Close notification"
-            >
-              <FaTimes size={20} />
-            </button>
+    <div className="beep-notification-overlay">
+      <div className="beep-notification-popup">
+        <div className="beep-notification-header">
+          <div className="beep-notification-icon">
+            <FaBell size={24} />
           </div>
-          
-          <div className="beep-notification-actions">
-            <button
-              className={`beep-notification-btn ${
-                popupMessage === reminderMessage 
-                  ? 'beep-notification-btn-primary' 
-                  : 'beep-notification-btn-secondary'
-              }`}
-              onClick={handleDismissPopup}
-            >
-              {popupMessage === reminderMessage && <FaCheck size={16} />}
-              {getButtonText()}
-            </button>
+          <div className="beep-notification-content">
+            <h3 className="beep-notification-title">{getNotificationTitle()}</h3>
+            <p className="beep-notification-message">{popupMessage}</p>
+            {unreadCount > 0 && (
+              <p className="beep-notification-count">
+                You have {unreadCount} unread notification{unreadCount > 1 ? 's' : ''}
+              </p>
+            )}
           </div>
+          <button
+            className="beep-notification-close"
+            onClick={handleDismissPopup}
+            aria-label="Close notification"
+          >
+            <FaTimes size={20} />
+          </button>
+        </div>
+
+        <div className="beep-notification-actions">
+          <button
+            className="beep-notification-btn beep-notification-btn-secondary"
+            onClick={handleDismissPopup}
+          >
+            Dismiss
+          </button>
+          <button
+            className="beep-notification-btn beep-notification-btn-primary"
+            onClick={handleViewNotification}
+          >
+            <FaCheck size={16} />
+            View Notification
+          </button>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

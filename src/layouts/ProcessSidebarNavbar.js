@@ -371,6 +371,7 @@ const handleDismissBeepNotification = () => {
     unreadCount={unreadCount}
     onDismissPopup={handleDismissBeepNotification}
     onMarkAllRead={handleMarkAllAsRead}
+    onViewNotification={() => navigate("/process/notification")}
   />
   </>
   );
