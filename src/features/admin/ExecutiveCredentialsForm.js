@@ -25,7 +25,7 @@ const ExecutiveCredentialsForm = () => {
   const [sidebarCollapsed] = useState(
     localStorage.getItem("adminSidebarExpanded") === "false"
   );
-  const { createExecutive, createAdmin, createTeamLead, createManager, createHr } = useApi();
+  const { createExecutive, createAdmin, createTeamLead, createManager, createHr, createProcessPerson } = useApi();
   const [showPassword, setShowPassword] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [errors, setErrors] = useState({});
@@ -77,47 +77,63 @@ const ExecutiveCredentialsForm = () => {
     showLoader("Creating user account...", "admin");
 
     try {
-      const formPayload = new FormData();
-      if (formData.role === "Manager") {
-        formPayload.append("name", formData.username);
-        formPayload.append("email", formData.email);
-        formPayload.append("password", formData.password);
-      } else if (formData.role === "Hr") {
-        formPayload.append("name", formData.username);
-        formPayload.append("email", formData.email);
-        formPayload.append("password", formData.password);
-      } else {
-        Object.entries(formData).forEach(([key, value]) => {
-          if (value !== null && value !== "") {
-            formPayload.append(key, value);
-          }
-        });
-      }
-
-      for (let pair of formPayload.entries()) {
-        console.log(`${pair[0]}:`, pair[1]);
-      }
-
-      // Role-based API call
       const role = formData.role.trim();
-      switch (role) {
-        case "Executive":
-          await createExecutive(formPayload);
-          break;
-        case "TL":
-          await createTeamLead(formPayload);
-          break;
-        case "Admin":
-          await createAdmin(formPayload);
-          break;
-        case "Manager":
-          await createManager(formPayload);
-          break;
-        case "Hr":
-          await createHr(formPayload);
-          break;
-        default:
-          throw new Error("Invalid role selected.");
+
+      // Process Person uses the ProcessPerson model (fullName/email/
+      // password only — no username/country/city/state/postal_code
+      // columns, see models/ProcessPerson.model.js) and its creation
+      // route only accepts a JSON body, not multipart/form-data — so
+      // it's built and sent separately from the FormData path below,
+      // which every other role shares.
+      if (role === "ProcessPerson") {
+        const fullName = `${formData.firstname} ${formData.lastname}`.trim();
+        await createProcessPerson({
+          fullName,
+          email: formData.email,
+          password: formData.password,
+        });
+      } else {
+        const formPayload = new FormData();
+        if (formData.role === "Manager") {
+          formPayload.append("name", formData.username);
+          formPayload.append("email", formData.email);
+          formPayload.append("password", formData.password);
+        } else if (formData.role === "Hr") {
+          formPayload.append("name", formData.username);
+          formPayload.append("email", formData.email);
+          formPayload.append("password", formData.password);
+        } else {
+          Object.entries(formData).forEach(([key, value]) => {
+            if (value !== null && value !== "") {
+              formPayload.append(key, value);
+            }
+          });
+        }
+
+        for (let pair of formPayload.entries()) {
+          console.log(`${pair[0]}:`, pair[1]);
+        }
+
+        // Role-based API call
+        switch (role) {
+          case "Executive":
+            await createExecutive(formPayload);
+            break;
+          case "TL":
+            await createTeamLead(formPayload);
+            break;
+          case "Admin":
+            await createAdmin(formPayload);
+            break;
+          case "Manager":
+            await createManager(formPayload);
+            break;
+          case "Hr":
+            await createHr(formPayload);
+            break;
+          default:
+            throw new Error("Invalid role selected.");
+        }
       }
 
       setAlerts([
@@ -132,12 +148,14 @@ const ExecutiveCredentialsForm = () => {
       ]);
       soundManager.playSound("success");
 
-      if (role === "Executive") {
+      if (role === "Executive" || role === "ProcessPerson") {
         // TEMPORARY: Create Executive no longer requires email OTP
         // verification, so there is no pending UnverifiedUser to confirm
         // on the /admin/verify page. Reset the form instead of
         // redirecting there. See apiService.js createExecutiveAPI for
-        // how to restore the OTP step.
+        // how to restore the OTP step. Process Person creation has no
+        // OTP step at all (see createProcessPersonByAdmin, backend) —
+        // same reset-the-form behavior applies.
         setFormData({
           username: "",
           email: "",
@@ -363,6 +381,7 @@ const ExecutiveCredentialsForm = () => {
                         <option value="Admin">Admin</option>
                         <option value="Manager">Manager</option>
                         <option value="Hr">Hr</option>
+                        <option value="ProcessPerson">Process Person</option>
                       </select>
                     </div>
                   </div>

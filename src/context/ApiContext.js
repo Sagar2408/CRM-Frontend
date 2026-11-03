@@ -926,9 +926,28 @@ const deleteClientLead = async (leadId) => {
 };
 const createHr = async (hrData) => {
   setLoading(true);
-  
+
   try {
     const result = await apiService.createHrApi(hrData);
+    return result;
+  } catch (err) {
+
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
+// Process Person — created by an authenticated Admin from
+// ExecutiveCredentialsForm.js's "Process Person" role option. Sent as
+// a plain JSON object (not FormData, unlike createExecutive/
+// createTeamLead/createAdmin/createManager/createHr above) because the
+// backend route (POST /processperson/admin-create) only parses
+// application/json bodies — see apiService.createProcessPersonApi.
+const createProcessPerson = async (processPersonData) => {
+  setLoading(true);
+
+  try {
+    const result = await apiService.createProcessPersonApi(processPersonData);
     return result;
   } catch (err) {
 
@@ -1773,6 +1792,7 @@ summaryLoading,
         fetchLeadSectionVisitsAPI,
         visitLoading,
         createHr,
+        createProcessPerson,
         ...useFollowUpHistory(),
         // ✅ File Upload
         uploadFileAPI,

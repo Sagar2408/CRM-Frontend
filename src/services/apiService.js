@@ -746,6 +746,23 @@ export const createManagerApi = async (managerData) => {
     throw error;
   }
 };
+// Process Person — POST processperson/admin-create (added for the
+// "Process Person" role option in ExecutiveCredentialsForm.js). Unlike
+// its siblings above, `processPersonData` is a plain object, not
+// FormData: the backend route only parses application/json bodies
+// (express.json()), and the admin/create* routes above actually send
+// multipart/form-data when ExecutiveCredentialsForm.js builds a
+// FormData payload — this one deliberately avoids that mismatch.
+export const createProcessPersonApi = async (processPersonData) => {
+  try {
+    const response = await apiService.post("processperson/admin-create", processPersonData);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error creating process person:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export const createHrApi = async (hrData) => {
   try {
     const response = await apiService.post("hr/signup",hrData);

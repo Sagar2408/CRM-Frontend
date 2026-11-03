@@ -14,11 +14,18 @@ const BASE_HEADERS = {
  * callers can distinguish an expired-subscription login from any other
  * login failure, instead of only getting a flat message string.
  */
-function loginError(body) {
+function loginError(body, status) {
   const error = new Error(body?.message || "Login failed");
   if (body?.code) error.code = body.code;
   if (body?.companyName) error.companyName = body.companyName;
   if (body?.expiryDate) error.expiryDate = body.expiryDate;
+  // Lets a caller distinguish "no User account with this email" (404 —
+  // safe to try a different identity type, e.g. Process Person) from a
+  // real failure against a found account (wrong password, disabled
+  // login, expired subscription) that must never be silently retried
+  // against another identity type. Added for the Process Person /
+  // common-login-page integration — AuthContext.js's login().
+  if (typeof status === "number") error.status = status;
   return error;
 }
 
@@ -37,7 +44,31 @@ export const loginUser = async (email, password, role, companyCode) => {
 
   if (!res.ok) {
     const err = await res.json();
-    throw loginError(err);
+    throw loginError(err, res.status);
+  }
+
+  return await res.json();
+};
+
+/*------------------------------PROCESS PERSON LOGIN---------------------------*/
+// Process Person integration (common login page): the general
+// employee login page (Login.js, userType="executive") falls back to
+// this when the primary /login lookup finds no matching User account
+// at all (404) — see AuthContext.js's login(). Hits the SAME backend
+// endpoint the dedicated /process/client/login page already uses
+// (POST /processperson/login — controllers/ProcessPerson.controller.js,
+// unchanged), so Process Person authentication logic itself is fully
+// reused, not reimplemented.
+export const loginProcessPersonAPI = async (email, password, companyCode) => {
+  const res = await fetch(`${API_BASE_URL}/processperson/login`, {
+    method: "POST",
+    headers: BASE_HEADERS,
+    body: JSON.stringify({ email, password, companyCode }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw loginError(err, res.status);
   }
 
   return await res.json();

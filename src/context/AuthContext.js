@@ -48,14 +48,77 @@ export const AuthProvider = ({ children }) => {
 
     try {
       setLoading(true);
-      const response = await authService.loginUser(email, password, role, companyCode);
+
+      let response;
+      let isProcessPerson = false;
+      try {
+        response = await authService.loginUser(email, password, role, companyCode);
+      } catch (primaryErr) {
+        // Process Person integration: the common employee login page
+        // (Login.js, userType="executive") now also authenticates
+        // Process Person accounts, which live in a separate model/table
+        // (see controllers/ProcessPerson.controller.js) — not reachable
+        // through the User-table lookup /login just did. Only fall
+        // back when that lookup found no User account at all (404,
+        // "User not found" — see controllers/User.controller.js's
+        // login): a wrong password, a disabled account, or an expired
+        // subscription against a REAL User account must surface as
+        // that exact error, never be silently retried as a different
+        // identity type. Scoped to role === "executive" (the general
+        // employee page) only — the dedicated /admin/login page
+        // (userType="admin") never attempts this fallback.
+        if (role === "executive" && primaryErr.status === 404) {
+          response = await authService.loginProcessPersonAPI(email, password, companyCode);
+          isProcessPerson = true;
+        } else {
+          throw primaryErr;
+        }
+      }
+
+      if (isProcessPerson) {
+        // Mirrors ProcessAuthContext.js's own login() storage shape
+        // exactly (same localStorage keys/values), so the dedicated
+        // /process/client/login page and ProcessPrivateRoute/
+        // ProcessRoutes.js guards keep working unchanged for a session
+        // started from here.
+        const processUser = { ...response.person, type: "processperson" };
+        localStorage.setItem("token", response.token);
+        localStorage.setItem("user", JSON.stringify(processUser));
+        localStorage.setItem("userType", "processperson");
+
+        toast.success(
+          <div className="toast-content">
+            <div className="textToast">Login Successful</div>
+          </div>,
+          {
+            className: "custom-toast",
+            bodyClassName: "custom-toast-body",
+          }
+        );
+
+        // A full navigation (not react-router's navigate()) is
+        // deliberate: AuthContext and ProcessAuthContext are two
+        // separate providers mounted once each at the app root
+        // (src/index.js) — ProcessAuthContext only reads
+        // localStorage.user into its own React state on its initial
+        // mount. Without a full reload, ProcessRoutes.js's
+        // `user?.type === "processperson"` check (driven by
+        // ProcessAuthContext's state, not this context's) would still
+        // see no user and hide the Process Person-only routes even
+        // though localStorage/the token are already correct.
+        setTimeout(() => {
+          window.location.href = "/process";
+        }, 1500);
+        return;
+      }
+
       const user = response.user;
 
       // Save session data
       localStorage.setItem("token", response.token);
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("executiveId", user.id);
- 
+
       setUser(user);
 
       toast.success(
