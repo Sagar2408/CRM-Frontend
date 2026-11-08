@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useApi } from "../context/ApiContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import { fetchAdminPhotoBlob } from "../services/apiService";
 import {
   FaSun,
   FaMoon,
@@ -17,6 +18,32 @@ import {
 function AdminNavbar() {
   const [showPopover, setShowPopover] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false); // <-- NEW STATE
+  const [photoUrl, setPhotoUrl] = useState(null);
+
+  // Profile photo for the navbar icon. Loaded once and refreshed whenever the
+  // Settings page saves/removes a photo ("adminPhotoChanged" event).
+  useEffect(() => {
+    let alive = true;
+    let current = null;
+    const load = async () => {
+      try {
+        const blob = await fetchAdminPhotoBlob();
+        if (!alive) return;
+        if (current) URL.revokeObjectURL(current);
+        current = blob ? URL.createObjectURL(blob) : null;
+        setPhotoUrl(current);
+      } catch (e) {
+        console.error("Failed to load navbar profile photo:", e);
+      }
+    };
+    load();
+    window.addEventListener("adminPhotoChanged", load);
+    return () => {
+      alive = false;
+      window.removeEventListener("adminPhotoChanged", load);
+      if (current) URL.revokeObjectURL(current);
+    };
+  }, []);
   const { logout } = useAuth();
   const { changeTheme, theme } = useContext(ThemeContext);
   const {
@@ -136,7 +163,11 @@ function AdminNavbar() {
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            <FaUser size={20} />
+            {photoUrl ? (
+              <img src={photoUrl} alt="Profile" className="navbar-profile-photo" />
+            ) : (
+              <FaUser size={20} />
+            )}
           </div>
 
           {showPopover && (
@@ -152,7 +183,11 @@ function AdminNavbar() {
                 adminProfile && (
                   <div className="admin_user_details">
                     <div className="admin_user_avatar">
-                      {adminProfile.name?.charAt(0).toUpperCase() || "U"}
+                      {photoUrl ? (
+                        <img src={photoUrl} alt="" className="navbar-profile-photo" />
+                      ) : (
+                        adminProfile.name?.charAt(0).toUpperCase() || "U"
+                      )}
                     </div>
                     <div>
                       <p className="admin_user_name">{adminProfile.name}</p>

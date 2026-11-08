@@ -3082,3 +3082,7 @@ body.sidebar-collapsed .admin-main-content {
   justify-content: center;
 }
 .compare-values .vs { color: #888; font-weight: 400; }
+
+.navbar-profile-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.icon-user .navbar-profile-photo { width: 28px; height: 28px; }
+.admin_user_avatar { overflow: hidden; }

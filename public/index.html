@@ -74,11 +74,16 @@
           image) since no specific external image host could be
           enumerated from the icon/avatar code paths — narrowing this
           further wasn't verified safe to do without live testing.
+        - img-src blob: lets the page render images it fetched itself
+          with the Admin JWT and wrapped in URL.createObjectURL (the
+          authenticated profile photo in Settings and the navbar). It
+          only matches object URLs created by this same page; it does not
+          make any image publicly reachable or allow a new external host.
       No wildcard '*' source and no 'unsafe-eval' appear anywhere.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://cdn.botpress.cloud; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' http://%REACT_APP_API_ORIGIN% https://%REACT_APP_API_ORIGIN% ws://%REACT_APP_API_ORIGIN% wss://%REACT_APP_API_ORIGIN% https://cdn.botpress.cloud https://files.bpcontent.cloud wss://*.botpress.cloud https://monitoring-w28p.onrender.com wss://monitoring-w28p.onrender.com https://api.allorigins.win; frame-src https://www.openstreetmap.org https://cdn.botpress.cloud; object-src 'none'; base-uri 'self'; form-action 'self'"
+      content="default-src 'self'; script-src 'self' https://cdn.botpress.cloud; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' http://%REACT_APP_API_ORIGIN% https://%REACT_APP_API_ORIGIN% ws://%REACT_APP_API_ORIGIN% wss://%REACT_APP_API_ORIGIN% https://cdn.botpress.cloud https://files.bpcontent.cloud wss://*.botpress.cloud https://monitoring-w28p.onrender.com wss://monitoring-w28p.onrender.com https://api.allorigins.win; frame-src https://www.openstreetmap.org https://cdn.botpress.cloud; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--

@@ -61,8 +61,8 @@ const fetchAdminUserData = useCallback(async () => {
   setUserLoading(true);
   try {
     const response = await apiService.fetchAdminProfile();
-    const { username, email, role } = response.admin || {};
-    setUser({ username, email, role });
+    const { username, email, role, firstname, lastname, profile_picture } = response.admin || {};
+    setUser({ username, email, role, firstname, lastname, profile_picture });
   } catch (error) {
     console.error("❌ Error fetching Admin user data:", error);
   } finally {

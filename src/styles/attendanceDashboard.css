@@ -1,0 +1,101 @@
+.ad-page {
+  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  color: #1f2937;
+}
+.ad-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.ad-title { margin: 0 0 4px; font-size: 26px; font-weight: 600; }
+.ad-muted { color: #6b7280; font-size: 13px; margin: 0; }
+.ad-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.ad-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.ad-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.ad-card span { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
+.ad-card strong { font-size: 28px; line-height: 1; }
+.ad-card-present strong { color: #15803d; }
+.ad-card-absent strong { color: #b91c1c; }
+.ad-card-leave strong { color: #b45309; }
+
+.ad-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; }
+.ad-filters label, .ad-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #4b5563; font-weight: 500; }
+.ad-filters input, .ad-filters select, .ad-field input, .ad-field select, .ad-field textarea, .ad-row input {
+  height: 36px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #fff; color: #111827; box-sizing: border-box;
+}
+.ad-field textarea { height: auto; padding: 8px 10px; font-family: inherit; resize: vertical; }
+.ad-grow { flex: 1 1 220px; }
+.ad-grow input { width: 100%; }
+
+.ad-btn { height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent; font-size: 14px; font-weight: 500; cursor: pointer; }
+.ad-btn:disabled { opacity: .55; cursor: not-allowed; }
+.ad-btn-primary { background: #2563eb; color: #fff; }
+.ad-btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+.ad-btn-ghost { background: #fff; border-color: #d1d5db; color: #374151; }
+.ad-btn-danger { background: #dc2626; color: #fff; }
+.ad-icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; line-height: 1; color: #6b7280; }
+
+.ad-alert { padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+.ad-alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.ad-alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+
+.ad-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 4px 0 10px; }
+.ad-legend-item { display: inline-flex; align-items: center; gap: 6px; color: #4b5563; }
+
+/* Scroll container: scrolls both ways; header row and first column stay put. */
+.ad-table-scroll {
+  position: relative;
+  overflow: auto;
+  max-height: calc(100vh - 360px);
+  min-height: 260px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.ad-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
+.ad-table th, .ad-table td { padding: 8px 6px; border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f8fafc; text-align: center; white-space: nowrap; background: #fff; }
+.ad-table thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0; }
+.ad-table .ad-sticky { position: sticky; left: 0; z-index: 2; text-align: left; border-right: 2px solid #e2e8f0; }
+.ad-table thead th.ad-sticky { z-index: 5; }
+.ad-emp-col { min-width: 210px; max-width: 260px; }
+.ad-emp-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.ad-emp-col small { color: #6b7280; }
+.ad-sum-col { min-width: 44px; background: #fafafa !important; }
+.ad-day { min-width: 74px; }
+.ad-day small { font-weight: 400; color: #6b7280; }
+.ad-off-col { background: #f3f4f6 !important; }
+.ad-holiday-col { background: #eff6ff !important; }
+.ad-today-col { box-shadow: inset 0 -3px 0 #2563eb; }
+.ad-cell.ad-editable { cursor: pointer; }
+.ad-cell.ad-editable:hover { outline: 2px solid #93c5fd; outline-offset: -2px; }
+.ad-empty { padding: 36px !important; color: #6b7280; text-align: center !important; }
+.ad-overlay { position: sticky; top: 0; left: 0; z-index: 6; padding: 8px 14px; background: rgba(255,255,255,.9); color: #374151; font-size: 13px; }
+
+.ad-badge { position: relative; display: inline-block; min-width: 52px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.4; }
+.ad-present { background: #dcfce7; color: #166534; }
+.ad-absent { background: #fee2e2; color: #991b1b; }
+.ad-leave { background: #fef3c7; color: #92400e; }
+.ad-holiday { background: #dbeafe; color: #1e40af; }
+.ad-weekoff { background: #e5e7eb; color: #4b5563; }
+.ad-notjoined { background: #f9fafb; color: #9ca3af; border: 1px dashed #d1d5db; }
+.ad-pending { background: #ede9fe; color: #5b21b6; }
+.ad-dot { position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; border-radius: 50%; background: #f97316; border: 1px solid #fff; }
+.ad-dot-static { position: static; display: inline-block; }
+
+.ad-modal-backdrop { position: fixed; inset: 0; background: rgba(17,24,39,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.ad-modal { background: #fff; border-radius: 14px; padding: 20px; width: 100%; max-width: 520px; max-height: 90vh; overflow: auto; box-shadow: 0 20px 50px rgba(0,0,0,.25); display: flex; flex-direction: column; gap: 10px; }
+.ad-modal-head { display: flex; justify-content: space-between; align-items: center; }
+.ad-modal-head h3 { margin: 0; font-size: 18px; }
+.ad-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.ad-history h4 { margin: 12px 0 6px; font-size: 13px; }
+.ad-history ul, .ad-holiday-list { list-style: none; margin: 0; padding: 0; font-size: 12px; color: #4b5563; display: flex; flex-direction: column; gap: 6px; }
+.ad-holiday-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+.ad-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ad-row input[type="text"] { flex: 1 1 140px; }
+
+@media (max-width: 768px) {
+  .ad-page { padding: 12px; }
+  .ad-emp-col { min-width: 150px; }
+  .ad-table-scroll { max-height: calc(100vh - 300px); }
+}

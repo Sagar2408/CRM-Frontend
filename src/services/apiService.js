@@ -235,10 +235,42 @@ export const updateAdminProfile = async (profileData) => {
 
 // Change Password
 export const changeAdminPassword = async (currentPassword, newPassword) => {
+  // The backend contract (changePasswordSchemaLegacyNames) is
+  // { oldPassword, newPassword }; sending `currentPassword` was rejected
+  // with 400 so changing the password never worked.
   const response = await apiService.post("/admin/change_pass", {
-    currentPassword,
+    oldPassword: currentPassword,
     newPassword,
   });
+  return response.data;
+};
+
+// Admin profile photo (stored per tenant, served only to its owner)
+export const uploadAdminPhoto = async (file) => {
+  const form = new FormData();
+  form.append("photo", file);
+  const response = await apiService.post("/admin/profile/photo", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
+
+// Returns a Blob (an <img> tag cannot send the Authorization header), or
+// null when the admin has no photo.
+export const fetchAdminPhotoBlob = async () => {
+  try {
+    const response = await apiService.get("/admin/profile/photo", { responseType: "blob" });
+    const blob = response.data;
+    // Guard against a non-image body (e.g. a JSON error) being rendered as <img>.
+    return blob && String(blob.type).startsWith("image/") ? blob : null;
+  } catch (error) {
+    if (error.response?.status === 404) return null;
+    throw error;
+  }
+};
+
+export const deleteAdminPhoto = async () => {
+  const response = await apiService.delete("/admin/profile/photo");
   return response.data;
 };
 // ✅ Function to assign leads to an executive
