@@ -20,10 +20,8 @@ const ProcessActivity = () => {
 
   const [status, setStatus] = useState({
     onBreak: false,
-    isOnCall: false,
     workingTime: 0,
     breakTime: 0,
-    callDuration: 0,
     currentLeadId: "",
   });
 
@@ -36,10 +34,8 @@ const ProcessActivity = () => {
       setStatus((prev) => ({
         ...prev,
         onBreak: data.onBreak || false,
-        isOnCall: data.onCall || false,
         workingTime: data.workingTime || 0,
         breakTime: data.breakTime || 0,
-        callDuration: data.callDuration || 0,
         currentLeadId: data.currentLeadId || "",
       }));
     } catch (error) {
@@ -59,7 +55,6 @@ const ProcessActivity = () => {
           ...prev,
           workingTime: prev.workingTime + 1,
           breakTime: prev.onBreak ? prev.breakTime + 1 : prev.breakTime,
-          callDuration: prev.isOnCall ? prev.callDuration + 1 : prev.callDuration,
         }));
       }, 1000);
 

@@ -344,7 +344,7 @@ const AssignTask = () => {
               ...gradientTextStyle,
             }}
           >
-            AtoZeeVisas
+            CRM
           </div>
 
           <div

@@ -4,8 +4,6 @@ import {
   recordStopWork,
   recordStartBreak,
   recordStopBreak,
-  startCall,
-  endCall,
   getActivityStatus,
   leadtrackVisit,
   sendEmail,
@@ -23,7 +21,6 @@ export const ExecutiveActivityProvider = ({ children }) => {
   const [status, setStatus] = useState({
     workActive: false,
     breakActive: false,
-    callActive: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -40,7 +37,6 @@ export const ExecutiveActivityProvider = ({ children }) => {
         setStatus({
           workActive: data.workActive,
           breakActive: data.breakActive,
-          callActive: data.callActive,
         });
       } catch (error) {
         console.error('Error fetching activity status:', error.message);
@@ -93,7 +89,7 @@ export const ExecutiveActivityProvider = ({ children }) => {
     try {
       setLoading(true);
       await recordStopWork();
-      setStatus({ workActive: false, breakActive: false, callActive: false });
+      setStatus({ workActive: false, breakActive: false });
     } catch (error) {
       console.error("❌ Error stopping work:", error.message);
     } finally {
@@ -124,33 +120,6 @@ export const ExecutiveActivityProvider = ({ children }) => {
       return data.breakDuration;
     } catch (error) {
       console.error("❌ Error stopping break:", error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ---------------------------------------
-  // Call Activity Handlers
-  // ---------------------------------------
-  const handleStartCall = async (leadId) => {
-    try {
-      setLoading(true);
-      await startCall(leadId);
-      setStatus((prev) => ({ ...prev, callActive: true }));
-    } catch (error) {
-      console.error("❌ Error starting call:", error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEndCall = async (leadId) => {
-    try {
-      setLoading(true);
-      await endCall(leadId);
-      setStatus((prev) => ({ ...prev, callActive: false }));
-    } catch (error) {
-      console.error("❌ Error ending call:", error.message);
     } finally {
       setLoading(false);
     }
@@ -226,8 +195,6 @@ export const ExecutiveActivityProvider = ({ children }) => {
         handleStopWork,
         handleStartBreak,
         handleStopBreak,
-        handleStartCall,
-        handleEndCall,
         handleSendEmail,
         leadtrack,
         handleGetAttendance,

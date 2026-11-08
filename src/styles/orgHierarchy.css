@@ -1,0 +1,117 @@
+/* Organization Hierarchy (oh-*). Uses the app theme variables from admin.css. */
+.oh-page {
+  --oh-line: #94a3b8;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 18px 22px 28px;
+  color: var(--text-color);
+  background: var(--bg-color);
+}
+.oh-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.oh-title { margin: 0; font-size: 24px; font-weight: 700; }
+.oh-sub { margin: 2px 0 0; font-size: 13px; opacity: 0.7; }
+
+.oh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.oh-toolbar button {
+  display: inline-flex; align-items: center; gap: 4px; padding: 7px 11px; font-size: 13px; cursor: pointer;
+  background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px;
+}
+.oh-toolbar button:hover { border-color: var(--primary-color); }
+.oh-zoom { min-width: 46px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+.oh-sep { width: 1px; height: 22px; background: var(--border-color); margin: 0 4px; }
+
+.oh-state { display: grid; place-items: center; min-height: 240px; opacity: 0.8; }
+.oh-state-error { color: #ef4444; opacity: 1; }
+
+/* Layout: chart + unassigned on the left, legend + details in a fixed column (no overlap) */
+.oh-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.oh-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.oh-side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 0; max-height: calc(100vh - 40px); overflow-y: auto; }
+
+/* Chart viewport (pan / zoom) */
+.oh-viewport {
+  position: relative; overflow: hidden; cursor: grab; touch-action: none;
+  height: calc(100vh - 250px); min-height: 420px;
+  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: var(--box-shadow);
+}
+.oh-viewport:active { cursor: grabbing; }
+.oh-canvas { position: absolute; top: 0; left: 0; width: max-content; transform-origin: 0 0; padding: 16px; }
+.oh-hint { position: absolute; right: 12px; bottom: 8px; font-size: 11px; opacity: 0.55; pointer-events: none; }
+
+/* Tree with connecting lines */
+.oh-tree, .oh-tree ul { display: flex; justify-content: center; margin: 0; padding: 22px 0 0; list-style: none; position: relative; }
+.oh-tree { padding-top: 0; align-items: flex-start; gap: 24px; }
+.oh-tree li { position: relative; display: flex; flex-direction: column; align-items: center; padding: 22px 8px 0; }
+.oh-tree li::before, .oh-tree li::after {
+  content: ""; position: absolute; top: 0; right: 50%; width: 50%; height: 22px; border-top: 2px solid var(--oh-line);
+}
+.oh-tree li::after { right: auto; left: 50%; border-left: 2px solid var(--oh-line); }
+.oh-tree li:only-child::before, .oh-tree li:only-child::after { display: none; }
+.oh-tree li:only-child { padding-top: 0; }
+.oh-tree ul > li:only-child { padding-top: 0; }
+.oh-tree li:first-child::before, .oh-tree li:last-child::after { border: 0 none; }
+.oh-tree li:last-child::before { border-right: 2px solid var(--oh-line); border-radius: 0 6px 0 0; }
+.oh-tree li:first-child::after { border-radius: 6px 0 0 0; }
+.oh-tree ul::before { content: ""; position: absolute; top: 0; left: 50%; height: 22px; border-left: 2px solid var(--oh-line); }
+/* top-level nodes are separate roots, not siblings: no joining line */
+.oh-tree > li { padding-top: 0; }
+.oh-tree > li::before, .oh-tree > li::after { display: none; }
+
+/* Cards */
+.oh-card {
+  position: relative; width: 190px; background: var(--card-bg); color: var(--text-color);
+  border: 1px solid var(--border-color); border-left: 4px solid var(--oh-tone, #94a3b8); border-radius: 8px;
+  box-shadow: var(--box-shadow);
+}
+.oh-card.oh-selected { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+.oh-card-main {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; text-align: left;
+  background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit;
+}
+.oh-card-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 8px; color: var(--oh-tone); background: color-mix(in srgb, var(--oh-tone) 16%, transparent); }
+.oh-card-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.oh-card-name { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oh-card-role { font-size: 12px; opacity: 0.85; }
+.oh-card-level { font-size: 11px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oh-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%; padding: 3px 0; font-size: 11px; cursor: pointer;
+  background: color-mix(in srgb, var(--oh-tone) 10%, transparent); color: inherit; border: 0; border-top: 1px solid var(--border-color); border-radius: 0 0 6px 6px;
+}
+.oh-tone-admin { --oh-tone: #dc2626; }
+.oh-tone-manager { --oh-tone: #7c3aed; }
+.oh-tone-hr { --oh-tone: #db2777; }
+.oh-tone-tl { --oh-tone: #2563eb; }
+.oh-tone-executive { --oh-tone: #059669; }
+.oh-tone-process { --oh-tone: #d97706; }
+.oh-tone-default { --oh-tone: #64748b; }
+
+/* Panels */
+.oh-panel, .oh-unassigned {
+  padding: 14px 16px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: var(--box-shadow);
+}
+.oh-panel h2, .oh-unassigned h2 { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
+.oh-legend { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 13px; }
+.oh-legend li { display: flex; align-items: center; gap: 8px; }
+.oh-swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--oh-tone); }
+.oh-note, .oh-empty { margin: 0; font-size: 12px; opacity: 0.65; }
+.oh-details-head { display: flex; justify-content: space-between; align-items: center; }
+.oh-close { background: transparent; border: 0; color: inherit; cursor: pointer; }
+.oh-dl { margin: 0; display: grid; gap: 2px; font-size: 13px; }
+.oh-dl dt { margin-top: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
+.oh-dl dd { margin: 0; word-break: break-word; }
+.oh-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
+.oh-members li { display: flex; justify-content: space-between; gap: 8px; }
+.oh-members button { background: transparent; border: 0; padding: 0; color: var(--primary-color); cursor: pointer; text-align: left; font: inherit; }
+.oh-members span { font-size: 11px; opacity: 0.6; }
+
+/* Unassigned section */
+.oh-count { margin-left: 6px; padding: 1px 8px; font-size: 12px; border-radius: 10px; background: rgba(127, 127, 127, 0.18); }
+.oh-unassigned-list { display: flex; flex-wrap: wrap; gap: 18px; }
+.oh-unassigned-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.oh-reason { font-size: 11px; color: #d97706; }
+
+@media (max-width: 1100px) {
+  .oh-body { grid-template-columns: 1fr; }
+  .oh-side { position: static; max-height: none; }
+  .oh-viewport { height: 60vh; }
+}

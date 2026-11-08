@@ -104,54 +104,6 @@ export const recordStopBreak = async () => {
 };
 
 /**
- * Start call tracking
- */
-export const startCall = async (leadId) => {
-  try {
-    const userData = JSON.parse(localStorage.getItem("user") || '{}');
-    const response = await axios.post(
-      `${API_BASE_URL}/executive-activities/updateCallTime`,
-      {
-        ExecutiveId: userData.id,
-        executiveName: userData.username,
-        leadId,
-        action: 'start',
-        callDuration: 1
-      },
-      { headers: getHeaders() }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error starting call:', error);
-    throw new Error(error.response?.data?.message || 'Failed to start call');
-  }
-};
-
-/**
- * End call tracking
- */
-export const endCall = async (leadId) => {
-  try {
-    const userData = JSON.parse(localStorage.getItem("user") || '{}');
-    const response = await axios.post(
-      `${API_BASE_URL}/executive-activities/updateCallTime`,
-      {
-        ExecutiveId: userData.id,
-        executiveName: userData.username,
-        leadId,
-        action: 'end',
-        callDuration: 1
-      },
-      { headers: getHeaders() }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error ending call:', error);
-    throw new Error(error.response?.data?.message || 'Failed to end call');
-  }
-};
-
-/**
  * Get current activity status of executive
  */
 export const getActivityStatus = async () => {

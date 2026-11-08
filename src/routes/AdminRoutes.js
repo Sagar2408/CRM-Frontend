@@ -34,6 +34,7 @@ const AdminRoutes = () => {
         <Route path="executive-attendance" element={<AttendanceTable />} />
         <Route path="full-report" element={<FullReport />} />
         <Route path="heirarchy" element={<Hierarchy/>}/>
+        <Route path="hierarchy" element={<Hierarchy/>}/>
         <Route path="verify" element={<Verify/>}/>
 
       </Route>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FaCoffee, FaBriefcase,FaUser} from "react-icons/fa";
+import { FaCoffee, FaBriefcase } from "react-icons/fa";
 import { useApi } from "../../context/ApiContext";
 
 const ExecutiveActi = ({ selectedExecutiveId, executiveName }) => {
@@ -7,7 +7,6 @@ const ExecutiveActi = ({ selectedExecutiveId, executiveName }) => {
   const [activityData, setActivityData] = useState({
     workTime: 0,
     breakTime: 0,
-    callTime: 0,
   });
 
   const FULL_DAY_SECONDS = 8 * 3600;
@@ -27,7 +26,6 @@ const ExecutiveActi = ({ selectedExecutiveId, executiveName }) => {
         const allData = await fetchExecutiveDashboardData();
         let workTime = 0;
         let breakTime = 0;
-        let callTime = 0;
 
         if (selectedExecutiveId) {
           // Fetch data for a specific executive
@@ -38,25 +36,22 @@ const ExecutiveActi = ({ selectedExecutiveId, executiveName }) => {
           if (executiveData) {
             workTime = executiveData.workTime || 0;
             breakTime = executiveData.breakTime || 0;
-            callTime = executiveData.dailyCallTime || 0;
           }
         } else {
           // Aggregate data for all executives
           allData.forEach((exec) => {
             workTime += exec.workTime || 0;
             breakTime += exec.breakTime || 0;
-            callTime += exec.dailyCallTime || 0;
           });
         }
 
         setActivityData({
           workTime,
           breakTime,
-          callTime,
         });
       } catch (error) {
         console.error("Error fetching activity data:", error);
-        setActivityData({ workTime: 0, breakTime: 0, callTime: 0 });
+        setActivityData({ workTime: 0, breakTime: 0 });
       }
     };
 
@@ -66,7 +61,6 @@ const ExecutiveActi = ({ selectedExecutiveId, executiveName }) => {
   const activitiesRaw = [
     { name: "Break Time", value: activityData.breakTime, icon: <FaCoffee />, color: "#8b5cf6" },
     { name: "Work Time", value: activityData.workTime, icon: <FaBriefcase />, color: "#6d28d9" },
-    { name: "Behavioral Pattern", value: activityData.callTime, icon: <FaUser />, color: "#a78bfa" },
   ];
 
   const activities = activitiesRaw.map((activity) => ({

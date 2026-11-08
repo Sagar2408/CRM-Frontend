@@ -156,7 +156,7 @@ const handleDismissBeepNotification = () => {
     <section className="sidebar_navbar" data-theme={theme}>
 <section className={`sidebar_container ${isActive ? "active" : ""}`}>
 <button className="menuToggle" onClick={toggleSidebar}><FontAwesomeIcon icon={faBars} /></button>
-    <div className="sidebar_heading"><h1>AtoZeeVisas</h1></div>
+    <div className="sidebar_heading"><h1>CRM</h1></div>
     <div><h3 className="sidebar_crm">CRM</h3></div>
     <nav className="navbar_container">
     <ul>

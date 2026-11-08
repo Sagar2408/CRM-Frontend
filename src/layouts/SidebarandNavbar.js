@@ -269,7 +269,7 @@ const SidebarandNavbar = () => {
             <FontAwesomeIcon icon={faBars} />
           </button>
           <div className="sidebar_heading">
-            <h1>AtoZeeVisas</h1>
+            <h1>CRM</h1>
           </div>
           <div>
             <h3 className="sidebar_crm">CRM</h3>

@@ -59,10 +59,6 @@
   background-color: rgba(255, 0, 0, 0.05);
 }
 
-.time-block.call-time {
-  background-color: rgba(0, 255, 0, 0.05);
-}
-
 .time-label {
   font-weight: 500;
   color: var(--text-color);

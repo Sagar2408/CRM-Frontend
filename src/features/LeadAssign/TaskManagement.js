@@ -1,6 +1,4 @@
-
-
-import React, { useEffect, useState, useContext,useCallback } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import { Alert, soundManager } from "../modal/alert";
 import { useApi } from "../../context/ApiContext";
 import { ThemeContext } from "../../features/admin/ThemeContext";
@@ -11,26 +9,21 @@ import { useLoading } from "../../context/LoadingContext";
 import AdminSpinner from "../spinner/AdminSpinner";
 import { useProcessService } from "../../context/ProcessServiceContext";
 
+// Tab key -> label. The key is sent verbatim as the `status` query param and
+// mapped to ClientLead.status on the server (see LEAD_STATUS_FILTERS in
+// CRM-Backend/controllers/ClientLead.controller.js).
+export const STATUS_TABS = [
+  { key: "all", label: "All", countKey: "all" },
+  { key: "new", label: "New", countKey: "New" },
+  { key: "fresh", label: "Fresh", countKey: "Assigned" },
+  { key: "followup", label: "Followup", countKey: "Follow-Up" },
+  { key: "converted", label: "Converted", countKey: "Converted" },
+  { key: "closed", label: "Closed", countKey: "Closed" },
+  { key: "meeting", label: "Meeting", countKey: "Meeting" },
+];
+
 const TaskManagement = () => {
-  const [leads, setLeads] = useState([]);
   const { getAllProcessPersons, createProcesstoConverted } = useProcessService();
-  const [executives, setExecutives] = useState([]);
-  const [selectedExecutive, setSelectedExecutive] = useState("");
-  const [selectedLeads, setSelectedLeads] = useState([]);
-  const [expandedLeads, setExpandedLeads] = useState({});
-  const [selectedRange, setSelectedRange] = useState("");
-  const [leadsPerPage, setLeadsPerPage] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalLeads, setTotalLeads] = useState(0);
-  const [filterType, setFilterType] = useState("all");
-  const [viewMode, setViewMode] = useState("executive");
-  const [selectedProcess, setSelectedProcess] = useState("");
-  const [processPersons, setProcessPersons] = useState([]);
-  const totalPages = Math.ceil(totalLeads / leadsPerPage);
-  const paginatedLeads = leads;
-  const [showPagination, setShowPagination] = useState(false);
-  const { theme } = useContext(ThemeContext);
-  const { isLoading, variant, showLoader, hideLoader } = useLoading();
   const {
     fetchAllClients,
     reassignLead,
@@ -40,61 +33,63 @@ const TaskManagement = () => {
     createLeadAPI,
     updateClientLead,
     deleteClientLead,
-    getAllConverted,triggerDashboardRefresh
+    triggerDashboardRefresh,
   } = useApi();
+  const { theme } = useContext(ThemeContext);
+  const { isLoading, variant, showLoader, hideLoader } = useLoading();
+
+  // Assignment target
+  const [viewMode, setViewMode] = useState("executive"); // "executive" | "process"
+  const [executives, setExecutives] = useState([]);
+  const [processPersons, setProcessPersons] = useState([]);
+  const [selectedExecutive, setSelectedExecutive] = useState("");
+  const [selectedProcess, setSelectedProcess] = useState("");
+
+  // Lead list (server-side filtered + paginated)
+  const [statusTab, setStatusTab] = useState("all");
+  const [leads, setLeads] = useState([]);
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [leadsPerPage, setLeadsPerPage] = useState(10);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [listLoading, setListLoading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Selection survives pagination within one tab: id -> lead
+  const [selected, setSelected] = useState({});
+  const [expandedLeads, setExpandedLeads] = useState({});
+  const [isAssigning, setIsAssigning] = useState(false);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     localStorage.getItem("adminSidebarExpanded") === "false"
   );
-  const [allClients, setAllClients] = useState([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
   const [alerts, setAlerts] = useState([]);
 
-  // Utility to generate unique ID for alerts
-  const generateId = () => Math.random().toString(36).substr(2, 9);
+  const requestSeq = useRef(0);
+  const totalPages = Math.max(1, Math.ceil(totalLeads / leadsPerPage));
+  const selectedList = Object.values(selected);
+  const isProcessMode = viewMode === "process";
 
-  // Function to show alerts
+  // ---- alerts -------------------------------------------------------------
+  const generateId = () => Math.random().toString(36).substr(2, 9);
   const showAlert = (message, type = "info", title = "", duration = 5000, confirm = null) => {
     const id = generateId();
     setAlerts((prev) => [
       ...prev,
-      { id, message, type, title: title || type.charAt(0).toUpperCase() + type.slice(1), duration, confirm }
+      { id, message, type, title: title || type.charAt(0).toUpperCase() + type.slice(1), duration, confirm },
     ]);
-    soundManager.playSound(type); // Play sound for the alert type
+    soundManager.playSound(type);
     if (duration) {
-      setTimeout(() => {
-        setAlerts((prev) => prev.filter((alert) => alert.id !== id));
-      }, duration);
+      setTimeout(() => setAlerts((prev) => prev.filter((a) => a.id !== id)), duration);
     }
   };
+  const closeAlert = (id) => setAlerts((prev) => prev.filter((a) => a.id !== id));
 
-  // Function to close an alert
-  const closeAlert = (id) => {
-    setAlerts((prev) => prev.filter((alert) => alert.id !== id));
-  };
-
-  useEffect(() => {
-    const container = document.querySelector(".scrollable-container");
-  
-    const handleScroll = () => {
-      if (!container) return;
-      const threshold = 50;
-      const isBottom =
-        container.scrollTop + container.clientHeight >= container.scrollHeight - threshold;
-      setShowPagination(isBottom);
-    };
-  
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-    }
-  
-    return () => {
-      if (container) {
-        container.removeEventListener("scroll", handleScroll);
-      }
-    };
-  }, []);
-  
+  // ---- sidebar ------------------------------------------------------------
   useEffect(() => {
     const updateSidebarState = () => {
       const isExpanded = localStorage.getItem("adminSidebarExpanded") === "true";
@@ -105,189 +100,150 @@ const TaskManagement = () => {
     return () => window.removeEventListener("sidebarToggle", updateSidebarState);
   }, []);
 
-const fetchExecutives = useCallback(async () => {
-  try {
-    const data = await fetchExecutivesAPI();
-    setExecutives(data);
-  } catch (error) {
-    console.error("❌ Failed to load executives:", error);
-  }
-}, [fetchExecutivesAPI]); 
+  // ---- employees ----------------------------------------------------------
+  useEffect(() => {
+    (async () => {
+      try {
+        setExecutives((await fetchExecutivesAPI()) || []);
+      } catch (error) {
+        console.error("❌ Failed to load executives:", error);
+      }
+    })();
+  }, [fetchExecutivesAPI]);
 
   useEffect(() => {
-    fetchExecutives();
-  }, [fetchExecutives]);
+    (async () => {
+      try {
+        const persons = await getAllProcessPersons();
+        setProcessPersons(persons?.processPersons || []);
+      } catch (err) {
+        console.error("Failed to load process persons", err);
+      }
+    })();
+  }, [getAllProcessPersons]);
 
-const getAllConvertedClients = useCallback(async () => {
-  try {
-    showLoader("Loading task management...", "admin");
-    const data = await getAllConverted();
-    const normalizedLeads = Array.isArray(data)
-      ? data
-      : (data.data || []).map((lead) => ({
-          id: lead.id,
-          name: lead.name,
-          email: lead.email,
-          phone: lead.phone,
-          education: lead.education || "",
-          experience: lead.experience || "",
-          state: lead.state || "",
-          country: lead.country || "",
-          dob: lead.dob || "",
-          leadAssignDate: lead.leadAssignDate || "",
-          countryPreference: lead.countryPreference || "",
-          assignedToExecutive: lead.assignedTo || "",
-          status: "Converted",
-        }));
+  // ---- debounce search ----------------------------------------------------
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch((prev) => {
+        const next = searchInput.trim();
+        if (next !== prev) setCurrentPage(1);
+        return next;
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-    const sortedLeads = [...normalizedLeads].sort(
-      (a, b) => new Date(b.createdAt || b.id) - new Date(a.createdAt || a.id)
-    );
+  // ---- load the current tab/page from the server -------------------------
+  // One request per (tab, page, size, search). A sequence number discards
+  // responses that arrive after the user has already switched tab, so rows from
+  // one status can never appear under another.
+  useEffect(() => {
+    const seq = ++requestSeq.current;
+    (async () => {
+      setListLoading(true);
+      try {
+        const data = await fetchAllClients({
+          status: statusTab,
+          page: currentPage,
+          limit: leadsPerPage,
+          ...(search ? { search } : {}),
+        });
+        if (seq !== requestSeq.current) return;
+        setLeads(Array.isArray(data?.leads) ? data.leads : []);
+        setTotalLeads(data?.pagination?.total ?? data?.total ?? 0);
+        setStatusCounts(data?.statusCounts || {});
+      } catch (error) {
+        if (seq !== requestSeq.current) return;
+        console.error("Error fetching leads:", error);
+        setLeads([]);
+        setTotalLeads(0);
+      } finally {
+        if (seq === requestSeq.current) setListLoading(false);
+      }
+    })();
+  }, [fetchAllClients, statusTab, currentPage, leadsPerPage, search, reloadKey]);
 
-    setLeads(sortedLeads);
-    setAllClients(sortedLeads);
-    setTotalLeads(data.pagination?.total || sortedLeads.length);
-  } catch (error) {
-    console.error("Error fetching converted clients:", error);
-    setLeads([]);
-    setAllClients([]);
-    setTotalLeads(0);
-  } finally {
-    hideLoader();
-  }
-}, [getAllConverted, showLoader, hideLoader]); // stable dependencies
+  // ---- handlers -----------------------------------------------------------
+  const resetSelection = () => setSelected({});
 
-
-const getAllLeads = useCallback(async () => {
-  try {
-    showLoader("Loading task management...", "admin");
-    const data = await fetchAllClients();
-    const normalizedLeads = Array.isArray(data) ? data : data.leads || [];
-    const sortedLeads = [...normalizedLeads].sort(
-      (a, b) => new Date(b.createdAt || b.id) - new Date(a.createdAt || a.id)
-    );
-    setLeads(sortedLeads);
-    setAllClients(sortedLeads);
-    setTotalLeads(data.pagination?.total || sortedLeads.length);
-  } catch (error) {
-    console.error("Error fetching leads:", error);
-    setLeads([]);
-    setAllClients([]);
-    setTotalLeads(0);
-  } finally {
-    hideLoader();
-  }
-}, [fetchAllClients, showLoader, hideLoader]);
-
-  const handleFilterChange = (type) => {
-    setFilterType(type);
+  const handleStatusTab = (key) => {
+    if (key === statusTab) return;
+    setStatusTab(key);
     setCurrentPage(1);
-    setSelectedLeads([]);
+    resetSelection();
   };
 
-  const handlePrev = () => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  const handleModeChange = (mode) => {
+    if (mode === viewMode) return;
+    setViewMode(mode);
+    resetSelection();
+    // Process Persons can only receive Converted leads — jump straight there.
+    if (mode === "process") handleStatusTab("converted");
   };
 
-  const handleNext = () => {
-    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  const isSelectable = (lead) => !isProcessMode || lead.status === "Converted";
+
+  const toggleLead = (lead) => {
+    if (!isSelectable(lead)) return;
+    setSelected((prev) => {
+      const next = { ...prev };
+      if (next[lead.id]) delete next[lead.id];
+      else next[lead.id] = lead;
+      return next;
+    });
   };
 
-  const handleExecutiveChange = (e) => setSelectedExecutive(e.target.value);
+  const selectableOnPage = leads.filter(isSelectable);
+  const allOnPageSelected =
+    selectableOnPage.length > 0 && selectableOnPage.every((l) => selected[l.id]);
 
-  const handleLeadSelection = (leadId) => {
-    setSelectedLeads((prev) =>
-      prev.includes(String(leadId))
-        ? prev.filter((id) => id !== String(leadId))
-        : [...prev, String(leadId)]
-    );
+  const togglePage = () => {
+    setSelected((prev) => {
+      const next = { ...prev };
+      if (allOnPageSelected) selectableOnPage.forEach((l) => delete next[l.id]);
+      else selectableOnPage.forEach((l) => (next[l.id] = l));
+      return next;
+    });
   };
 
-  const toggleExpandLead = (leadId) => {
-    setExpandedLeads((prev) => ({ ...prev, [leadId]: !prev[leadId] }));
+  const handleReset = () => {
+    resetSelection();
+    setSelectedExecutive("");
+    setSelectedProcess("");
+    setSearchInput("");
+    setSearch("");
+    setCurrentPage(1);
   };
 
-  const toggleSelectAll = () => {
-    setSelectedLeads((prev) =>
-      prev.length === leads.length ? [] : leads.map((lead) => String(lead.id))
-    );
-  };
+  const refreshList = () => setReloadKey((k) => k + 1);
 
-  const handleRangeChange = (e) => {
-    const range = e.target.value;
-    setSelectedRange(range);
-    const [start] = range.split("-").map(Number);
-    const newPage = Math.ceil(start / leadsPerPage);
-    setCurrentPage(newPage);
-  };
-
-  useEffect(() => {
-    if (!selectedRange || leads.length === 0) return;
-    const [start, end] = selectedRange.split("-").map(Number);
-    const startIndex = (currentPage - 1) * leadsPerPage + 1;
-    const selectedIds = leads
-      .map((lead, idx) => ({ lead, index: startIndex + idx }))
-      .filter(({ index }) => index >= start && index <= end)
-      .map(({ lead }) => String(lead.id));
-    setSelectedLeads(selectedIds);
-  }, [leads, selectedRange, currentPage,leadsPerPage]);
-
-  const assignLeads = async () => {
-    const isExecutiveView = viewMode === "executive";
-    const selectedTargetId = isExecutiveView ? selectedExecutive : selectedProcess;
-
-    if (!selectedTargetId) {
-      showAlert(`Please select a ${isExecutiveView ? "executive" : "process person"}.`, "warning");
+  const assignToExecutive = async () => {
+    const target = executives.find((e) => String(e.id) === selectedExecutive);
+    if (!target || !target.username) {
+      showAlert("Invalid executive selected.", "warning");
       return;
     }
-
-    if (selectedLeads.length === 0) {
-      showAlert("Please select at least one lead.", "warning");
-      return;
-    }
-
-    const targetList = isExecutiveView ? executives : processPersons;
-    const target = targetList.find((item) => String(item.id) === selectedTargetId);
-
-    if (!target || (!target.username && !target.fullName)) {
-      showAlert(`Invalid ${isExecutiveView ? "executive" : "process"} selected.`, "warning");
-      return;
-    }
-
-    const targetName = target.username || target.fullName;
-
+    const targetName = target.username;
     let successCount = 0;
     let failCount = 0;
 
-    for (const leadId of selectedLeads) {
-      const lead = allClients.find((l) => String(l.id) === leadId);
-      if (!lead) {
-        failCount++;
-        continue;
-      }
-
-      const clientLeadId = lead.id;
+    for (const lead of selectedList) {
       const phone = String(lead.phone).replace(/[eE]+([0-9]+)/gi, "");
-
       const leadPayload = {
         name: lead.name,
         email: lead.email || "default@example.com",
         phone,
         source: lead.source || "Unknown",
-        clientLeadId: Number(clientLeadId),
+        clientLeadId: Number(lead.id),
         assignedToExecutive: targetName,
       };
-
       try {
-        let finalLeadId = leadId;
-
         if (!lead.assignedToExecutive) {
           const createdLead = await createLeadAPI(leadPayload);
           if (!createdLead?.id) throw new Error("Lead creation failed");
-
-          finalLeadId = createdLead.clientLeadId;
-          await assignLeadAPI(Number(finalLeadId), targetName);
-          const freshLeadPayload = {
+          await assignLeadAPI(Number(createdLead.clientLeadId), targetName);
+          await createFreshLeadAPI({
             leadId: createdLead.id,
             name: createdLead.name,
             email: createdLead.email,
@@ -295,119 +251,99 @@ const getAllLeads = useCallback(async () => {
             assignedTo: targetName,
             assignedToId: target.id,
             assignDate: new Date().toISOString(),
-          };
-
-          await createFreshLeadAPI(freshLeadPayload);
+          });
         } else {
           await reassignLead(lead.id, targetName);
         }
-        triggerDashboardRefresh(); 
+        triggerDashboardRefresh();
         successCount++;
       } catch (err) {
-        console.error(`❌ Error processing lead ID ${leadId}:`, err);
+        console.error(`❌ Error processing lead ID ${lead.id}:`, err);
         failCount++;
       }
     }
+    return { successCount, failCount, targetName };
+  };
 
-    try {
-      showLoader("Refreshing leads...", "admin");
-      const refreshedData = await fetchAllClients();
-      const refreshedLeads = Array.isArray(refreshedData)
-        ? refreshedData
-        : refreshedData.leads || [];
-      const sortedLeads = [...refreshedLeads].sort((a, b) => {
-        return new Date(b.createdAt || b.id) - new Date(a.createdAt || a.id);
-      });
-      setAllClients(sortedLeads);
-      setCurrentPage(1);
-      setFilterType((prev) => prev);
-    } catch (fetchErr) {
-      console.error("❌ Failed to refresh data after assignment:", fetchErr);
-    } finally {
-      hideLoader();
+  const assignToProcessPerson = async () => {
+    const target = processPersons.find((p) => String(p.id) === selectedProcess);
+    if (!target) {
+      showAlert("Invalid process person selected.", "warning");
+      return null;
+    }
+    const resp = await createProcesstoConverted({
+      processPersonId: Number(selectedProcess),
+      clientLeadIds: selectedList.map((l) => Number(l.id)),
+    });
+    const done = (resp.imported || 0) + (resp.reassigned || 0);
+    return {
+      successCount: done,
+      failCount: (resp.skipped || 0) + (resp.errors?.filter((e) => e.clientLeadId).length || 0),
+      targetName: target.fullName,
+      errors: resp.errors || [],
+    };
+  };
+
+  const handleAssign = async () => {
+    if (isAssigning) return;
+    if (isProcessMode ? !selectedProcess : !selectedExecutive) {
+      showAlert(`Please select a ${isProcessMode ? "process person" : "executive"} first.`, "warning");
+      return;
+    }
+    if (selectedList.length === 0) {
+      showAlert("Please select at least one lead.", "warning");
+      return;
     }
 
-    setSelectedLeads([]);
-    setSelectedExecutive("");
-    setSelectedProcess("");
+    setIsAssigning(true);
+    try {
+      showLoader("Assigning leads...", "admin");
+      const result = isProcessMode ? await assignToProcessPerson() : await assignToExecutive();
+      if (!result) return;
+      const { successCount, failCount, targetName, errors } = result;
 
-    if (successCount > 0 && failCount === 0) {
-      showAlert("Leads assigned successfully.", "success");
-    } else if (successCount > 0 && failCount > 0) {
-      showAlert(`${successCount} lead(s) assigned, ${failCount} failed. Check console.`, "warning");
-    } else {
-      showAlert("All lead assignments failed.", "error");
+      if (successCount > 0 && failCount === 0) {
+        showAlert(`${successCount} lead(s) assigned to ${targetName}.`, "success");
+      } else if (successCount > 0) {
+        showAlert(`${successCount} assigned to ${targetName}, ${failCount} failed.`, "warning");
+      } else {
+        const reason = errors?.[0]?.reason ? ` (${errors[0].reason})` : "";
+        showAlert(`Assignment failed${reason}.`, "error");
+      }
+      resetSelection();
+      setSelectedExecutive("");
+      setSelectedProcess("");
+      refreshList();
+    } catch (err) {
+      console.error("Assignment failed", err);
+      showAlert(err?.message || "Assignment failed.", "error");
+    } finally {
+      hideLoader();
+      setIsAssigning(false);
     }
   };
 
-useEffect(() => {
-  let filtered = [...allClients];
-
-  switch (filterType) {
-    case "unassigned":
-      filtered = filtered.filter((lead) => !lead.assignedToExecutive);
-      break;
-    case "converted":
-      filtered = filtered.filter((lead) => lead.status === "Converted");
-      break;
-    case "new":
-      filtered = filtered.filter((lead) => lead.status === "New");
-      break;
-    case "followup":
-      filtered = filtered.filter((lead) => lead.status === "Follow-Up");
-      break;
-    case "fresh":
-      filtered = filtered.filter((lead) => lead.status === "Assigned");
-      break;
-    case "meeting":
-      filtered = filtered.filter((lead) => lead.status === "Meeting");
-      break;
-    case "closed":
-      filtered = filtered.filter((lead) => lead.status === "Closed");
-      break;
-    default:
-      break;
-  }
-
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / leadsPerPage);
-  const newPage = currentPage > totalPages ? 1 : currentPage;
-  const offset = (newPage - 1) * leadsPerPage;
-  const paginated = filtered.slice(offset, offset + leadsPerPage);
-
-  setLeads(paginated);
-  setTotalLeads(total);
-  setCurrentPage(newPage);
-}, [filterType, allClients, currentPage, leadsPerPage]);
+  // ---- edit / delete ------------------------------------------------------
+  const toggleExpandLead = (leadId) =>
+    setExpandedLeads((prev) => ({ ...prev, [leadId]: !prev[leadId] }));
 
   const handleEditClick = (lead) => {
     setEditingLead({ ...lead });
     setIsEditModalOpen(true);
   };
-
   const handleCloseModal = () => {
     setIsEditModalOpen(false);
     setEditingLead(null);
   };
-
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     setEditingLead((prev) => ({ ...prev, [name]: value }));
   };
-
   const handleSaveEdit = async () => {
     if (!editingLead) return;
     try {
       await updateClientLead(editingLead.id, editingLead);
-      const updatedLeads = leads.map((lead) =>
-        lead.id === editingLead.id ? { ...lead, ...editingLead } : lead
-      );
-      setLeads(updatedLeads);
-      setAllClients(
-        allClients.map((lead) =>
-          lead.id === editingLead.id ? { ...lead, ...editingLead } : lead
-        )
-      );
+      setLeads((prev) => prev.map((l) => (l.id === editingLead.id ? { ...l, ...editingLead } : l)));
       showAlert("Lead updated successfully.", "success");
       handleCloseModal();
     } catch (error) {
@@ -415,296 +351,255 @@ useEffect(() => {
       showAlert("Failed to update lead.", "error");
     }
   };
-
-  const handleDeleteClick = async (leadId) => {
+  const handleDeleteClick = (leadId) => {
     const confirmDelete = () => {
       deleteClientLead(leadId)
         .then(() => {
-          const updatedLeads = leads.filter((lead) => lead.id !== leadId);
-          setLeads(updatedLeads);
-          setAllClients(allClients.filter((lead) => lead.id !== leadId));
-          setTotalLeads(totalLeads - 1);
+          setSelected((prev) => {
+            const next = { ...prev };
+            delete next[leadId];
+            return next;
+          });
           showAlert("Lead deleted successfully.", "success");
-        })
-        .then(() => {
-          const updatedLeads = leads.filter((lead) => lead.id !== leadId);
-          setLeads(updatedLeads);
-          setAllClients(allClients.filter((lead) => lead.id !== leadId));
-          setTotalLeads(totalLeads - 1);
-          showAlert("Lead deleted successfully.", "success");
+          refreshList();
         })
         .catch((error) => {
           console.error("❌ Error deleting lead:", error);
           showAlert("Failed to delete lead.", "error");
         });
     };
-
-    showAlert(
-      "Are you sure you want to delete this lead?",
-      "warning",
-      "Confirm Deletion",
-      0,
-      confirmDelete
-    );
+    showAlert("Are you sure you want to delete this lead?", "warning", "Confirm Deletion", 0, confirmDelete);
   };
 
-  const handleProcessChange = (e) => setSelectedProcess(e.target.value);
+  const employeeList = isProcessMode ? processPersons : executives;
+  const employeeValue = isProcessMode ? selectedProcess : selectedExecutive;
+  const setEmployee = (v) => (isProcessMode ? setSelectedProcess(v) : setSelectedExecutive(v));
 
-  useEffect(() => {
-    const fetchProcessPersons = async () => {
-      try {
-        const persons = await getAllProcessPersons();
-        setProcessPersons(persons.processPersons);
-      } catch (err) {
-        console.error("Failed to load process persons", err);
-      } finally {
-        //setLoading(false);
-      }
-    };
-
-    fetchProcessPersons();
-  }, [getAllProcessPersons]);
-
-  const [previousFilterType, setPreviousFilterType] = useState("all");
-
-  useEffect(() => {
-    const loadDataByView = async () => {
-      if (viewMode === "process") {
-        setPreviousFilterType(filterType);
-        await getAllConvertedClients();
-        handleFilterChange("converted");
-      } else {
-        await getAllLeads();
-        handleFilterChange(previousFilterType);
-      }
-    };
-
-    loadDataByView();
-}, [viewMode, filterType, getAllConvertedClients, getAllLeads, previousFilterType]);
-
-  const handleImportToProcess = async () => {
-    if (!selectedProcess) {
-      showAlert("Select a process person first.", "warning");
-      return;
-    }
-    if (selectedLeads.length === 0) {
-      showAlert("Select at least one client.", "warning");
-      return;
-    }
-
-    try {
-      showLoader("Importing clients...", "admin");
-      const resp = await createProcesstoConverted({
-        processPersonId: selectedProcess,
-        selectedClientIds: selectedLeads,
-      });
-      hideLoader();
-      showAlert(resp.message || "Clients imported successfully.", "success");
-      setSelectedLeads([]);
-      await getAllConvertedClients();
-      handleFilterChange("converted");
-      setCurrentPage(1);
-    } catch (err) {
-      hideLoader();
-      console.error(err);
-      showAlert("Import failed, check console.", "error");
-    }
-  };
+  const tabCount = (tab) => statusCounts[tab.countKey] ?? 0;
 
   return (
     <div className={`f-lead-content ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <SidebarToggle />
       <div className="leads-dashboard" data-theme={theme}>
-        {isLoading && variant === "admin" && (
-          <AdminSpinner text="Loading Lead Assign..." />
-        )}
+        {isLoading && variant === "admin" && <AdminSpinner text="Loading Lead Assign..." />}
         <Alert alerts={alerts} onClose={closeAlert} />
-        <div style={{ display: "flex" }}>
-          <div className="Logo">Lead Assign</div>
-          <div className="toggle-slider-wrapper" style={{ marginLeft: "20px" }}>
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={viewMode === "process"}
-                onChange={() => {
-                  setViewMode((prev) => {
-                    const newMode = prev === "executive" ? "process" : "executive";
-                    if (newMode === "process") {
-                      setPreviousFilterType(filterType);
-                      handleFilterChange("converted");
-                    } else {
-                      handleFilterChange(previousFilterType);
-                      getAllLeads();
-                    }
-                    return newMode;
-                  });
-                }}
-              />
-              <span className="toggle-slider" />
-            </label>
-            <span className="toggle-label">
-              {viewMode === "executive" ? "Executive" : "Process"}
-            </span>
+
+        <div className="Logo">Lead Assign</div>
+
+        {/* 1 + 2: who receives the leads */}
+        <div className="la-panel">
+          <div className="la-step">
+            <span className="la-step-title">1. Assign to</span>
+            <div className="la-segmented" role="tablist" aria-label="Assignment type">
+              {[
+                ["executive", "Executive"],
+                ["process", "Process Person"],
+              ].map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === mode}
+                  className={`la-seg-btn ${viewMode === mode ? "active" : ""}`}
+                  onClick={() => handleModeChange(mode)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="taskmanage-header">
-          <div className="header-actions">
-            {viewMode === "executive" && (
-              <select value={selectedExecutive} onChange={handleExecutiveChange}>
-                <option value=""> Select Executive </option>
-                {executives.map((exec) => (
-                  <option key={exec.id} value={String(exec.id)}>
-                    {exec.username}
-                  </option>
-                ))}
-              </select>
-            )}
-            {viewMode === "process" && (
-              <>
-                <select value={selectedProcess} onChange={handleProcessChange}>
-                  <option value="">Select Process </option>
-                  {processPersons.map((proc) => (
-                    <option key={proc.id} value={proc.id}>
-                      {proc.fullName}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-            <select value={selectedRange} onChange={handleRangeChange}>
-              <option value="">Default Sorting</option>
-              <option value="1-10">1 - 10</option>
-              <option value="11-20">11 - 20</option>
-              <option value="21-50">21 - 50</option>
-              <option value="51-100">51 - 100</option>
-            </select>
+          <div className="la-step">
+            <label className="la-step-title" htmlFor="la-employee">
+              2. Select {isProcessMode ? "process person" : "executive"}
+            </label>
             <select
-    value={leadsPerPage}
-    onChange={(e) => setLeadsPerPage(Number(e.target.value))}
-  >
-    <option value={10}>10 per page</option>
-    <option value={20}>20 per page</option>
-    <option value={50}>50 per page</option>
-  </select>
-            <div className="header-sort-filter">
-              <button className="gradient-button" onClick={toggleSelectAll}>
-                Select/Unselect All Leads
-              </button>
+              id="la-employee"
+              className="la-select"
+              value={employeeValue}
+              onChange={(e) => setEmployee(e.target.value)}
+            >
+              <option value="">
+                {isProcessMode ? "Choose a process person" : "Choose an executive"}
+              </option>
+              {employeeList.map((emp) => (
+                <option key={emp.id} value={String(emp.id)}>
+                  {isProcessMode ? emp.fullName : emp.username}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="la-step la-actions">
+            <span className="la-step-title">4. Assign</span>
+            <div className="la-action-row">
               <button
-                className="gradient-button"
-                onClick={() => {
-                  if (viewMode === "executive") {
-                    assignLeads();
-                  } else {
-                    handleImportToProcess();
-                  }
-                }}
+                type="button"
+                className="la-btn la-btn-primary"
+                onClick={handleAssign}
+                disabled={isAssigning}
               >
-                Assign
+                Assign{selectedList.length ? ` (${selectedList.length})` : ""}
               </button>
-              <button className="gradient-button" onClick={() => setSelectedLeads([])}>
+              <button type="button" className="la-btn" onClick={handleReset}>
                 Reset
               </button>
             </div>
-               <div className="lead-filter-buttons">
-   {(viewMode === "executive"
-    ? ["all", "new", "fresh", "followup", "converted", "closed", "meeting"]
-    : ["converted", "unassigned"]
-  ).map((type) => (
-    <button
-      key={type}
-      className={`lead-filter-btn ${filterType === type ? "active" : ""}`}
-      onClick={() => handleFilterChange(type)}
-    >
-      {type.charAt(0).toUpperCase() + type.slice(1)}
-    </button>
-  ))}
-    </div>
           </div>
         </div>
-        <div className="scrollable-container">
-          <div className="leads-table">
-            <div className="leads-header">
-              <span>All customers ({totalLeads})</span>
-              <span className="source-header">Source</span>
-              <span className="assign-header">Assigned To</span>
-              <span></span>
-            </div>
-            {paginatedLeads.map((lead) => (
-              <div key={lead.id} className="lead-row">
-                <div className="lead-details">
-                  <div className="lead-info-container">
-                    <input
-                      type="checkbox"
-                      className="lead-checkbox"
-                      checked={selectedLeads.includes(String(lead.id))}
-                      onChange={() => handleLeadSelection(lead.id)}
-                      disabled={viewMode === "process" && lead.assignedToExecutive}
-                    />
-                    <span className="container-icon">👤</span>
-                    <div className="admin-lead-info">
-                      <span>Name: {lead.name}</span>
-                      <span>
-                        Email: {lead.email}
-                        {!expandedLeads[lead.id] && (
-                          <button
-                            className="see-more-btn-inline"
-                            onClick={() => toggleExpandLead(lead.id)}
-                          >
-                            See more...
-                          </button>
-                        )}
-                      </span>
-                      {expandedLeads[lead.id] && (
-                        <div>
-                          <span>Phone No: {lead.phone}</span>
-                          <span>Education: {lead.education || "N/A"}</span>
-                          <span>Experience: {lead.experience || "N/A"}</span>
-                          <span>State: {lead.state || "N/A"}</span>
-                          <span>Country: {lead.country || "N/A"}</span>
-                          <span>DOB: {lead.dob || "N/A"}</span>
-                          <span>Lead Assign Date: {lead.leadAssignDate || "N/A"}</span>
-                          <span>
-                            Country Preference: {lead.countryPreference || "N/A"}
-                            <button
-                              className="see-more-btn-inline"
-                              onClick={() => toggleExpandLead(lead.id)}
-                            >
-                              See less...
-                            </button>
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="lead-source">{lead.source || "Unknown"}</div>
-                  <div className="lead-assign">{lead.assignedToExecutive || "Unassigned"}</div>
-                  <div className="lead-actions">
-                    <button className="edit" onClick={() => handleEditClick(lead)}>
-                      Edit
-                    </button>
-                    <button
-                      className="delete"
-                      onClick={() => handleDeleteClick(lead.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
+        {isProcessMode && (
+          <div className="la-hint">
+            Process Persons can receive Converted leads only, whoever converted them.
+          </div>
+        )}
+
+        {/* 3: which leads */}
+        <div className="la-filter-bar">
+          <span className="la-step-title">3. Pick leads</span>
+          <div className="lead-filter-buttons la-tabs" role="tablist" aria-label="Lead status">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={statusTab === tab.key}
+                className={`lead-filter-btn ${statusTab === tab.key ? "active" : ""}`}
+                onClick={() => handleStatusTab(tab.key)}
+              >
+                {tab.label} <span className="la-count">{tabCount(tab)}</span>
+              </button>
             ))}
           </div>
-          {leads.length > 0 && showPagination && (
+          <div className="la-list-controls">
+            <input
+              type="search"
+              className="la-search"
+              placeholder="Search name, email or phone"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              aria-label="Search leads"
+            />
+            <select
+              className="la-select la-select-sm"
+              value={leadsPerPage}
+              onChange={(e) => {
+                setLeadsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              aria-label="Leads per page"
+            >
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="scrollable-container">
+          <div className="leads-table">
+            <div className="la-list-header">
+              <label className="la-select-all">
+                <input
+                  type="checkbox"
+                  className="lead-checkbox"
+                  checked={allOnPageSelected}
+                  onChange={togglePage}
+                  disabled={selectableOnPage.length === 0}
+                  aria-label="Select all leads on this page"
+                />
+                Select all on this page
+              </label>
+              <span>
+                {totalLeads} lead{totalLeads === 1 ? "" : "s"} · {selectedList.length} selected
+              </span>
+            </div>
+
+            {!listLoading && leads.length === 0 && (
+              <div className="la-empty">No leads found for this filter.</div>
+            )}
+
+            {leads.map((lead) => {
+              const selectable = isSelectable(lead);
+              const assignedLabel = isProcessMode
+                ? lead.assignedToProcess || "Not assigned"
+                : lead.assignedToExecutive || "Unassigned";
+              return (
+                <div key={lead.id} className={`lead-row ${selected[lead.id] ? "la-row-selected" : ""}`}>
+                  <div className="lead-details">
+                    <div className="lead-info-container">
+                      <input
+                        type="checkbox"
+                        className="lead-checkbox"
+                        checked={!!selected[lead.id]}
+                        onChange={() => toggleLead(lead)}
+                        disabled={!selectable}
+                        title={selectable ? "" : "Only Converted leads can go to a Process Person"}
+                        aria-label={`Select ${lead.name}`}
+                      />
+                      <span className="container-icon">👤</span>
+                      <div className="admin-lead-info">
+                        <span>
+                          <strong>{lead.name}</strong>
+                          <span className="la-status-badge">{lead.status}</span>
+                        </span>
+                        <span>
+                          {lead.email}
+                          {!expandedLeads[lead.id] && (
+                            <button className="see-more-btn-inline" onClick={() => toggleExpandLead(lead.id)}>
+                              See more...
+                            </button>
+                          )}
+                        </span>
+                        {expandedLeads[lead.id] && (
+                          <div>
+                            <span>Phone No: {lead.phone}</span>
+                            <span>Education: {lead.education || "N/A"}</span>
+                            <span>Experience: {lead.experience || "N/A"}</span>
+                            <span>State: {lead.state || "N/A"}</span>
+                            <span>Country: {lead.country || "N/A"}</span>
+                            <span>DOB: {lead.dob || "N/A"}</span>
+                            <span>Lead Assign Date: {lead.leadAssignDate || "N/A"}</span>
+                            <span>
+                              Country Preference: {lead.countryPreference || "N/A"}
+                              <button className="see-more-btn-inline" onClick={() => toggleExpandLead(lead.id)}>
+                                See less...
+                              </button>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="lead-source">{lead.source || "Unknown"}</div>
+                    <div className="lead-assign" title={isProcessMode ? "Process Person" : "Executive"}>
+                      {assignedLabel}
+                    </div>
+                    <div className="lead-actions">
+                      <button className="edit" onClick={() => handleEditClick(lead)}>
+                        Edit
+                      </button>
+                      <button className="delete" onClick={() => handleDeleteClick(lead.id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {totalLeads > 0 && (
             <div className="pagination-controls">
-              <button onClick={handlePrev} disabled={currentPage === 1} aria-label="Previous page">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+              >
                 Prev
               </button>
               <span className="page-indicator">
                 Page {currentPage} of {totalPages}
               </span>
               <button
-                onClick={handleNext}
-                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
                 aria-label="Next page"
               >
                 Next
@@ -819,9 +714,3 @@ useEffect(() => {
 };
 
 export default TaskManagement;
-
-
-
-
-
-

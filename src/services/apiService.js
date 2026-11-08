@@ -107,15 +107,15 @@ export const fetchLeadsAPI = async (limit = 10, offset = 0) => {
 };
 
 // ✅ Function to fetch assigned leads by executive name
-export const fetchAssignedLeads = async (executiveName) => {
+export const fetchAssignedLeads = async (executiveName, range = {}) => {
   try {
     if (!executiveName) {
       console.error("🚨 Executive name is missing!");
       throw new Error("Executive name not provided!");
     }
-    const response = await apiService.get(
-      `/client-leads/executive?executiveName=${executiveName}`
-    );
+    const response = await apiService.get("/client-leads/executive", {
+      params: { executiveName, ...range },
+    });
     return response.data.leads;
   } catch (error) {
     console.error("❌ Error fetching assigned leads:", error);
@@ -710,9 +710,11 @@ export const resendExecutiveOtp = async (email) => {
     throw error;
   }
 };
-export const fetchAllClientLeads = async () => {
+// params (all optional): { status, page, limit, search } — filtering and
+// pagination happen server-side (ClientLead.controller getAllClientLeads).
+export const fetchAllClientLeads = async (params = {}) => {
   try {
-    const response = await apiService.get("/client-leads/getAllClientLeads");
+    const response = await apiService.get("/client-leads/getAllClientLeads", { params });
     return response.data;
   } catch (error) {
     console.error("❌ Error fetching all executive activities:", error);
@@ -862,16 +864,6 @@ export const getEmailTemplateById = async (templateId) => {
   }
 };
 
-// ✅ Fetch weekly call durations for a given executive
-export const fetchExecutiveCallDurations = async (executiveId) => {
-  try {
-    const response = await apiService.get(`/calldetails/call-duration-weekly/${executiveId}`);
-    return response.data; 
-  } catch (error) {
-    console.error(`❌ Error fetching call durations for executive ${executiveId}:`, error);
-    throw error;
-  }
-};
 export const markMultipleNotificationsAsRead = async (notificationIds) => {
   try {
     const response = await apiService.post("/notification/mark-multiple-read", {
@@ -1037,9 +1029,9 @@ export const getAllTeamMembers = async (team_id) => {
     throw error;
   } 
 };
-export const fetchMeetingsByExecutive = async (executiveName) => {
+export const fetchMeetingsByExecutive = async (executiveName, range = {}) => {
   try {
-    const response = await apiService.get(`/meetings/admin/${encodeURIComponent(executiveName)}`);
+    const response = await apiService.get(`/meetings/admin/${encodeURIComponent(executiveName)}`, { params: range });
     return response.data.data;
   } catch (error) {
     console.error("❌ Error fetching meetings by executive:", error);
@@ -1069,39 +1061,61 @@ export const updateHrProfile = async (hrId, updateData) => {
 };
 
 // ---- CONVERTED ----
-export const fetchConvertedByExecutive = async (execName) => {
-  const res = await apiService.get(`/converted/admin/${encodeURIComponent(execName.trim())}`);
+export const fetchConvertedByExecutive = async (execName, range = {}) => {
+  const res = await apiService.get(`/converted/admin/${encodeURIComponent(execName.trim())}`, { params: range });
   return res.data.data;
 };
 
-export const fetchClosedByExecutive = async (execName) => {
-  const res = await apiService.get(`/close-leads/by-executive/${encodeURIComponent(execName)}`);
+export const fetchClosedByExecutive = async (execName, range = {}) => {
+  const res = await apiService.get(`/close-leads/by-executive/${encodeURIComponent(execName)}`, { params: range });
   return res.data.data;
 };
 
-export const fetchFollowUpsByExecutive = async (execName) => {
-  const res = await apiService.get(`/followup/by-executive/${encodeURIComponent(execName)}`);
-  return res.data.data;
+// Lead Performance Overview (admin dashboard): { total, byStatus, assignedToProcessPersons }
+export const fetchLeadPerformance = async () => {
+  const res = await apiService.get("/client-leads/lead-performance");
+  return res.data;
 };
-export const fetchCallTimeByRange = async (executiveIds, startDate, endDate) => {
-  try {
-    const results = [];
-
-    for (const id of executiveIds) {
-      const response = await apiService.get(
-        `/calldetails/call-time/${id}?startDate=${startDate}&endDate=${endDate}`
-      );
-      results.push({
-        executiveId: id,
-        totalCallTimeHours: response.data.totalCallTimeHours || 0,
-      });
-    }
-
-    return results;
-  } catch (error) {
-    console.error("❌ Error fetching call time by range (GET):", error);
-    throw error;
-  }
+// Admin dashboard sections. Date params are YYYY-MM-DD and optional.
+export const fetchExecutivePerformance = async (params = {}) => {
+  const res = await apiService.get("/client-leads/executive-performance", { params });
+  return res.data.executives || [];
+};
+export const fetchProcessPersonPerformance = async (params = {}) => {
+  const res = await apiService.get("/processperson/performance", { params });
+  return res.data.processPersons || [];
+};
+export const fetchRecentLeadActivity = async (limit = 8) => {
+  const res = await apiService.get("/client-leads/recent-activity", { params: { limit } });
+  return res.data.activity || [];
+};
+// Full Report: everything the report needs for one executive, optionally limited
+// to { startDate, endDate } (YYYY-MM-DD). Failures throw (so the page can show an
+// error state); an executive with no leads in the range is simply empty.
+export const fetchExecutiveReport = async (username, range = {}) => {
+  const orEmpty = (p) =>
+    p.catch((err) => {
+      if (err?.response?.status === 404) return [];
+      throw err;
+    });
+  const [leads, followUps, converted, closed, meetings] = await Promise.all([
+    orEmpty(fetchAssignedLeads(username, range)),
+    orEmpty(fetchFollowUpsByExecutive(username, range)),
+    orEmpty(fetchConvertedByExecutive(username, range)),
+    orEmpty(fetchClosedByExecutive(username, range)),
+    orEmpty(fetchMeetingsByExecutive(username, range)),
+  ]);
+  return {
+    leads: leads || [],
+    followUps: followUps || [],
+    converted: converted || [],
+    closed: closed || [],
+    meetings: meetings || [],
+  };
+};
+export const fetchFollowUpsByExecutive = async (execName, range = {}) => {
+  const res = await apiService.get(`/followup/by-executive/${encodeURIComponent(execName)}`, { params: range });
+  return res.data.data;
 };
 export const fetchExecutiveSummaryByRange = async (
   executiveId,
@@ -1121,7 +1135,7 @@ export const fetchExecutiveSummaryByRange = async (
 export const fetchOrganizationHierarchy = async () => {
   try {
     const response = await apiService.get("/organization/graph");
-    return response.data.hierarchy; // Return only the hierarchy array
+    return response.data; // { hierarchy (roots), unassigned, summary }
   } catch (error) {
     console.error("❌ Error fetching organization hierarchy:", error.response?.data || error.message);
     throw error;

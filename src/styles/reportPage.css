@@ -1,0 +1,93 @@
+/* Full Report (rp-*). Shares KPI/panel/table styles (ad-*) with the Admin dashboard. */
+.rp-page { height: 100vh; overflow-y: auto; padding: 18px 22px 32px; color: var(--text-color); background: var(--bg-color); }
+.rp-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.rp-title { margin: 0; font-size: 24px; font-weight: 700; }
+.rp-sub { margin: 2px 0 0; font-size: 13px; opacity: 0.7; }
+.rp-tabs { display: inline-flex; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--card-bg); }
+.rp-tabs button { padding: 9px 16px; border: 0; background: transparent; color: var(--text-color); cursor: pointer; font-size: 14px; }
+.rp-tabs button.is-active { background: var(--primary-color); color: #fff; }
+
+.rp-section { display: flex; flex-direction: column; gap: 18px; }
+.rp-toolbar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; padding: 14px 16px;
+  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: var(--box-shadow);
+}
+.rp-help, .rp-period { margin: 0; font-size: 13px; opacity: 0.75; }
+
+/* Picker */
+.rp-picker { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 280px; flex: 1 1 280px; max-width: 520px; }
+.rp-picker-label, .rp-range label span { font-size: 12px; font-weight: 600; opacity: 0.75; }
+.rp-picker-field {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 10px; min-height: 40px;
+  border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); cursor: text;
+}
+.rp-picker-field:focus-within { border-color: var(--primary-color); }
+.rp-picker-icon { opacity: 0.5; font-size: 13px; }
+.rp-picker-field input[role="combobox"] { flex: 1; min-width: 110px; border: 0; outline: 0; background: transparent; color: var(--text-color); font-size: 14px; padding: 4px 0; }
+.rp-clear, .rp-chip button, .rp-icon-btn { background: transparent; border: 0; color: inherit; cursor: pointer; padding: 2px; display: inline-grid; place-items: center; }
+.rp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; font-size: 13px; border-radius: 14px; background: rgba(37, 99, 235, 0.14); }
+.rp-picker-hint { font-size: 11.5px; opacity: 0.65; }
+.rp-options {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; margin: 0; padding: 4px; list-style: none;
+  max-height: 240px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.rp-option { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+.rp-option.is-active, .rp-option:hover { background: rgba(127, 127, 127, 0.14); }
+.rp-option.is-selected { font-weight: 600; }
+.rp-option.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.rp-option-empty { padding: 8px 10px; font-size: 13px; opacity: 0.7; }
+
+/* Range */
+.rp-range { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.rp-range label { display: flex; flex-direction: column; gap: 4px; }
+.rp-range select, .rp-range input { padding: 9px 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--card-bg); color: var(--text-color); min-width: 150px; }
+.rp-range-error { color: #ef4444; font-size: 12.5px; }
+
+.rp-primary, .rp-export button, .rp-pager button, .rp-error button {
+  padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); cursor: pointer; font-size: 14px;
+}
+.rp-primary { background: var(--primary-color); border-color: var(--primary-color); color: #fff; font-weight: 600; }
+.rp-primary:disabled, .rp-export button:disabled, .rp-pager button:disabled { opacity: 0.5; cursor: not-allowed; }
+.rp-export { display: flex; gap: 8px; }
+
+/* KPI row (5 cards) */
+.rp-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.rp-kpi { text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.rp-kpi > span:last-child { display: flex; flex-direction: column; }
+.rp-kpi.is-active { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+
+.rp-pager { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding-top: 12px; font-size: 13px; }
+
+/* States */
+.rp-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 56px 16px; text-align: center; opacity: 0.85;
+  background: var(--card-bg); border: 1px dashed var(--border-color); border-radius: 10px; }
+.rp-empty h3 { margin: 6px 0 0; font-size: 17px; }
+.rp-empty p { margin: 0; font-size: 13.5px; opacity: 0.75; max-width: 420px; }
+.rp-error { padding: 12px 16px; border-radius: 8px; color: #b91c1c; background: rgba(239, 68, 68, 0.12); display: flex; gap: 12px; align-items: center; }
+.rp-warning { padding: 10px 14px; border-radius: 8px; color: #92400e; background: rgba(245, 158, 11, 0.16); font-size: 13.5px; }
+
+/* Compare */
+.rp-compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+.rp-compare-card { padding: 14px 16px; background: var(--card-bg); border: 1px solid var(--border-color); border-top: 4px solid var(--primary-color); border-radius: 10px; box-shadow: var(--box-shadow); }
+.rp-compare-card h3 { margin: 0 0 8px; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-compare-card dl { margin: 0; display: grid; gap: 4px; }
+.rp-compare-card dl > div { display: flex; justify-content: space-between; font-size: 13.5px; padding: 2px 0; }
+.rp-compare-card dt { opacity: 0.75; }
+.rp-compare-card dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rp-compare-card .is-best dd { color: #10b981; }
+.rp-chart { width: 100%; min-width: 0; }
+.rp-insights { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+
+/* Modal */
+.rp-modal-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: rgba(0, 0, 0, 0.45); padding: 16px; }
+.rp-modal { position: relative; width: min(520px, 100%); max-height: 80vh; overflow-y: auto; padding: 20px; background: var(--card-bg); color: var(--text-color); border-radius: 12px; }
+.rp-modal h3 { margin: 0 0 12px; font-size: 17px; padding-right: 28px; }
+.rp-modal-close { position: absolute; top: 12px; right: 12px; background: transparent; border: 0; color: inherit; cursor: pointer; }
+
+@media (max-width: 1100px) { .rp-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .rp-page { padding: 14px 12px 28px; }
+  .rp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rp-picker, .rp-range label, .rp-range select, .rp-range input { width: 100%; max-width: none; }
+  .rp-toolbar { align-items: stretch; }
+}

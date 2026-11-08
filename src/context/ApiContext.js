@@ -264,7 +264,6 @@ const fetchExecutives = useCallback(async () => {
   const [activityData, setActivityData] = useState({
     breakTime: 0,
     workTime: 0,
-    callTime: 0,
   });
 
   // ✅ Get Executive Activity - Updated to filter by current date
@@ -278,31 +277,26 @@ const getExecutiveActivity = useCallback(async (executiveId) => {
 
     let totalBreakTime = 0;
     let totalWorkTime = 0;
-    let totalCallTime = 0;
 
     if (Array.isArray(data)) {
       const todayActivities = data.filter(record => record.activityDate === today);
       todayActivities.forEach(record => {
         totalBreakTime += record.breakTime || 0;
         totalWorkTime += record.workTime || 0;
-        totalCallTime += record.dailyCallTime || 0;
       });
     } else if (data?.activityDate === today) {
       totalBreakTime = data.breakTime || 0;
       totalWorkTime = data.workTime || 0;
-      totalCallTime = data.dailyCallTime || 0;
     }
 
     setActivityData({
       breakTime: totalBreakTime,
       workTime: totalWorkTime,
-      callTime: totalCallTime,
     });
 
     console.log('✅ Activity totals for today:', {
       totalWorkTime,
-      totalBreakTime,
-      totalCallTime
+      totalBreakTime
     });
 
   } catch (error) {
@@ -822,11 +816,13 @@ const fetchFollowUpClientsAPI = async () => {
 };
 const [allClientsLoading, setallClientsLoading] = useState(false);
 const[allClients,setAllClients]=useState();
-  const fetchAllClients= useCallback(async () => {
+  const fetchAllClients= useCallback(async (params) => {
     setallClientsLoading(true);
     try {
-      const data = await apiService.fetchAllClientLeads(); // already defined in your services
-      setAllClients(data|| [])
+      const data = await apiService.fetchAllClientLeads(params); // already defined in your services
+      // Only the unfiltered call feeds shared context state; the Lead Assign
+      // page passes params and keeps its own page-scoped results.
+      if (!params) setAllClients(data|| [])
       return data || [];
     } catch (error) {
       console.error("❌ Error fetching executive dashboard data:", error);
@@ -1101,15 +1097,6 @@ const [emailTemplates, setEmailTemplates] = useState([]);
     }
   }, []);
 
-  const fetchExecutiveCallDurations = async (executiveId) => {
-    try {
-      const { weeklyData } = await apiService.fetchExecutiveCallDurations(executiveId);
-      return { weeklyData }; // ✅ clean return
-    } catch (error) {
-      console.error("❌ Error fetching executive call durations:", error);
-      return { weeklyData: [0, 0, 0, 0, 0, 0, 0] };
-    }
-  };
 
   
   // Create a new leave application
@@ -1295,7 +1282,7 @@ const assignExecutiveToTeam = async ({ teamId, executiveId, managerId }) => {
     throw error;
   }
 };
-const [organizationHierarchy, setOrganizationHierarchy] = useState([]);
+const [organizationHierarchy, setOrganizationHierarchy] = useState(null);
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   // ✅ New: Fetch Organization Hierarchy
 
@@ -1303,11 +1290,11 @@ const fetchOrganizationHierarchyAPI = useCallback(async () => {
     setHierarchyLoading(true);
     try {
       const data = await apiService.fetchOrganizationHierarchy();
-      setOrganizationHierarchy(data || []);
-      return data || [];
+      setOrganizationHierarchy(data || null);
+      return data || null;
     } catch (error) {
       console.error("❌ Error fetching organization hierarchy:", error);
-      return [];
+      return null;
     } finally {
       setHierarchyLoading(false);
     }
@@ -1469,15 +1456,6 @@ const updateHrProfileById = async (hrId, updateData) => {
     throw error;
   }
 };
-const fetchCallTimeByRangeAPI = async (executiveIds, startDate, endDate) => {
-  if (!executiveIds || !startDate || !endDate) return [];
-  try {
-    return await apiService.fetchCallTimeByRange(executiveIds, startDate, endDate);
-  } catch (err) {
-    console.error("❌ Error in call time range context API:", err);
-    return [];
-  }
-};
 const [summaryLoading, setSummaryLoading] = useState(false);
 
 const fetchExecutiveSummaryByRangeAPI = async (
@@ -1634,8 +1612,13 @@ if (currentUser?.id) {
     fetchConvertedByExecutive,
     fetchClosedByExecutive,
     fetchFollowUpsByExecutive,
+    fetchLeadPerformance: apiService.fetchLeadPerformance,
+    fetchExecutiveReport: apiService.fetchExecutiveReport,
+    fetchExecutiveActivityRange: apiService.fetchExecutiveSummaryByRange,
+    fetchExecutivePerformance: apiService.fetchExecutivePerformance,
+    fetchProcessPersonPerformance: apiService.fetchProcessPersonPerformance,
+    fetchRecentLeadActivity: apiService.fetchRecentLeadActivity,
     // Follow-ups
-    fetchCallTimeByRangeAPI,
     createFollowUp,
     fetchFreshLeadsAPI,
     updateMeetingAPI,
@@ -1643,7 +1626,6 @@ if (currentUser?.id) {
     fetchMeetingsByExecutive,
     createCloseLeadAPI,
     fetchAllCloseLeadsAPI,
-    fetchExecutiveCallDurations,
     createConvertedClientAPI,
     fetchConvertedClientsAPI,
     // Follow-up Histories
@@ -1843,7 +1825,6 @@ summaryLoading,
               allHRs,
               allHRsLoading,
               fetchAllHRsAPI,
-              fetchCallTimeByRangeAPI,
               allManagers,
               allManagersLoading,
               fetchAllManagersAPI,
