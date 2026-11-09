@@ -111,9 +111,9 @@ useEffect(() => {
               </Link>
             </li>
             <li>
-              <Link to="/admin/executiveform" className="admin-aside-link" data-tooltip="Create Executive">
+              <Link to="/admin/executiveform" className="admin-aside-link" data-tooltip="User Management">
                 <UserPlus className="admin-aside-icon" />
-                <span className="sidebar-label">Create Executive</span>
+                <span className="sidebar-label">User Management</span>
               </Link>
             </li>
             <li>

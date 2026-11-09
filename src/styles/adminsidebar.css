@@ -390,3 +390,18 @@
 .admin-menu_toggle:hover {
   animation: buttonPulseZoom 1.5s infinite ease-in-out;
 }
+
+/* Sidebar text/icons: white on the purple background in every theme.
+   Higher specificity than the legacy `.admin-aside-link { color:#333 }`
+   in admin.css so it wins regardless of stylesheet order. Hover/active
+   backgrounds and the per-item hover icon accents above are unchanged. */
+.admin-sidebar .admin-aside-link,
+.admin-sidebar .admin-aside-link:visited,
+.admin-sidebar .sidebar-label,
+.admin-sidebar .sidebar-section,
+.admin-sidebar .admin-header-wrapper .highlight {
+  color: #fff;
+}
+.admin-sidebar .admin-aside-icon {
+  color: #fff;
+}

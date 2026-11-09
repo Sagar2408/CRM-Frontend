@@ -34,6 +34,7 @@ import ProcessDashboardRoutes from "./routes/ProcessDashboardRoutes";
 import ClientCustomerRoutes from "./routes/ClientCustomer";
 import SessionTimeout from "./features/authentication/SessionTimeout";
 import InsufficientBalanceModal from "./features/authentication/InsufficientBalanceModal";
+import PresenceConnector from "./features/PresenceConnector";
 const App = () => {
   const [followUpText, setFollowUpText] = useState(() => {
     const saved = localStorage.getItem('followUpText');
@@ -70,6 +71,7 @@ useEffect(() => {
     <ThemeProvider>
       <SessionTimeout timeout={45 * 60 * 1000} />
       <InsufficientBalanceModal />
+      <PresenceConnector />
 
       <Routes>
       <Route path="/admin/login" element={<Login userType="admin" />} />

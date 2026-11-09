@@ -2,6 +2,7 @@
 import React from 'react';
 import DashboardCards from '../features/masteruser/DashboardCards';
 import MasterDashboard from '../features/masteruser/MasterDashboard';
+import SupportQueries from '../features/masteruser/SupportQueries';
 import '../styles/masterdash.css';
 
 const MasterDash = () => {
@@ -12,6 +13,7 @@ const MasterDash = () => {
         <p className="master-subtitle">View and manage all registered companies.</p>
         <DashboardCards />
         <MasterDashboard />
+        <SupportQueries />
       </div>
     </div>
   );

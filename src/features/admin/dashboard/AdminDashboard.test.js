@@ -9,6 +9,7 @@ jest.mock("react-chartjs-2", () => ({
   ),
 }));
 jest.mock("chart.js/auto", () => ({}));
+jest.mock("./EmployeeLiveStatus", () => () => null); // covered by its own test
 
 import AdminDashboard, { rangeFor } from "./AdminDashboard";
 

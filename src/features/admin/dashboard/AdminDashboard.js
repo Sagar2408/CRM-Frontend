@@ -14,6 +14,7 @@ import Panel from "./Panel";
 import ExecutivePerformance from "./ExecutivePerformance";
 import ProcessPersonPerformance from "./ProcessPersonPerformance";
 import MeetingsActivity from "./MeetingsActivity";
+import EmployeeLiveStatus from "./EmployeeLiveStatus";
 import "../../../styles/adminDashboard.css";
 
 // ClientLead.status -> label + colour for the distribution chart.
@@ -180,21 +181,21 @@ const AdminDashboard = () => {
           empty={!perf.loading && slices.length === 0}
           emptyText="No leads yet."
         >
-          <div className="ad-dist">
-            <div className="ad-dist-chart">
+          <div className="ld-dist">
+            <div className="ld-chart">
               <Doughnut data={chartData} options={chartOptions} />
-              <div className="ad-dist-center">
+              <div className="ld-center">
                 <strong>{total}</strong>
                 <span>leads</span>
               </div>
             </div>
-            <ul className="ad-legend">
+            <ul className="ld-legend">
               {slices.map((s) => (
                 <li key={s.key}>
-                  <span className="ad-dot" style={{ background: s.color }} />
-                  <span className="ad-legend-label">{s.label}</span>
-                  <span className="ad-legend-count">{by[s.key]}</span>
-                  <span className="ad-legend-pct">{pct(by[s.key])}%</span>
+                  <span className="ld-dot" style={{ background: s.color }} />
+                  <span className="ld-label" title={s.label}>{s.label}</span>
+                  <span className="ld-count">{by[s.key]}</span>
+                  <span className="ld-pct">{pct(by[s.key])}%</span>
                 </li>
               ))}
             </ul>
@@ -203,6 +204,11 @@ const AdminDashboard = () => {
 
         {/* E. Meetings & activity */}
         <MeetingsActivity executives={executives} />
+
+        {/* F. Employee live status (real socket presence) */}
+        <div className="ad-span-3">
+          <EmployeeLiveStatus />
+        </div>
 
         {/* Filters apply to C and D */}
         <div className="ad-filter-bar ad-span-3">

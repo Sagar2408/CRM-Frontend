@@ -4,13 +4,13 @@ import AdminLayout from "../layouts/AdminLayout";
 import AssignTask from "../features/admin/AssignTask";
 import ExecutiveDetails from "../features/admin/ExecutiveDetails";
 import AdminSettings from "../features/admin-settings/AdminSettings";
-import ContactUs from "../features/admin/ContactUs";
+import SupportTickets from "../features/admin/SupportTickets";
 import AdminNotification from "../features/admin/AdminNotification"
 import Eod from "../features/admin/Eod";
 import AttendanceTable from "../features/admin/AttendanceTable";
 import Monitoring from "../features/admin/Monitoring";
 import TaskManagement from "../features/LeadAssign/TaskManagement";
-import ExecutiveCredentialsForm from "../features/admin/ExecutiveCredentialsForm";
+import UserManagement from "../features/admin/user-management/UserManagement";
 import ExecutiveAssignments from "../features/admin/ExecutiveAssignments";
 import Messages from "../features/Messaging/Messages";
 import FullReport from "../features/admin/FullReport";
@@ -23,12 +23,12 @@ const AdminRoutes = () => {
         <Route path="assign-task" element={<AssignTask />} />
         <Route path="monitoring" element={<Monitoring />} />
         <Route path="leadassign" element={<TaskManagement />} />
-        <Route path="executiveform" element={<ExecutiveCredentialsForm />} />
+        <Route path="executiveform" element={<UserManagement />} />
         <Route path="executive-details" element={<ExecutiveDetails />} />
         <Route path="executive-assignments" element={<ExecutiveAssignments/>} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="notification" element={<AdminNotification />} />
-        <Route path="help-support" element ={<ContactUs/>}/>
+        <Route path="help-support" element ={<SupportTickets/>}/>
         <Route path="eod-report" element={<Eod />} /> {/* ✅ EOD route added here */}
         <Route path="messaging" element={<Messages/>}/>
         <Route path="executive-attendance" element={<AttendanceTable />} />
