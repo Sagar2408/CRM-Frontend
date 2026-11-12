@@ -126,12 +126,14 @@ useEffect(() => {
 
           <p className="sidebar-section sidebar-label">Reports</p>
           <ul>
-            <li>
+            {/* [EOD DISABLED] see DISABLED_FEATURES.md
+<li>
               <Link to="/admin/eod-report" className="admin-aside-link" data-tooltip="EOD Report">
                 <FileText className="admin-aside-icon" />
                 <span className="sidebar-label">EOD Report</span>
               </Link>
             </li>
+*/}
             <li>
               <Link to="/admin/heirarchy" className="admin-aside-link" data-tooltip="Hierarchy">
                 <Network className="admin-aside-icon" /> 

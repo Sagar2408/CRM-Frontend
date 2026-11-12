@@ -5,7 +5,7 @@ import { Routes, Route } from "react-router-dom";
 import AssignTask from "../features/admin/AssignTask";
 import ExecutiveDetails from "../features/admin/ExecutiveDetails";
 import ContactUs from "../features/admin/ContactUs";
-import Eod from "../features/admin/Eod";
+// [EOD DISABLED] import Eod from "../features/admin/Eod";
 import AttendanceTable from "../features/admin/AttendanceTable";
 import RequirePermission from "../features/admin-settings/RequirePermission";
 import Monitoring from "../features/admin/Monitoring";
@@ -50,10 +50,12 @@ const HrRoutes = () => {
           </RequirePermission>} />
         <Route path="help-support" element ={<ContactUs/>}/>
         <Route path="leave-management" element ={<LeaveManagement/>}/>
+        {/* [EOD DISABLED] see DISABLED_FEATURES.md
         <Route path="eod-report" element={
             <RequirePermission requiredKey="reporting">
             <Eod />
-            </RequirePermission>} /> {/* ✅ EOD route added here */}
+            </RequirePermission>} /> 
+        */}
         <Route path="executive-attendance" element={<AttendanceTable />} />
        <Route path="Payroll" element={<PayrollSystem />} />
 

@@ -1606,7 +1606,7 @@ if (currentUser?.id) {
     fetchAllExecutiveActivitiesByDateAPI,
     fetchExecutivesAPI: apiService.fetchExecutivesAPI,
     fetchExecutiveInfo: apiService.fetchExecutiveInfo,
-    sendEodReport: apiService.sendEodReport,
+    // [EOD DISABLED] sendEodReport: apiService.sendEodReport,
     createSingleLeadAPI,
     updateUserLoginStatus,
     fetchConvertedByExecutive,

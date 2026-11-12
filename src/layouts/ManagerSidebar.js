@@ -132,12 +132,14 @@ const ManagerSidebar = () => {
 
           <p className="sidebar-section sidebar-label">Reports</p>
           <ul>
-            <li>
+            {/* [EOD DISABLED] see DISABLED_FEATURES.md
+<li>
               <Link to="/manager/eod-report" className="admin-aside-link"data-tooltip="EOD">
                 <FileText className="admin-aside-icon" />
                 <span className="sidebar-label">EOD Report</span>
               </Link>
             </li>
+*/}
             <li>
               <Link to="/manager/executive-details" className="admin-aside-link" data-tooltip="Executive Details">
                 <UserCircle className="admin-aside-icon" />

@@ -6,7 +6,7 @@ import ExecutiveDetails from "../features/admin/ExecutiveDetails";
 import AdminSettings from "../features/admin-settings/AdminSettings";
 import SupportTickets from "../features/admin/SupportTickets";
 import AdminNotification from "../features/admin/AdminNotification"
-import Eod from "../features/admin/Eod";
+// [EOD DISABLED] import Eod from "../features/admin/Eod";
 import AttendanceTable from "../features/admin/AttendanceTable";
 import Monitoring from "../features/admin/Monitoring";
 import TaskManagement from "../features/LeadAssign/TaskManagement";
@@ -29,7 +29,8 @@ const AdminRoutes = () => {
         <Route path="settings" element={<AdminSettings />} />
         <Route path="notification" element={<AdminNotification />} />
         <Route path="help-support" element ={<SupportTickets/>}/>
-        <Route path="eod-report" element={<Eod />} /> {/* ✅ EOD route added here */}
+        {/* [EOD DISABLED] see DISABLED_FEATURES.md
+        <Route path="eod-report" element={<Eod />} /> */}
         <Route path="messaging" element={<Messages/>}/>
         <Route path="executive-attendance" element={<AttendanceTable />} />
         <Route path="full-report" element={<FullReport />} />
