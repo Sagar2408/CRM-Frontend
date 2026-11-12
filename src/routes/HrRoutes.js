@@ -1,6 +1,8 @@
 
 
 import React from "react";
+import Messages from "../features/Messaging/Messages";
+import RequireMessaging from "../features/Messaging/RequireMessaging";
 import { Routes, Route } from "react-router-dom";
 import AssignTask from "../features/admin/AssignTask";
 import ExecutiveDetails from "../features/admin/ExecutiveDetails";
@@ -56,6 +58,7 @@ const HrRoutes = () => {
             <Eod />
             </RequirePermission>} /> 
         */}
+        <Route path="messaging" element={<RequireMessaging><Messages /></RequireMessaging>} />
         <Route path="executive-attendance" element={<AttendanceTable />} />
        <Route path="Payroll" element={<PayrollSystem />} />
 

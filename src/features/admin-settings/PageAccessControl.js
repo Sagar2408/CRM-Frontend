@@ -76,6 +76,12 @@ const PERMISSION_DEFINITIONS = [
     description: "View and manage invoices.",
   },
   {
+    key: "messaging",
+    label: "Messaging",
+    category: "Page Access",
+    description: "Use internal messaging: chat with employees, groups and share documents.",
+  },
+  {
     key: "push_notifications",
     label: "Push Notifications",
     category: "Notification Settings",

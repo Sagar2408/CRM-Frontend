@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState ,useCallback} from "react";
+import { MessagingSidebarItem } from "../features/Messaging/MessagingNav";
 import { Link } from "react-router-dom";
 import "../styles/adminsidebar.css";
 import {
@@ -9,7 +10,7 @@ import {
   UserPlus,
   ActivitySquare,
   FileText,
-  UserCircle,
+  UsersRound,
   CalendarDays,
   LifeBuoy,
   BarChart,
@@ -134,6 +135,7 @@ useEffect(() => {
               </Link>
             </li>
 */}
+            <MessagingSidebarItem />
             <li>
               <Link to="/admin/heirarchy" className="admin-aside-link" data-tooltip="Hierarchy">
                 <Network className="admin-aside-icon" /> 
@@ -147,9 +149,9 @@ useEffect(() => {
               </Link>
             </li>
             <li>
-              <Link to="/admin/executive-details" className="admin-aside-link" data-tooltip="Executive Details">
-                <UserCircle className="admin-aside-icon" />
-                <span className="sidebar-label">Executive Details</span>
+              <Link to="/admin/team-management" className="admin-aside-link" data-tooltip="Team Management">
+                <UsersRound className="admin-aside-icon" />
+                <span className="sidebar-label">Team Management</span>
               </Link>
             </li>
          

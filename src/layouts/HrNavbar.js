@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect, useRef,useCallback } from "react";
+import { MessageNavIcon } from "../features/Messaging/MessagingNav";
 import { useAuth } from "../context/AuthContext"; // using logoutManager from here
 import { useApi } from "../context/ApiContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
@@ -8,7 +9,6 @@ import {
   FaMoon,
   FaBell,
   FaUser,
-  FaComment,
   FaSpinner,
   FaSignOutAlt
 } from "react-icons/fa";
@@ -129,9 +129,7 @@ const handleMouseEnter = useCallback(async () => {
         </button>
 
         <div className="admin-icons-group">
-          <div className="icon-wrapper icon-comment">
-            <FaComment size={20} />
-          </div>
+          <MessageNavIcon />
 
           <div
             className="icon-wrapper icon-bell"

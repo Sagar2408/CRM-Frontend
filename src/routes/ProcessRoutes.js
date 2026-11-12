@@ -1,4 +1,6 @@
 import React from "react";
+import Messages from "../features/Messaging/Messages";
+import RequireMessaging from "../features/Messaging/RequireMessaging";
 import { Routes, Route } from "react-router-dom";
 import ProcessReportCard from "../features/process-client/ProcessReportCard";
 import NewsComponent from "../features/executive/NewsComponent";
@@ -48,6 +50,7 @@ const ProcessRoutes = () => {
                                <Route path="notification/*" element={  <NotificationRoutes />
                                }/>
                                <Route path="chat/*" element={<ChatBotRoutes />} />
+                               <Route path="messaging" element={<RequireMessaging><Messages /></RequireMessaging>} />
                              <Route path="process-settings" element={<ProcessSetting />} />   
         <Route path="client/dashboard" element={<ClientDash />} />
         <Route path="client/settings" element={<ClientSetting />} />

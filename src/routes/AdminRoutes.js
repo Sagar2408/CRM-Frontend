@@ -1,8 +1,8 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import AdminLayout from "../layouts/AdminLayout";
 import AssignTask from "../features/admin/AssignTask";
-import ExecutiveDetails from "../features/admin/ExecutiveDetails";
+import TeamManagement from "../features/teams/TeamManagement";
 import AdminSettings from "../features/admin-settings/AdminSettings";
 import SupportTickets from "../features/admin/SupportTickets";
 import AdminNotification from "../features/admin/AdminNotification"
@@ -24,7 +24,9 @@ const AdminRoutes = () => {
         <Route path="monitoring" element={<Monitoring />} />
         <Route path="leadassign" element={<TaskManagement />} />
         <Route path="executiveform" element={<UserManagement />} />
-        <Route path="executive-details" element={<ExecutiveDetails />} />
+        <Route path="team-management" element={<TeamManagement />} />
+        {/* Executive Details was replaced by Team Management for Admin; keep old links/bookmarks working. */}
+        <Route path="executive-details" element={<Navigate to="/admin/team-management" replace />} />
         <Route path="executive-assignments" element={<ExecutiveAssignments/>} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="notification" element={<AdminNotification />} />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
+import { MessageNavIcon, MessagingSidebarItem } from "../features/Messaging/MessagingNav";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import "../styles/sidebar.css";
 import BeepNotification from "../BeepNotification";
@@ -208,6 +209,7 @@ const handleDismissBeepNotification = () => {
           </ul>
         )}
         </li>
+        <MessagingSidebarItem variant="exec" />
         <li><Link to="/process/schedule" className="sidebar_nav"><FontAwesomeIcon icon={faFile} /> Scheduled Meetings</Link></li>
         <li><Link to="/process/invoice" className="sidebar_nav"><FontAwesomeIcon icon={faReceipt} /> Invoice</Link></li>
         <li><Link to="/process/process-settings" className="sidebar_nav"><FontAwesomeIcon icon={faGear} /> Settings</Link></li>
@@ -290,6 +292,7 @@ const handleDismissBeepNotification = () => {
   title="Open ChatBot"
 />
 
+      <MessageNavIcon variant="fa" />
       <div onMouseEnter={() => setShowTracker(true)} onMouseLeave={() => setShowTracker(false)}>
       <FontAwesomeIcon 
         className="navbar_icon" icon={faClock} title="Toggle Activity Tracker" onClick={() => setShowTracker(prev => !prev)}  /> {showTracker &&<ProcessActivity /> }

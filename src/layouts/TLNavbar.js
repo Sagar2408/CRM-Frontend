@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect, useRef,useCallback } from "react";
+import { MessageNavIcon } from "../features/Messaging/MessagingNav";
 import { useAuth } from "../context/AuthContext";
 import { useApi } from "../context/ApiContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
@@ -8,7 +9,6 @@ import {
   FaMoon,
   FaBell,
   FaUser,
-  FaComment,
   FaSpinner,
   FaSignOutAlt
 } from "react-icons/fa";
@@ -125,9 +125,7 @@ const fetchProfile = useCallback(async () => {
         {/* Icon Group */}
         <div className="admin-icons-group">
   {/* 💬 Message Icon */}
-  <div className="icon-wrapper icon-comment">
-    <FaComment size={20} />
-  </div>
+  <MessageNavIcon />
 
   {/* 🔔 Bell Icon */}
   <div

@@ -1,4 +1,6 @@
 import React from "react";
+import Messages from "../features/Messaging/Messages";
+import RequireMessaging from "../features/Messaging/RequireMessaging";
 import { Routes, Route } from "react-router-dom";
 import ExecutiveLayout from "../layouts/ExecutiveLayout";
 import ReportCard from "../features/executive/ReportCard";
@@ -42,6 +44,7 @@ const ExecutiveRoutes = ({onTextUpdate}) => {
             <NotificationRoutes />
             </RequirePermission>} />
           <Route path="chat/*" element={<ChatBotRoutes />} />
+          <Route path="messaging" element={<RequireMessaging><Messages /></RequireMessaging>} />
 
           {/* Invoice, Schedule, etc. */}
           {/* <Route path="invoice/*" element={<InvoiceRoutes />} /> */}

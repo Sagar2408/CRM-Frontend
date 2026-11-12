@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
+import { MessageNavIcon, MessagingSidebarItem } from "../features/Messaging/MessagingNav";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import "../styles/sidebar.css";
 import BeepNotification from "../BeepNotification";
@@ -333,6 +334,7 @@ const SidebarandNavbar = () => {
                   </ul>
                 )}
               </li>
+              <MessagingSidebarItem variant="exec" />
               <li>
                 <Link to="/executive/schedule" className="sidebar_nav">
                   <FontAwesomeIcon icon={faFile} /> Scheduled Meetings
@@ -429,6 +431,7 @@ const SidebarandNavbar = () => {
               title="Open ChatBot"
               style={{ cursor: "pointer" }}
             />
+            <MessageNavIcon variant="fa" />
             <FontAwesomeIcon
               className="navbar_icon"
               icon={faClock}

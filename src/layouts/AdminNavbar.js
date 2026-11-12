@@ -1,5 +1,6 @@
 
 import React, { useState, useContext, useEffect, useRef } from "react";
+import { MessageNavIcon } from "../features/Messaging/MessagingNav";
 import { useAuth } from "../context/AuthContext";
 import { useApi } from "../context/ApiContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
@@ -10,7 +11,6 @@ import {
   FaMoon,
   FaBell,
   FaUser,
-  FaComment,
   FaSpinner,
   FaSignOutAlt,
 } from "react-icons/fa";
@@ -136,10 +136,7 @@ function AdminNavbar() {
         <div
           className="admin-icons-group" 
         >
-          <div className="icon-wrapper icon-comment">
-            <FaComment size={20}
-            onClick={() => navigate("/admin/messaging")} />
-          </div>
+          <MessageNavIcon />
 
           <div
             className="icon-wrapper icon-bell"

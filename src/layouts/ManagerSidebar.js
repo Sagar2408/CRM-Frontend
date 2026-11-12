@@ -1,4 +1,5 @@
 import React, { useEffect, useState ,useCallback} from "react";
+import { MessagingSidebarItem } from "../features/Messaging/MessagingNav";
 import { Link } from "react-router-dom";
 import "../styles/adminsidebar.css";
 import {
@@ -128,6 +129,11 @@ const ManagerSidebar = () => {
                 <span className="sidebar-label">Monitoring</span>
               </Link>
             </li>
+          </ul>
+
+          <p className="sidebar-section sidebar-label">Communication</p>
+          <ul>
+            <MessagingSidebarItem />
           </ul>
 
           <p className="sidebar-section sidebar-label">Reports</p>
