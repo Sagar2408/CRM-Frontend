@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { useApi } from "../../context/ApiContext";
-import { useExecutiveActivity } from "../../context/ExecutiveActivityContext";
 import Swal from "sweetalert2";
 import useCopyNotification from "../../hooks/useCopyNotification";
-import "react-time-picker/dist/TimePicker.css";
-import "react-clock/dist/Clock.css";
+import "../../styles/followUpWorkspace.css";
 import CallRoundedIcon from "@mui/icons-material/CallRounded";
 import EmailIcon from "@mui/icons-material/Email";
 import CallMadeIcon from "@mui/icons-material/CallMade";
@@ -18,7 +16,6 @@ import LockPersonIcon from "@mui/icons-material/LockPerson";
 import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
 import AcUnitIcon from "@mui/icons-material/AcUnit";
 import WbSunnyIcon from "@mui/icons-material/WbSunny";
-import SendEmailToClients from "./SendEmailToClients";
 
 function convertTo24HrFormat(timeStr) {
   const dateObj = new Date(`1970-01-01 ${timeStr}`);
@@ -76,13 +73,19 @@ const ClientOverview = () => {
   const [interactionDate, setInteractionDate] = useState(todayStr);
   const [timeOnly, setTimeOnly] = useState(currentTime12Hour);
   const [isSaving, setIsSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // One submit at a time: a double click can no longer create two follow-ups / meetings.
+  const runSubmit = async (fn) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await fn();
+    } finally {
+      setSubmitting(false);
+    }
+  };
   const [reminderTime, setReminderTime] = useState(getCurrentTime24Hour());
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [emailBody, setEmailBody] = useState("");
-  const [emailSubject, setEmailSubject] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
-  const [sendingEmail, setSendingEmail] = useState(false);
 
   const contactIcons = {
     Call: <CallRoundedIcon fontSize="small" />,
@@ -399,7 +402,7 @@ const ClientOverview = () => {
       await Swal.fire({
         icon: "error",
         title: "Operation Failed",
-        text: "Something went wrong. Please try again.",
+        text: error.response?.data?.message || "Something went wrong. Please try again.",
       });
     }
   };
@@ -531,7 +534,7 @@ const ClientOverview = () => {
       Swal.fire({
         icon: "error",
         title: "Creation Failed",
-        text: "Failed to create follow-up or history. Please try again.",
+        text: error.response?.data?.message || "Failed to create follow-up or history. Please try again.",
       });
     }
   };
@@ -554,57 +557,6 @@ const ClientOverview = () => {
     }
   };
 
-  const { handleSendEmail } = useExecutiveActivity();
-
-  const handleTemplateSelect = (template, clientEmail) => {
-    if (template) {
-      setSelectedTemplate(template);
-      setEmailBody(template.body);
-      setEmailSubject(template.subject);
-      setClientEmail(clientEmail);
-      setShowEmailModal(true);
-    } else {
-      setShowEmailModal(false);
-      setSelectedTemplate(null);
-      setEmailBody("");
-      setEmailSubject("");
-      setClientEmail("");
-    }
-  };
-
-  useEffect(() => {
-    console.log("Template selected:", selectedTemplate);
-    console.log("Show Email Modal?", showEmailModal);
-  }, [selectedTemplate, showEmailModal]);
-
-  const handleEmailSubmit = async () => {
-    setSendingEmail(true);
-
-    try {
-      const emailPayload = {
-        templateId: selectedTemplate.id,
-        executiveName: executiveInfo.username,
-        executiveEmail: executiveInfo.email,
-        clientEmail: clientInfo.email,
-        emailBody: emailBody,
-        emailSubject: emailSubject,
-      };
-
-      await handleSendEmail(emailPayload);
-      alert("Email sent successfully!");
-      setShowEmailModal(false);
-      setSelectedTemplate(null);
-      setEmailBody("");
-      setEmailSubject("");
-      setClientEmail("");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to send email.");
-    } finally {
-      setSendingEmail(false);
-    }
-  };
-
   const isMeetingInPast = useMemo(() => {
     if (followUpType !== "appointment" || !interactionDate || !interactionTime)
       return false;
@@ -613,531 +565,176 @@ const ClientOverview = () => {
     return selectedDateTime < now;
   }, [followUpType, interactionDate, interactionTime]);
 
+  const missing = [];
+  if (!contactMethod) missing.push("how you connected");
+  if (!followUpType) missing.push("the status");
+  if (!interactionRating) missing.push("a rating");
+  if (!reasonDesc.trim()) missing.push("notes");
+  const canCreate = missing.length === 0 && !isMeetingInPast;
+  const busy = submitting || followUpLoading;
+  const isFirstFollowUp = !!location.state?.createFollowUp;
+  const contextAction = ["appointment", "converted", "close"].includes(followUpType)
+    ? {
+        label: followUpType === "appointment" ? "Create meeting" : followUpType === "converted" ? "Convert lead" : "Close lead",
+        hint:
+          followUpType === "appointment"
+            ? "Schedules a meeting for the date and time above and moves the lead to Meeting."
+            : followUpType === "converted"
+            ? "Moves this lead to Converted clients."
+            : "Moves this lead to Closed leads.",
+        cls: followUpType === "converted" ? "fue__btn--convert" : followUpType === "close" ? "fue__btn--close" : "fue__btn--meeting",
+      }
+    : null;
+
+  const choice = (name, value, current, setter, icon, label) => (
+    <label key={value} className={`fue__choice ${current === value ? "is-selected" : ""}`}>
+      <input type="radio" name={name} checked={current === value} onChange={() => setter(value)} />
+      {icon}
+      {label}
+    </label>
+  );
+
   return (
-    <div className="client-overview-wrapper">
-      <div className="c-container">
-        <div className="c-header">
-          <h2>Client Details</h2>
-        </div>
-        <div className="c-content">
-          <div className="c-layout">
-            <div className="client-info-column">
-              <div className="c-profile">
-                <div className="c-info">
-                  {clientFields.map(({ key, label }) => (
-                    <div className="info-item" key={key}>
-                      <label className="label">{label}:</label>
-                      <input
-                        type="text"
-                        value={clientInfo[key] || ""}
-                        onChange={(e) => handleChange(key, e.target.value)}
-                        className="client-input"
-                      />
-                    </div>
-                  ))}
-                  <button
-                    onClick={handleSaveClientDetails}
-                    disabled={isSaving}
-                    style={{
-                      backgroundColor: "#007bff",
-                      color: "white",
-                      padding: "10px 20px",
-                      borderRadius: "5px",
-                      border: "none",
-                      cursor: isSaving ? "not-allowed" : "pointer",
-                      opacity: isSaving ? 0.6 : 1,
-                      margin: "10px 70px",
-                    }}
-                  >
-                    {isSaving ? "Saving..." : "Save Client Details"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="follow-up-column">
-              <div className="follow-up-box">
-                <div className="last-follow-up">
-                  <h3>Last Follow-up</h3>
-                  {followUpHistory.length > 0 ? (
-                    <div className="followup-entry-horizontal">
-                      <p className="followup-reason">
-                        {followUpHistory[0].reason_for_follow_up ||
-                          "No description available."}
-                      </p>
-                      <strong>
-                        <p className="followup-time">
-                          {new Date(
-                            followUpHistory[0].follow_up_date
-                          ).toLocaleDateString()}{" "}
-                          - {followUpHistory[0].follow_up_time}
-                        </p>
-                      </strong>
-                    </div>
-                  ) : (
-                    <p>No follow-up history available.</p>
-                  )}
-                </div>
-
-                {followUpHistory.length > 1 && (
-                  <div className="follow-up-history-summary">
-                    <div
-                      className="history-list"
-                      style={{ maxHeight: "200px", overflowY: "auto" }}
-                    >
-                      {followUpHistory.slice(1).map((history, index) => (
-                        <div key={index} className="followup-entry-plain">
-                          <p className="followup-reason">
-                            {history.reason_for_follow_up || "—"}
-                          </p>
-                          <p className="followup-time">
-                            {new Date(
-                              history.follow_up_date
-                            ).toLocaleDateString()}{" "}
-                            - {history.follow_up_time}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+    <div className="fue">
+      <div className="fue__top">
+        <button type="button" className="fue__back" onClick={() => navigate("/executive/freshlead")}>
+          &larr; Fresh leads
+        </button>
+        <div>
+          <h2>Add follow-up &middot; {clientInfo.name || "Lead"}</h2>
+          <p className="fue__sub">
+            {[clientInfo.phone, clientInfo.email, clientInfo.country].filter(Boolean).join(" · ") || "Record the first interaction with this lead."}
+          </p>
         </div>
       </div>
-      <div className="client-interaction-container">
-        <div className="interaction-form">
-          <div style={{ position: "relative" }}>
-            <SendEmailToClients
-              clientInfo={clientInfo}
-              onTemplateSelect={handleTemplateSelect}
-            />
-            {showEmailModal && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 800,
-                  width: "400px",
-                  backgroundColor: "#f5f7fa",
-                  border: "1px solid #e0e0e0",
-                  borderRadius: "5px",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-                  zIndex: 6,
-                  padding: "15px",
-                  height: "auto",
-                  marginTop: "-60px",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderBottom: "1px solid #e0e0e0",
-                    paddingBottom: "5px",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <h4 style={{ margin: 0, fontSize: "16px" }}>New Message</h4>
-                  <div>
-                    <button
-                      onClick={() => setShowEmailModal(false)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: "16px",
-                        marginLeft: "10px",
-                      }}
-                    >
-                      ×
-                    </button>
+
+      <div className="fue__cols">
+        <section className="fue__card" aria-labelledby="fue-lead-title">
+          <h3 id="fue-lead-title">Lead details</h3>
+          <div className="fue__fields">
+            {clientFields.map(({ key, label }) => (
+              <label className="fue__field" key={key}>
+                {label}
+                <input type="text" value={clientInfo[key] || ""} onChange={(e) => handleChange(key, e.target.value)} />
+              </label>
+            ))}
+          </div>
+          <button type="button" className="fue__btn fue__btn--save fue__btn--block" onClick={handleSaveClientDetails} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save client details"}
+          </button>
+        </section>
+
+        <section className="fue__card" aria-labelledby="fue-history-title">
+          <h3 id="fue-history-title">Follow-up history</h3>
+          {followUpHistory.length === 0 ? (
+            <p className="fue__empty">No earlier follow-ups. This will be the first interaction recorded for this lead.</p>
+          ) : (
+            <div className="fue__history">
+              {followUpHistory.map((history, index) => (
+                <div key={history.id ?? index} className={`fue__entry ${index === 0 ? "is-latest" : ""}`}>
+                  <div className="fue__entry-top">
+                    <strong>{index === 0 ? "Last follow-up" : "Earlier"}</strong>
+                    {history.connect_via && <span className="fuw__chip">{history.connect_via}</span>}
+                    {history.interaction_rating && (
+                      <span className={`fuw__chip fuw__chip--${String(history.interaction_rating).toLowerCase()}`}>{history.interaction_rating}</span>
+                    )}
+                    <time>
+                      {new Date(history.follow_up_date).toLocaleDateString()} {String(history.follow_up_time || "").slice(0, 5)}
+                    </time>
                   </div>
+                  <p>{history.reason_for_follow_up || "No notes."}</p>
                 </div>
-                <div style={{ marginBottom: "10px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "14px",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    To
-                  </label>
-                  <input
-                    type="email"
-                    value={clientEmail}
-                    readOnly
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #e0e0e0",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: "10px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "14px",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    Subject
-                  </label>
-                  <input
-                    type="text"
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #e0e0e0",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: "10px" }}>
-                  <textarea
-                    value={emailBody}
-                    onChange={(e) => setEmailBody(e.target.value)}
-                    style={{
-                      width: "100%",
-                      height: "150px",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #e0e0e0",
-                      fontSize: "14px",
-                      resize: "vertical",
-                    }}
-                    placeholder="Email body"
-                  />
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                    onClick={handleEmailSubmit}
-                    disabled={sendingEmail}
-                    style={{
-                      backgroundColor: "#28a745",
-                      color: "white",
-                      padding: "8px 16px",
-                      borderRadius: "5px",
-                      border: "none",
-                      cursor: sendingEmail ? "not-allowed" : "pointer",
-                      opacity: sendingEmail ? 0.6 : 1,
-                    }}
-                  >
-                    {sendingEmail ? "Sending..." : "Send"}
-                  </button>
-                </div>
-              </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <section className="fue__card" aria-labelledby="fue-interaction-title">
+        <h3 id="fue-interaction-title">Record this interaction</h3>
+
+        <div className="fue__group">
+          <h4>How did you connect?</h4>
+          <div className="fue__choices" role="radiogroup" aria-label="Connected via">
+            {["Call", "Email", "Call/Email"].map((method) => choice("contactMethod", method, contactMethod, setContactMethod, contactIcons[method], method))}
+          </div>
+        </div>
+
+        <div className="fue__group">
+          <h4>Status</h4>
+          <div className="fue__choices" role="radiogroup" aria-label="Follow-up status">
+            {["interested", "appointment", "no response", "converted", "not interested", "close"].map((type) =>
+              choice("followUpType", type, followUpType, setFollowUpType, followUpIcons[type], capitalize(type))
             )}
           </div>
+        </div>
 
-          <div className="connected-via" style={{ marginBottom: "20px" }}>
-            <h4>Connected Via</h4>
-            <div className="radio-group">
-              {["Call", "Email", "Call/Email"].map((method) => (
-                <label key={method} className="radio-container">
-                  <input
-                    type="radio"
-                    name="contactMethod"
-                    checked={contactMethod === method}
-                    onChange={() => setContactMethod(method)}
-                  />
-                  <span className="radio-label">
-                    {contactIcons[method]}
-                    {method}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="follow-up-type" style={{ marginBottom: "20px" }}>
-            <h4>Follow-Up Type</h4>
-            <div className="radio-group">
-              {[
-                "interested",
-                "appointment",
-                "no response",
-                "converted",
-                "not interested",
-                "close",
-              ].map((type) => (
-                <label key={type} className="radio-container">
-                  <input
-                    type="radio"
-                    name="followUpType"
-                    checked={followUpType === type}
-                    onChange={() => setFollowUpType(type)}
-                  />
-                  <span className="radio-label">
-                    {followUpIcons[type]}
-                    {type.replace("-", " ")}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="interaction-rating">
-            <h4>Interaction Rating</h4>
-            <div className="radio-group">
-              {["hot", "warm", "cold"].map((rating) => (
-                <label key={rating} className="radio-container">
-                  <input
-                    type="radio"
-                    name="interactionRating"
-                    checked={interactionRating === rating}
-                    onChange={() => setInteractionRating(rating)}
-                  />
-                  <span className="radio-label">
-                    {ratingIcons[rating]}
-                    {rating.charAt(0).toUpperCase() + rating.slice(1)}
-                  </span>
-                </label>
-              ))}
-            </div>
+        <div className="fue__group">
+          <h4>Rating</h4>
+          <div className="fue__choices" role="radiogroup" aria-label="Interaction rating">
+            {["hot", "warm", "cold"].map((rating) => choice("interactionRating", rating, interactionRating, setInteractionRating, ratingIcons[rating], capitalize(rating)))}
           </div>
         </div>
-      </div>
 
-      <div className="followup-detail-theme">
-        <div className="followup-detail-container">
-          <div className="follow-up-reason">
-            <h3>Reason for Follow-Up</h3>
-            <div className="interaction-field">
-              <div className="textarea-with-speech">
-                <textarea
-                  value={reasonDesc}
-                  onChange={(e) => setReasonDesc(e.target.value)}
-                  className="interaction-textarea"
-                  placeholder="Type or speak your follow-up reason using the mic"
-                />
-                <button
-                  type="button"
-                  className={`speech-btn ${isListening ? "listening" : ""}`}
-                  onClick={toggleListening}
-                  aria-label={
-                    isListening ? "Stop recording" : "Start recording"
-                  }
-                >
-                  {isListening ? "⏹" : "🎤"}
+        <div className="fue__group">
+          <label className="fue__field">
+            Notes
+            <textarea value={reasonDesc} onChange={(e) => setReasonDesc(e.target.value)} placeholder="What was discussed, and what does the client need next?" />
+          </label>
+          <button type="button" className={`fue__mic ${isListening ? "is-live" : ""}`} onClick={toggleListening} aria-pressed={isListening}>
+            {isListening ? "Stop dictation" : "Dictate notes"}
+          </button>
+        </div>
+
+        <div className="fue__group">
+          <h4>{followUpType === "appointment" ? "Meeting date and time" : "Date and time of this follow-up"}</h4>
+          <div className="fue__row">
+            <label className="fue__field">
+              Date
+              <input type="date" value={interactionDate} min={minDate} max={maxDate} onChange={(e) => setInteractionDate(e.target.value)} />
+            </label>
+            <label className="fue__field">
+              Time
+              <div className="fue__reminder">
+                <input type="time" value={timeOnly} onChange={(e) => setTimeOnly(e.target.value)} />
+                <button type="button" className="fue__back" onClick={handleUseCurrentTime} title="Use current time">
+                  Now
                 </button>
               </div>
-
-              <div
-                className="interaction-datetime"
-                style={{ marginTop: "20px" }}
-              >
-                {followUpType === "appointment" && (
-                  <>
-                    <h4>Interaction Schedule and Time</h4>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "20px",
-                        alignItems: "center",
-                      }}
-                    >
-                      <div>
-                        <label style={{ display: "block" }}>Date:</label>
-                        <input
-                          type="date"
-                          value={interactionDate}
-                          min={minDate}
-                          max={maxDate}
-                          onChange={(e) => setInteractionDate(e.target.value)}
-                          style={{ padding: "8px", borderRadius: "4px" }}
-                        />
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: "10px",
-                        }}
-                      >
-                        <div>
-                          <label
-                            style={{
-                              display: "block",
-                              marginBottom: "4px",
-                              fontWeight: "500",
-                            }}
-                          >
-                            Time:
-                          </label>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                              border: "1px solid #ccc",
-                              borderRadius: "6px",
-                              padding: "0 10px",
-                              backgroundColor: "#fff",
-                              height: "38px",
-                            }}
-                          >
-                            <input
-                              type="time"
-                              value={timeOnly}
-                              onChange={(e) => setTimeOnly(e.target.value)}
-                              style={{
-                                border: "none",
-                                outline: "none",
-                                width: "100px",
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={handleUseCurrentTime}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                color: "#007bff",
-                                padding: "2px 4px",
-                                borderRadius: "3px",
-                                marginLeft: "4px",
-                              }}
-                              title="Use current time"
-                            >
-                              Now
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: "10px",
-                    width: "200px",
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "4px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Set Follow-up Reminder:
-                  </label>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      border: "1px solid #ccc",
-                      borderRadius: "6px",
-                      padding: "0 10px",
-                      backgroundColor: "#fff",
-                      height: "38px",
-                      width: "150px",
-                    }}
-                  >
-                    <input
-                      type="time"
-                      value={reminderTime}
-                      onChange={(e) => setReminderTime(e.target.value)}
-                      style={{
-                        border: "none",
-                        outline: "none",
-                        width: "100px",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleScheduleReminder}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        color: "#007bff",
-                        padding: "2px 4px",
-                        borderRadius: "3px",
-                        marginLeft: "4px",
-                      }}
-                      title="Schedule Reminder"
-                    >
-                      Set
-                    </button>
-                  </div>
-                </div>
-              </div>
-              {followUpType === "appointment" && isMeetingInPast && (
-                <div
-                  style={{
-                    marginTop: "12px",
-                    color: "#b71c1c",
-                    background: "#fff4f4",
-                    borderLeft: "4px solid #e57373",
-                    padding: "10px 15px",
-                    borderRadius: "6px",
-                    fontSize: "14px",
-                  }}
-                >
-                  ⚠ Please select a <strong>future date or time</strong> to
-                  schedule the meeting.
-                </div>
-              )}
-
-              <div className="client-btn">
-                {["appointment", "converted", "close"].includes(
-                  followUpType
-                ) && (
-                  <button
-                    className="update-btn"
-                    onClick={handleTextUpdate}
-                    disabled={followUpLoading}
-                    style={{
-                      backgroundColor:
-                        followUpType === "converted"
-                          ? "#28a745"
-                          : followUpType === "close"
-                          ? "#dc3545"
-                          : "#17a2b8",
-                      color: "white",
-                      padding: "10px 20px",
-                      borderRadius: "5px",
-                      border: "none",
-                      cursor: followUpLoading ? "not-allowed" : "pointer",
-                      opacity: followUpLoading ? 0.6 : 1,
-                    }}
-                  >
-                    {followUpType === "appointment"
-                      ? "Create Meeting"
-                      : followUpType === "converted"
-                      ? "Convert"
-                      : "Close"}
-                  </button>
-                )}
-                {location.state?.createFollowUp && (
-                  <button
-                    className="create-btn"
-                    onClick={handleCreateFollowUp}
-                    disabled={followUpLoading}
-                  >
-                    Create Follow-Up
-                  </button>
-                )}
-              </div>
+            </label>
+            <div className="fue__reminder">
+              <label className="fue__field">
+                Remind me at
+                <input type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} />
+              </label>
+              <button type="button" className="fue__back" onClick={handleScheduleReminder}>
+                Set reminder
+              </button>
             </div>
           </div>
+          {followUpType === "appointment" && isMeetingInPast && (
+            <div className="fue__warn" role="alert">
+              Please select a <strong>future date or time</strong> to schedule the meeting.
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="fue__bar">
+        <p className="fue__hint" role="status">
+          {missing.length > 0 ? `Still needed: ${missing.join(", ")}.` : contextAction ? contextAction.hint : "Ready to save."}
+        </p>
+        <div className="fue__actions">
+          {contextAction && (
+            <button type="button" className={`fue__btn ${contextAction.cls}`} onClick={() => runSubmit(handleTextUpdate)} disabled={busy || !canCreate}>
+              {busy ? "Saving..." : contextAction.label}
+            </button>
+          )}
+          {isFirstFollowUp && (
+            <button type="button" className="fue__btn fue__btn--save" onClick={() => runSubmit(handleCreateFollowUp)} disabled={busy || !canCreate}>
+              {busy ? "Saving..." : "Create follow-up"}
+            </button>
+          )}
         </div>
       </div>
     </div>

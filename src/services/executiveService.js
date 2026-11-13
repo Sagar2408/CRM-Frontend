@@ -38,13 +38,13 @@ export const recordStartWork = async () => {
 /**
  * Record when executive stops work (logout)
  */
-export const recordStopWork = async () => {
+export const recordStopWork = async (reason = "logout") => {
   try {
     const userData = JSON.parse(localStorage.getItem("user") || '{}');
     const ExecutiveId = userData?.id;
     const executiveName = userData?.username;
 
-    const payload = { ExecutiveId, executiveName };
+    const payload = { ExecutiveId, executiveName, reason };
 
     const response = await axios.post(
       `${API_BASE_URL}/executive-activities/stopWork`,
@@ -108,10 +108,8 @@ export const recordStopBreak = async () => {
  */
 export const getActivityStatus = async () => {
   try {
-    const userData = JSON.parse(localStorage.getItem("user") || '{}');
-
     const response = await axios.get(
-      `${API_BASE_URL}/executive-activities/status/${userData.id}`,
+      `${API_BASE_URL}/executive-activities/status`,
       { headers: getHeaders() }
     );
     return response.data;
@@ -119,6 +117,37 @@ export const getActivityStatus = async () => {
     console.error('Error getting activity status:', error);
     throw new Error(error.response?.data?.message || 'Failed to get activity status');
   }
+};
+
+/**
+ * Keep-alive for the open work session. `idleSeconds` is how long the user has
+ * been idle; the server uses it for its own inactivity check.
+ */
+export const sendHeartbeat = async (idleSeconds = 0) => {
+  const response = await axios.post(
+    `${API_BASE_URL}/executive-activities/heartbeat`,
+    { idleSeconds },
+    { headers: getHeaders() }
+  );
+  return response.data;
+};
+
+/** Tenant-wide automatic inactivity logout setting (read: any staff, write: Admin). */
+export const getInactivitySettings = async () => {
+  const response = await axios.get(
+    `${API_BASE_URL}/work-settings/inactivity`,
+    { headers: getHeaders() }
+  );
+  return response.data;
+};
+
+export const saveInactivitySettings = async ({ enabled, minutes }) => {
+  const response = await axios.put(
+    `${API_BASE_URL}/work-settings/inactivity`,
+    { enabled, minutes },
+    { headers: getHeaders() }
+  );
+  return response.data;
 };
 
 /**

@@ -1,0 +1,249 @@
+/* Executive navbar clock - one compact row (44px), opaque light surface so it is
+   readable on every theme, tabular numerals so digits never jitter. Sized with
+   flex-shrink so it gives way to the search box instead of overlapping it. */
+.exec-clock {
+  --ec-surface: #ffffff;
+  --ec-border: #e2e8f0;
+  --ec-text: #0f172a;
+  --ec-muted: #64748b;
+  --ec-work: #16a34a;
+  --ec-break: #d97706;
+  --ec-idle: #94a3b8;
+  --ec-accent: var(--ec-work);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 44px;
+  padding: 0 8px 0 12px;
+  margin: 0;
+  box-sizing: border-box;
+  background: var(--ec-surface);
+  color: var(--ec-text);
+  border: 1px solid var(--ec-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  font-family: inherit;
+  line-height: 1.1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.exec-clock.is-break {
+  --ec-accent: var(--ec-break);
+}
+
+.exec-clock.is-idle {
+  --ec-accent: var(--ec-idle);
+}
+
+.exec-clock__cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.exec-clock__cell--break {
+  --ec-accent: var(--ec-break);
+}
+
+.exec-clock__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ec-muted);
+}
+
+.exec-clock__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ec-accent);
+}
+
+.exec-clock.is-working .exec-clock__dot {
+  animation: exec-clock-pulse 2s ease-out infinite;
+}
+
+.exec-clock__value {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ec-text);
+}
+
+.exec-clock__face {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 1.5px solid var(--ec-text);
+}
+
+.exec-clock__tick {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  margin-left: -0.5px;
+}
+
+.exec-clock__tick::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: -0.5px;
+  width: 2px;
+  height: 3px;
+  background: var(--ec-text);
+}
+
+.exec-clock__hand {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  transform-origin: 50% 100%;
+  border-radius: 2px;
+}
+
+.exec-clock__hand--hour {
+  width: 2px;
+  height: 8px;
+  margin-left: -1px;
+  background: var(--ec-text);
+}
+
+.exec-clock__hand--minute {
+  width: 1.5px;
+  height: 11px;
+  margin-left: -0.75px;
+  background: var(--ec-text);
+}
+
+.exec-clock__hand--second {
+  width: 1px;
+  height: 12px;
+  margin-left: -0.5px;
+  background: #ef4444;
+}
+
+.exec-clock__pin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.exec-clock__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--ec-border);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: var(--ec-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.exec-clock__btn svg {
+  font-size: 9px;
+}
+
+.exec-clock__btn:hover:not(:disabled) {
+  background: #fef3c7;
+  border-color: var(--ec-break);
+  color: #92400e;
+}
+
+.exec-clock__btn.is-end {
+  background: var(--ec-break);
+  border-color: var(--ec-break);
+  color: #ffffff;
+}
+
+.exec-clock__btn.is-end:hover:not(:disabled) {
+  background: #b45309;
+  border-color: #b45309;
+  color: #ffffff;
+}
+
+.exec-clock__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.exec-clock__btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+@keyframes exec-clock-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(22, 163, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exec-clock.is-working .exec-clock__dot {
+    animation: none;
+  }
+}
+
+/* Progressive compaction: face first, then break time, then button text. */
+@media (max-width: 1280px) {
+  .exec-clock {
+    gap: 8px;
+    padding: 0 6px 0 10px;
+  }
+  .exec-clock__face {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .exec-clock__cell--break {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .exec-clock__label {
+    display: none;
+  }
+  .exec-clock__value {
+    font-size: 13px;
+  }
+  .exec-clock__btn-text {
+    display: none;
+  }
+  .exec-clock__btn {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+}

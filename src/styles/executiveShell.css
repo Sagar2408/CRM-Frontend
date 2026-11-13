@@ -1,0 +1,404 @@
+/* Executive shell: collapsible sidebar + header + content offset.
+   The legacy sidebar/navbar rules are spread over several files and media
+   queries (and are overridden per colour theme), so the geometry is defined once
+   here, scoped to .exec-shell-root and loaded after them. Colours still come
+   from the theme rules; only layout is owned here.
+
+   One CSS variable drives everything: --exec-sb-w. The sidebar width, header
+   offset and main-content offset all read it, so they change together and there
+   is no layout shift (the saved preference is read before first paint). */
+.exec-shell-root {
+  --exec-sb-w: 250px;
+  --exec-sb-w-collapsed: 72px;
+  --exec-header-h: 64px;
+}
+
+.exec-shell-root.is-collapsed {
+  --exec-sb-w: var(--exec-sb-w-collapsed);
+}
+
+/* ---- Sidebar ---------------------------------------------------------- */
+.exec-shell-root .sidebar_container {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: 100vh !important;
+  width: var(--exec-sb-w) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  z-index: 30 !important;
+  transform: none;
+  transition: width 0.2s ease, transform 0.25s ease;
+}
+
+.exec-shell-root .sidebar_heading h1 {
+  margin: 0;
+  padding: 22px 0 6px;
+  text-align: center;
+  font-size: 26px;
+  white-space: nowrap;
+}
+
+.exec-shell-root .sidebar_crm {
+  margin: 0 0 12px;
+  padding: 0;
+  text-align: center;
+}
+
+.exec-shell-root .navbar_container ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px;
+}
+
+.exec-shell-root .sidebar_nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  margin: 0 0 6px;
+  padding: 0 14px;
+  border-radius: 12px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: visible;
+  text-decoration: none;
+  transform: none !important; /* some themes slide the item on hover */
+}
+
+.exec-shell-root .sidebar_nav > svg,
+.exec-shell-root .sidebar_nav > .svg-inline--fa {
+  flex: none;
+  width: 20px;
+  text-align: center;
+}
+
+.exec-shell-root .sb-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exec-shell-root .sb-caret {
+  flex: none;
+  margin-left: auto;
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+
+.exec-shell-root .sb-caret.is-open {
+  transform: rotate(180deg);
+}
+
+.exec-shell-root .submenu_nav {
+  margin: 0 0 8px;
+  padding: 4px 0 4px 14px;
+  width: auto;
+}
+
+.exec-shell-root .submenu_item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* ---- Collapsed (icon-only) --------------------------------------------- */
+.exec-shell-root.is-collapsed .sidebar_heading h1 {
+  font-size: 17px;
+}
+
+.exec-shell-root.is-collapsed .sidebar_crm,
+.exec-shell-root.is-collapsed .sb-label,
+.exec-shell-root.is-collapsed .sb-caret,
+.exec-shell-root.is-collapsed .submenu_nav {
+  display: none;
+}
+
+.exec-shell-root.is-collapsed .navbar_container ul {
+  padding: 0 12px;
+}
+
+.exec-shell-root.is-collapsed .sidebar_nav {
+  justify-content: center;
+  padding: 0;
+  gap: 0;
+}
+
+/* Tooltips (collapsed only): a CSS bubble from data-tip, no layout impact. */
+.exec-shell-root.is-collapsed .sidebar_nav[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  z-index: 60;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.exec-shell-root.is-collapsed .sidebar_nav[data-tip]:hover::after,
+.exec-shell-root.is-collapsed .sidebar_nav[data-tip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* A collapsed sidebar must not clip the tooltip. */
+.exec-shell-root.is-collapsed .sidebar_container {
+  overflow: visible;
+}
+
+.exec-shell-root .sidebar_nav:focus-visible,
+.exec-shell-root .exec-hamburger:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* ---- Header ------------------------------------------------------------ */
+.exec-shell-root .navbar {
+  position: fixed !important;
+  top: 0;
+  left: var(--exec-sb-w) !important;
+  width: calc(100% - var(--exec-sb-w)) !important;
+  height: var(--exec-header-h) !important;
+  margin: 0 !important;
+  padding: 0 16px !important;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  border-radius: 0;
+  z-index: 25;
+  transition: left 0.2s ease, width 0.2s ease;
+}
+
+.exec-shell-root .menu_search {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 !important;
+  gap: 12px;
+}
+
+.exec-shell-root .search_bar {
+  flex: 1 1 160px;
+  min-width: 0;
+  width: auto !important;
+  max-width: 420px;
+  margin: 0 !important;
+  gap: 10px;
+}
+
+.exec-shell-root .search-input-exec {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  height: 38px;
+}
+
+/* the legacy hamburgers are replaced by .exec-hamburger */
+.exec-shell-root .menu_toggle,
+.exec-shell-root .menuToggle {
+  display: none !important;
+}
+
+.exec-hamburger {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent-color, #2563eb);
+  font-size: 17px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.exec-hamburger:hover {
+  background: var(--accent-color, #2563eb);
+  color: #fff;
+}
+
+.exec-shell-root .navbar_icons {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px !important;
+  margin: 0 !important;
+  font-size: 18px;
+}
+
+.exec-shell-root .navbar_icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+
+.exec-shell-root .navbar_divider {
+  margin: 0 4px 0 0;
+}
+
+.exec-shell-root .notification-wrapper,
+.exec-shell-root .user-icon-wrapper,
+.exec-shell-root .msg-nav-fa {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---- Content ----------------------------------------------------------- */
+.exec-shell-root .executive-main-content {
+  margin-left: var(--exec-sb-w) !important;
+  width: calc(100vw - var(--exec-sb-w)) !important;
+  margin-top: var(--exec-header-h) !important;
+  min-width: 0;
+  box-sizing: border-box;
+  transition: margin-left 0.2s ease, width 0.2s ease;
+}
+
+.exec-shell-root .exec-backdrop {
+  display: none;
+}
+
+/* Client pages (Add follow-up, lead overview) sit in .client-main-content, which was
+   sized for a 60px header and clips its content (overflow hidden). Size it to the real
+   header so the page inside can scroll, and let the dynamic viewport unit win on mobile. */
+.exec-shell-root .client-app-container {
+  min-height: 0;
+  height: calc(100vh - var(--exec-header-h));
+  overflow: hidden;
+  overflow: clip; /* clip, unlike hidden, can never be scrolled by focus / scrollIntoView */
+}
+
+.exec-shell-root .client-main-content {
+  height: calc(100vh - var(--exec-header-h)) !important;
+  min-height: 0;
+  overflow: hidden !important;
+  overflow: clip !important;
+}
+
+@supports (height: 100dvh) {
+  .exec-shell-root .client-app-container,
+  .exec-shell-root .client-main-content {
+    height: calc(100dvh - var(--exec-header-h)) !important;
+  }
+}
+
+/* ---- Tablet / phone: off-canvas drawer ----------------------------------- */
+@media (max-width: 991px) {
+  .exec-shell-root,
+  .exec-shell-root.is-collapsed {
+    --exec-sb-w: 0px;
+  }
+
+  /* The drawer is always full-width labels, regardless of the desktop preference. */
+  .exec-shell-root .sidebar_container,
+  .exec-shell-root.is-collapsed .sidebar_container {
+    width: 260px !important;
+    max-width: 82vw;
+    transform: translateX(-100%);
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: none;
+  }
+
+  .exec-shell-root .sidebar_container.active {
+    transform: translateX(0);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .exec-shell-root.is-collapsed .sb-label,
+  .exec-shell-root.is-collapsed .sb-caret {
+    display: inline;
+  }
+
+  .exec-shell-root.is-collapsed .sidebar_crm {
+    display: block;
+  }
+
+  .exec-shell-root.is-collapsed .submenu_nav {
+    display: block;
+  }
+
+  .exec-shell-root.is-collapsed .sidebar_nav {
+    justify-content: flex-start;
+    padding: 0 14px;
+    gap: 14px;
+  }
+
+  .exec-shell-root.is-collapsed .sidebar_nav[data-tip]::after {
+    display: none;
+  }
+
+  .exec-shell-root .navbar {
+    left: 0 !important;
+    width: 100% !important;
+    padding: 0 10px !important;
+    gap: 8px;
+  }
+
+  .exec-shell-root .executive-main-content {
+    margin-left: 0 !important;
+    width: 100vw !important;
+  }
+
+  .exec-shell-root .exec-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    background: rgba(15, 23, 42, 0.5);
+  }
+
+  .exec-shell-root .navbar_divider {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .exec-shell-root .search_bar svg {
+    display: none; /* the legacy back arrow; saves room for the clock and icons */
+  }
+  .exec-shell-root .navbar_icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exec-shell-root .sidebar_container,
+  .exec-shell-root .navbar,
+  .exec-shell-root .executive-main-content {
+    transition: none;
+  }
+}

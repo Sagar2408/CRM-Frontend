@@ -1,28 +1,25 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import * as authService from "../services/auth";
-import { recordStartWork, recordStopWork } from "../services/executiveService";
-import useWorkTimer from "../features/executive/useLoginTimer";
+import { recordStopWork } from "../services/executiveService";
+import { clearActivity, markActivity } from "../utils/activityTracker";
 import { ThemeContext } from "../features/admin/ThemeContext";
+import { AuthContext } from "./authContextObject";
 import { emitSubscriptionExpired } from "../utils/authEvents";
 // Removed unused import: import { useBreakTimer } from "./breakTimerContext";
 
 // 1. Create Auth Context
-const AuthContext = createContext();
+
 
 // 2. Auth Provider
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [clearTimer, setClearTimer] = useState(false); // Used by workTimer
   const navigate = useNavigate();
   const { forceLightTheme } = useContext(ThemeContext);
 
-  // Initialize work timer with clearTimer and setClearTimer
-  useWorkTimer(clearTimer, setClearTimer);
-   
   // Initialize user session on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -38,17 +35,8 @@ export const AuthProvider = ({ children }) => {
   // -----------------------
   // LOGIN
   // -----------------------
-  const startWorkTimer = () => {
-    if (localStorage.getItem("workStartTime")) return;
-    recordStartWork()
-      .then((res) => {
-        if (res?.activity?.startWorkTime) {
-          localStorage.setItem("workStartTime", res.activity.startWorkTime);
-        }
-      })
-      .catch((err) => console.warn("Start work failed after navigation:", err.message));
-  };
-
+  // The work timer starts on the SERVER when an executive session begins:
+  // ExecutiveActivityProvider reacts to `user` being set and calls startWork.
   const loginSuccessToast = () =>
     toast.success(
       <div className="toast-content">
@@ -111,9 +99,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(staff));
       if (response.identity === "user") localStorage.setItem("executiveId", staff.id);
       localStorage.removeItem("userType");
+      markActivity(true); // a fresh login counts as activity (inactivity clock starts now)
+      sessionStorage.removeItem("crm.logoutNotice");
       setUser(staff);
       loginSuccessToast();
-      startWorkTimer();
       setTimeout(() => navigate(DASHBOARD_BY_ROLE[role]), 2000);
     } catch (err) {
       if (err.code === "SUBSCRIPTION_EXPIRED") {
@@ -149,7 +138,6 @@ const handleLogoutManager = async () => {
 
     // Reset user state
     setUser(null);
-    setClearTimer(true); // stop work timer
     forceLightTheme(); // reset theme if needed
     setTimeout(() => {
       navigate("/login");
@@ -181,8 +169,7 @@ const handleLogoutManager = async () => {
   
       // Reset user state
       setUser(null);
-      setClearTimer(true); // stop work timer
-      forceLightTheme(); // reset theme if needed
+        forceLightTheme(); // reset theme if needed
       setTimeout(() => {
         navigate("/login");
       }, 100);   
@@ -201,25 +188,34 @@ const handleLogoutManager = async () => {
   // -----------------------
   // LOGOUT
   // -----------------------
-  const logout = async () => {
+  // opts.reason: "logout" (default) | "inactivity"; opts.sessionAlreadySaved:
+  // the server already closed the work session (e.g. its own inactivity check).
+  // Logout never gets stuck: the work session is saved first (bounded wait), but
+  // a failed API call still ends the local session.
+  const logout = async (opts) => {
+    const reason = typeof opts?.reason === "string" ? opts.reason : "logout";
+    let role = "";
     try {
-      await recordStopWork();
-
-      // Clear localStorage and session data
-      localStorage.removeItem("workStartTime");
-      localStorage.removeItem("breakStartTime");
-      localStorage.removeItem("accumulatedBreakTime");
-     
-     await authService.logoutUser();
-     
-     localStorage.removeItem("token");
-     localStorage.removeItem("user");
-     localStorage.removeItem("executiveId");
-
+      role = String(JSON.parse(localStorage.getItem("user") || "{}")?.role || "").toLowerCase();
+    } catch (_) {
+      role = "";
+    }
+    try {
+      if (!opts?.sessionAlreadySaved && ["executive", "admin"].includes(role)) {
+        await Promise.race([
+          recordStopWork(reason),
+          new Promise((resolve) => setTimeout(resolve, 8000)),
+        ]).catch((error) => console.warn("Could not save work session before logout:", error.message));
+      }
+      await authService.logoutUser().catch((error) => console.warn("Server logout failed:", error.message));
+    } finally {
+      ["workStartTime", "breakStartTime", "accumulatedBreakTime", "pausedBreakSeconds", "token", "user", "executiveId"].forEach(
+        (key) => localStorage.removeItem(key)
+      );
+      clearActivity();
+      if (reason === "inactivity") sessionStorage.setItem("crm.logoutNotice", "inactivity");
       setUser(null);
       navigate("/login");
-    } catch (error) {
-      console.error("Logout failed:", error.message);
     }
   };
 

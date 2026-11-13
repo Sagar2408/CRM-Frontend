@@ -1,0 +1,213 @@
+/* Executive dashboard - Latest Immigration News. Uses the theme variables the
+   rest of the panel already defines (--card-bg, --text-color, --accent-color)
+   with neutral fallbacks. */
+.exec-news {
+  padding: 18px 20px 20px;
+}
+
+.exec-news__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.exec-news .latest-news {
+  margin: 0;
+  padding-left: 0;
+  font-size: 22px;
+}
+
+.exec-news__sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.exec-news__sub a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.exec-news__refresh {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 116, 139, 0.45);
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exec-news__refresh:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.exec-news__tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0 6px;
+}
+
+.exec-news__tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+  background: rgba(255, 255, 255, 0.55);
+  color: #1e293b;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.exec-news__tab:hover {
+  border-color: var(--accent-color, #2563eb);
+}
+
+.exec-news__tab.is-active {
+  background: var(--accent-color, #2563eb);
+  border-color: var(--accent-color, #2563eb);
+  color: #fff;
+}
+
+.exec-news__tab-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exec-news__tab-country {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.exec-news__notice {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.exec-news__body {
+  margin-top: 12px;
+}
+
+.exec-news__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+
+.exec-news__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(100, 116, 139, 0.25);
+  color: #0f172a;
+}
+
+.exec-news__item--skeleton {
+  min-height: 118px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.18) 25%, rgba(148, 163, 184, 0.3) 50%, rgba(148, 163, 184, 0.18) 75%);
+  background-size: 200% 100%;
+  animation: exec-news-shimmer 1.4s linear infinite;
+}
+
+.exec-news__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.exec-news__source {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.exec-news__title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.exec-news__title:hover {
+  text-decoration: underline;
+}
+
+.exec-news__summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.exec-news__read {
+  margin-top: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.exec-news__read:hover {
+  text-decoration: underline;
+}
+
+.exec-news__error,
+.exec-news__empty {
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px dashed rgba(100, 116, 139, 0.5);
+  text-align: center;
+  font-size: 14px;
+}
+
+.exec-news__error button {
+  margin-top: 8px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent-color, #2563eb);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@keyframes exec-news-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exec-news__item--skeleton {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .exec-news__list {
+    grid-template-columns: 1fr;
+  }
+}

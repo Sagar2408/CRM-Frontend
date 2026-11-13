@@ -6,7 +6,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { useExecutiveActivity } from "./ExecutiveActivityContext";
+import { useExecutiveActivity, useWorkClock } from "./ExecutiveActivityContext";
 import { useProcessService } from "./ProcessServiceContext";
 // Create Break Timer Context
 const BreakTimerContext = createContext();
@@ -14,7 +14,11 @@ const BreakTimerContext = createContext();
 
 // Provider Component
 export const BreakTimerProvider = ({ children }) => {
-  const { handleStartBreak, handleStopBreak } = useExecutiveActivity();
+  const { handleStartBreak, handleStopBreak, user: activityUser } = useExecutiveActivity() || {};
+  // Executives: break state and time live on the server (work time pauses while
+  // on break). Every other panel (Process) keeps its original local timer.
+  const isExecutive = String(activityUser?.role || "").toLowerCase() === "executive";
+  const clock = useWorkClock();
   const {createStartBreak,createStopBreak}=useProcessService();
   const [breakTimer, setBreakTimer] = useState("00:00:00");
   const [isBreakActive, setIsBreakActive] = useState(false);
@@ -74,6 +78,10 @@ export const BreakTimerProvider = ({ children }) => {
   const startBreak = async () => {
     try {
       setTimerLoading(true);
+      if (isExecutive) {
+        await handleStartBreak();
+        return;
+      }
       await handleStartBreak();
 
       const start = new Date();
@@ -107,6 +115,10 @@ export const BreakTimerProvider = ({ children }) => {
   const stopBreak = async () => {
     try {
       setTimerLoading(true);
+      if (isExecutive) {
+        await handleStopBreak();
+        return;
+      }
       await handleStopBreak();
 
       clearInterval(intervalRef.current);
@@ -159,8 +171,8 @@ export const BreakTimerProvider = ({ children }) => {
   return (
     <BreakTimerContext.Provider
       value={{
-        breakTimer,
-        isBreakActive,
+        breakTimer: isExecutive ? clock.breakTimer : breakTimer,
+        isBreakActive: isExecutive ? clock.onBreak : isBreakActive,
         timerLoading,
         startBreak,
         stopBreak,

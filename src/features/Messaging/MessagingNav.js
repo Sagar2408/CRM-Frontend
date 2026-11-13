@@ -44,8 +44,8 @@ export const MessagingSidebarItem = ({ variant = "aside" }) => {
   return (
     <li>
       {variant === "exec" ? (
-        <Link to={path} className="sidebar_nav" style={{ position: "relative" }}>
-          <FontAwesomeIcon icon={faComments} /> Messaging
+        <Link to={path} className="sidebar_nav" data-tip="Messaging" aria-label="Messaging" style={{ position: "relative" }}>
+          <FontAwesomeIcon icon={faComments} /> <span className="sb-label">Messaging</span>
           <Dot count={unread} />
         </Link>
       ) : (

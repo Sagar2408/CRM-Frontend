@@ -1,0 +1,557 @@
+/* Executive utility bar (header) + sidebar header. Loaded after executiveShell.css.
+   One system: 40px controls, 10px radius, 1px translucent slate borders, the
+   panel's theme variables for colour (so every theme stays readable). */
+.exec-shell-root {
+  --xh-border: rgba(100, 116, 139, 0.26);
+  --xh-muted: rgba(100, 116, 139, 0.95);
+  --xh-accent: var(--accent-color, #2563eb);
+  --xh-surface: var(--card-bg, #ffffff);
+  --xh-text: var(--text-color, #0f172a);
+}
+
+/* ---- Sidebar header: hamburger beside the logo --------------------------- */
+.exec-shell-root .sidebar_heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--exec-header-h);
+  padding: 0 16px;
+  box-sizing: border-box;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 10px;
+}
+
+.exec-shell-root .sidebar_brand {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.15s ease;
+}
+
+.exec-shell-root .exec-hamburger--sidebar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+}
+
+.exec-shell-root .exec-hamburger--sidebar:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+}
+
+.exec-shell-root.is-collapsed .sidebar_heading {
+  justify-content: center;
+  padding: 0;
+}
+
+.exec-shell-root.is-collapsed .sidebar_brand {
+  display: none;
+}
+
+.exec-shell-root.is-collapsed .exec-hamburger--sidebar[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  z-index: 60;
+}
+
+.exec-shell-root.is-collapsed .exec-hamburger--sidebar:hover::after,
+.exec-shell-root.is-collapsed .exec-hamburger--sidebar:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (max-width: 991px) {
+  .exec-shell-root.is-collapsed .sidebar_heading {
+    justify-content: flex-start;
+    padding: 0 16px;
+  }
+  .exec-shell-root.is-collapsed .sidebar_brand {
+    display: inline;
+  }
+  .exec-shell-root.is-collapsed .exec-hamburger--sidebar::after {
+    display: none;
+  }
+}
+
+/* ---- Header bar ---------------------------------------------------------- */
+.exec-shell-root .navbar {
+  background: color-mix(in srgb, var(--xh-surface) 94%, transparent) !important;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--xh-text);
+  border-bottom: 1px solid var(--xh-border) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 18px rgba(15, 23, 42, 0.05) !important;
+  gap: 14px;
+}
+
+.exec-shell-root .menu_search {
+  gap: 10px;
+}
+
+/* Shared control look: icon buttons, hamburger (mobile), back, message icon */
+.exec-shell-root .navbar .exec-iconbtn,
+.exec-shell-root .navbar svg.navbar_icon,
+.exec-shell-root .navbar .exec-hamburger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--xh-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--xh-text);
+  font-size: 16px;
+  line-height: 1;
+  text-shadow: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.exec-shell-root .navbar svg.navbar_icon {
+  padding: 11px; /* glyph 18px inside the 40px box */
+}
+
+.exec-shell-root .navbar .exec-iconbtn:hover,
+.exec-shell-root .navbar svg.navbar_icon:hover,
+.exec-shell-root .navbar .exec-hamburger:hover,
+.exec-shell-root .navbar .exec-iconbtn[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--xh-accent) 12%, transparent);
+  border-color: var(--xh-accent);
+  color: var(--xh-accent);
+  text-shadow: none;
+}
+
+.exec-shell-root .navbar .exec-iconbtn:focus-visible,
+.exec-shell-root .navbar .exec-profile:focus-visible,
+.exec-shell-root .lead-search__input:focus-visible {
+  outline: 2px solid var(--xh-accent);
+  outline-offset: 2px;
+}
+
+.exec-shell-root .navbar_icons {
+  gap: 8px !important;
+}
+
+.exec-shell-root .notification-wrapper,
+.exec-shell-root .msg-nav-fa {
+  position: relative;
+}
+
+.exec-shell-root .notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 2px solid var(--xh-surface);
+  background: #ef4444;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.exec-shell-root .msg-nav-dot {
+  top: -3px;
+  right: -3px;
+  border: 2px solid var(--xh-surface);
+  box-sizing: content-box;
+}
+
+.exec-shell-root .exec-divider {
+  width: 1px;
+  height: 26px;
+  margin: 0 4px;
+  background: var(--xh-border);
+}
+
+/* ---- Profile ------------------------------------------------------------- */
+.exec-shell-root .exec-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 12px 0 4px;
+  border: 1px solid var(--xh-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--xh-text);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.exec-shell-root .exec-profile:hover,
+.exec-shell-root .exec-profile[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--xh-accent) 10%, transparent);
+  border-color: var(--xh-accent);
+}
+
+.exec-profile__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--xh-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exec-profile__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  max-width: 130px;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.exec-profile__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.exec-profile__role {
+  font-size: 11px;
+  color: var(--xh-muted);
+}
+
+.exec-profile__caret {
+  font-size: 10px;
+  color: var(--xh-muted);
+}
+
+.exec-shell-root .user-icon-wrapper {
+  position: relative;
+}
+
+.exec-shell-root .user_popover {
+  position: absolute !important;
+  top: calc(100% + 10px) !important;
+  right: 0 !important;
+  left: auto !important;
+  z-index: 70;
+  width: 240px;
+  padding: 12px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid var(--xh-border);
+  background: var(--xh-surface);
+  color: var(--xh-text);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+}
+
+.exec-shell-root .user_details {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--xh-border);
+}
+
+.exec-shell-root .exec-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: inherit;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.exec-shell-root .exec-menu-link:hover {
+  background: color-mix(in srgb, var(--xh-accent) 10%, transparent);
+}
+
+/* ---- Lead search --------------------------------------------------------- */
+.lead-search {
+  position: relative;
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 460px;
+}
+
+.lead-search__icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--xh-muted);
+  pointer-events: none;
+}
+
+.exec-shell-root .lead-search__input {
+  width: 100%;
+  height: 40px;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 0 38px 0 38px !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  background: rgba(100, 116, 139, 0.12) !important;
+  color: var(--xh-text);
+  font-size: 14px;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.exec-shell-root .lead-search__input::placeholder {
+  color: var(--xh-muted);
+}
+
+.exec-shell-root .lead-search__input:focus {
+  background: var(--xh-surface) !important;
+  border-color: var(--xh-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xh-accent) 20%, transparent);
+}
+
+.exec-shell-root .lead-search__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.lead-search__clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--xh-muted);
+  cursor: pointer;
+}
+
+.lead-search__clear:hover {
+  background: rgba(100, 116, 139, 0.2);
+  color: var(--xh-text);
+}
+
+.lead-search__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  min-width: min(380px, 92vw);
+  z-index: 80;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--xh-border);
+  background: var(--xh-surface);
+  color: var(--xh-text);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+}
+
+.lead-search__panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lead-search__state {
+  padding: 16px 12px;
+  font-size: 13.5px;
+  color: var(--xh-muted);
+  text-align: center;
+}
+
+.lead-search__state.is-error {
+  color: #b91c1c;
+}
+
+.lead-search__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lead-search__item.is-active {
+  background: color-mix(in srgb, var(--xh-accent) 12%, transparent);
+}
+
+.lead-search__avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--xh-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lead-search__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.lead-search__name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lead-search__sub {
+  font-size: 12px;
+  color: var(--xh-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lead-search__stage {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.16);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.lead-search__stage.is-fresh {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.lead-search__stage.is-followup {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.lead-search__stage.is-converted {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.lead-search__stage.is-closed {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* ---- Responsive ---------------------------------------------------------- */
+@media (max-width: 1180px) {
+  .exec-profile__text,
+  .exec-profile__caret {
+    display: none;
+  }
+  .exec-shell-root .exec-profile {
+    padding: 0 4px;
+  }
+}
+
+@media (max-width: 991px) {
+  .exec-shell-root .navbar {
+    gap: 8px;
+  }
+  .lead-search {
+    flex-basis: 120px;
+  }
+}
+
+@media (max-width: 640px) {
+  .exec-shell-root .exec-back,
+  .exec-shell-root .exec-divider {
+    display: none;
+  }
+  .exec-shell-root .navbar .exec-iconbtn,
+  .exec-shell-root .navbar svg.navbar_icon,
+  .exec-shell-root .navbar .exec-hamburger {
+    width: 36px;
+    height: 36px;
+  }
+  .exec-shell-root .navbar svg.navbar_icon {
+    padding: 9px;
+  }
+  .exec-shell-root .navbar_icons {
+    gap: 6px !important;
+  }
+  .lead-search__panel {
+    position: fixed;
+    top: calc(var(--exec-header-h) + 6px);
+    left: 8px;
+    right: 8px;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exec-shell-root .sidebar_brand,
+  .exec-shell-root .exec-iconbtn,
+  .exec-shell-root .lead-search__input {
+    transition: none;
+  }
+}
+
+.exec-shell-root .user_identity {
+  min-width: 0;
+}
+
+.exec-shell-root .user_identity p {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exec-shell-root .user_email {
+  font-size: 12.5px;
+  color: var(--xh-muted);
+}

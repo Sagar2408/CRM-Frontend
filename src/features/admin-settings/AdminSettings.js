@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import "../../styles/adminsettings.css";
 import SidebarToggle from "../admin/SidebarToggle";
 import PageAccessControl from "./PageAccessControl";
+import InactivityLogoutSettings from "./InactivityLogoutSettings";
 import { useApi } from "../../context/ApiContext";
 import { useLoading } from "../../context/LoadingContext";
 import AdminSpinner from "../spinner/AdminSpinner";
@@ -248,6 +249,7 @@ const AdminSettings = () => {
     { key: "profile", label: "Profile" },
     { key: "password", label: "Password" },
     { key: "pageAccess", label: "Page Access Controller" },
+    { key: "autoLogout", label: "Auto Logout" },
     { key: "integrations", label: "Integrations" },
   ];
 
@@ -257,6 +259,8 @@ const AdminSettings = () => {
     switch (activeTab) {
       case "pageAccess":
         return <PageAccessControl />;
+      case "autoLogout":
+        return <InactivityLogoutSettings onNotify={pushAlert} />;
       case "integrations":
         return (
           <>

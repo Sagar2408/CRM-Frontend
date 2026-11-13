@@ -27,9 +27,6 @@ function FreshLead() {
     executiveInfo,
     fetchExecutiveData,
     executiveLoading,
-    verifyNumberAPI,
-    verificationResults,
-    verificationLoading,
     fetchNotifications,
     createCopyNotification,
     getFollowUpHistory,
@@ -45,7 +42,6 @@ function FreshLead() {
   const [currentPage, setCurrentPage] = useState(1);
   const [activePopoverIndex, setActivePopoverIndex] = useState(null);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [verifyingIndex, setVerifyingIndex] = useState(null);
   const [showChatbotPopup, setShowChatbotPopup] = useState(false); // New state for chatbot popup
   const [selectedLead, setSelectedLead] = useState(null); // Store selected lead for chatbot
   const itemsPerPage = 10;
@@ -63,11 +59,6 @@ function FreshLead() {
     return diffDays >= 3;
   };
 
-  const handleVerify = async (index, number) => {
-    setVerifyingIndex(index);
-    await verifyNumberAPI(index, number);
-    setVerifyingIndex(null);
-  };
   const popupRef = useRef(null);
   const headerRef= useRef(null);
 
@@ -283,7 +274,6 @@ function FreshLead() {
                   <th>Phone</th>
                   <th>Email</th>
                   <th>Actions</th>
-                  <th>Status</th>
                   <th>Call</th>
                 </tr>
               </thead>
@@ -354,45 +344,6 @@ function FreshLead() {
                               className="icon"
                             />
                           </button>
-                        </td>
-                        <td>
-                          <div className="status-cell">
-                            <button
-                              onClick={() => handleVerify(index, lead.phone)}
-                              className={`verify-btn ${
-                                isOld ? "old-lead-verify" : ""
-                              }`}
-                              disabled={
-                                verifyingIndex === index || verificationLoading
-                              }
-                              style={
-                                isOld
-                                  ? {
-                                      borderColor: "#d32f2f",
-                                    }
-                                  : {}
-                              }
-                            >
-                              {verifyingIndex === index
-                                ? "Verifying..."
-                                : "Get Verified"}
-                            </button>
-                            {verificationResults[index] && (
-                              <div className="verify-result">
-                                {verificationResults[index].error ? (
-                                  <span className="text-red-600">
-                                    ❌ {verificationResults[index].error}
-                                  </span>
-                                ) : (
-                                  <span className="text-green-600">
-                                    ✅{" "}
-                                    {verificationResults[index].name ||
-                                      verificationResults[index].location}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
                         </td>
                         <td className="call-cell">
                           <button
@@ -482,7 +433,7 @@ function FreshLead() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6" className="no-leads-text">
+                    <td colSpan="5" className="no-leads-text">
                       No assigned leads available.
                     </td>
                   </tr>

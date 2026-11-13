@@ -1,0 +1,488 @@
+/* ELSA AI workspace: chat list + conversation. Theme variables with fallbacks. */
+.elsa {
+  --el-card: var(--card-bg, #ffffff);
+  --el-text: var(--text-color, #0f172a);
+  --el-border: rgba(100, 116, 139, 0.28);
+  --el-muted: rgba(100, 116, 139, 0.95);
+  --el-accent: var(--accent-color, #2563eb);
+  position: relative;
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  gap: 14px;
+  height: calc(100vh - 64px - 24px);
+  min-height: 420px;
+  padding: 12px;
+  box-sizing: border-box;
+  color: var(--el-text);
+}
+
+.elsa__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--el-border);
+  background: var(--el-card);
+}
+
+.elsa__new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--el-accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.elsa__new:hover {
+  filter: brightness(0.92);
+}
+
+.elsa__banner,
+.elsa__error {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 13px;
+}
+
+.elsa__banner button {
+  border: none;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.elsa__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.elsa__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.elsa__item:hover {
+  background: rgba(100, 116, 139, 0.12);
+}
+
+.elsa__item.is-active {
+  background: color-mix(in srgb, var(--el-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--el-accent) 45%, transparent);
+}
+
+.elsa__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.elsa__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.elsa__time {
+  font-size: 11px;
+  color: var(--el-muted);
+}
+
+.elsa__actions {
+  display: none;
+  gap: 2px;
+  padding-right: 6px;
+}
+
+.elsa__item:hover .elsa__actions,
+.elsa__item:focus-within .elsa__actions,
+.elsa__item.is-active .elsa__actions {
+  display: inline-flex;
+}
+
+.elsa__actions button,
+.elsa__confirm button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--el-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.elsa__actions button:hover,
+.elsa__confirm button:hover {
+  background: rgba(100, 116, 139, 0.2);
+  color: var(--el-text);
+}
+
+.elsa__rename {
+  flex: 1;
+  padding: 6px;
+}
+
+.elsa__rename input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--el-accent);
+  background: var(--el-card);
+  color: var(--el-text);
+  font-size: 13.5px;
+}
+
+.elsa__confirm {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.elsa__confirm span {
+  flex: 1;
+}
+
+.elsa__skeleton {
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.16) 25%, rgba(148, 163, 184, 0.3) 50%, rgba(148, 163, 184, 0.16) 75%);
+  background-size: 200% 100%;
+  animation: elsa-shimmer 1.4s linear infinite;
+}
+
+.elsa__empty {
+  padding: 14px 6px;
+  color: var(--el-muted);
+  font-size: 13px;
+}
+
+.elsa__chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 14px;
+  border: 1px solid var(--el-border);
+  background: var(--el-card);
+  overflow: hidden;
+}
+
+.elsa__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border);
+  color: var(--el-accent);
+}
+
+.elsa__head h2 {
+  margin: 0;
+  font-size: 17px;
+  color: var(--el-text);
+}
+
+.elsa__sub {
+  display: block;
+  max-width: 50vw;
+  font-size: 12px;
+  color: var(--el-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.elsa__drawer-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--el-border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--el-text);
+  cursor: pointer;
+}
+
+.elsa__messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.elsa__hint {
+  margin: auto;
+  color: var(--el-muted);
+}
+
+.elsa__welcome {
+  margin: auto;
+  max-width: 560px;
+  text-align: center;
+  color: var(--el-muted);
+}
+
+.elsa__welcome h3 {
+  margin: 8px 0 14px;
+  color: var(--el-text);
+}
+
+.elsa__suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.elsa__suggestions button {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--el-border);
+  background: transparent;
+  color: var(--el-text);
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.elsa__suggestions button:hover {
+  border-color: var(--el-accent);
+}
+
+.elsa__msg {
+  display: flex;
+  gap: 10px;
+  max-width: 100%;
+}
+
+.elsa__msg.is-user {
+  justify-content: flex-end;
+}
+
+.elsa__avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 4px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--el-accent);
+  color: #fff;
+}
+
+.elsa__bubble {
+  max-width: min(720px, 85%);
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(100, 116, 139, 0.14);
+  font-size: 14.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.elsa__msg.is-user .elsa__bubble {
+  background: var(--el-accent);
+  color: #fff;
+}
+
+.elsa__msg.is-failed .elsa__bubble {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.elsa__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.elsa__typing span {
+  animation: elsa-blink 1.2s infinite;
+}
+
+.elsa__typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.elsa__typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.elsa__error {
+  margin: 0 16px 8px;
+}
+
+.elsa__input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--el-border);
+}
+
+.elsa__input input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--el-border);
+  background: transparent;
+  color: var(--el-text);
+  font-size: 14.5px;
+}
+
+.elsa__input input:focus {
+  outline: 2px solid color-mix(in srgb, var(--el-accent) 55%, transparent);
+  border-color: var(--el-accent);
+}
+
+.elsa__send,
+.elsa__mic {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--el-border);
+  background: transparent;
+  color: var(--el-text);
+  cursor: pointer;
+}
+
+.elsa__send {
+  background: var(--el-accent);
+  border-color: var(--el-accent);
+  color: #fff;
+}
+
+.elsa__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.elsa__mic.is-live {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.elsa__scrim {
+  display: none;
+}
+
+@keyframes elsa-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes elsa-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .elsa__skeleton,
+  .elsa__typing span {
+    animation: none;
+  }
+}
+
+/* Narrow screens: the chat list becomes a slide-over opened from the header. */
+@media (max-width: 860px) {
+  .elsa {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px;
+  }
+  .elsa__drawer-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .elsa__list {
+    position: absolute;
+    z-index: 40;
+    top: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: min(300px, 86%);
+    transform: translateX(-110%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  }
+  .elsa.is-drawer-open .elsa__list {
+    transform: translateX(0);
+  }
+  .elsa.is-drawer-open .elsa__scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 14px;
+  }
+  .elsa__actions {
+    display: inline-flex;
+  }
+}

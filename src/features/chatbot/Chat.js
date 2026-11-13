@@ -1,30 +1,24 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FaMicrophone, FaPaperPlane, FaUser, FaStopCircle } from "react-icons/fa";
+import { FaMicrophone, FaPaperPlane, FaUser } from "react-icons/fa";
 import { MdSmartToy } from "react-icons/md";
-import { BsRecordCircle } from "react-icons/bs";
-import { jwtDecode } from "jwt-decode";
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-const Chat = ({ isCallActive, token, enableBotpress = true }) => {
+// Small ELSA AI chat used in popups (e.g. Fresh Leads). Input is text (send /
+// Enter) or the microphone. Each popup is one new conversation that is saved on
+// the backend like any other and shows up in the ELSA AI page list. The full
+// multi-conversation workspace is features/chatbot/ElsaAI.js.
+const Chat = ({ token, enableBotpress = false }) => {
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [requestError, setRequestError] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordTime, setRecordTime] = useState(0);
-  const [executiveId, setExecutiveId] = useState(null);
-  const [executiveName, setExecutiveName] = useState("");
 
-  const recordStartTimeRef = useRef(null);
   const chatContainerRef = useRef(null);
   const recognitionRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const recordChunksRef = useRef([]);
-  const timerRef = useRef(null);
-  
-  
+  const conversationIdRef = useRef(null); // set by the first reply, so follow-ups stay in one ELSA conversation
+
   const [authToken, setAuthToken] = useState(token);
 
   useEffect(() => {
@@ -39,69 +33,72 @@ const Chat = ({ isCallActive, token, enableBotpress = true }) => {
       } else {
         // Fallback: try to get from URL params (for backward compatibility)
         const urlParams = new URLSearchParams(window.location.search);
-        const urlToken = urlParams.get('token');
+        const urlToken = urlParams.get("token");
         if (urlToken) {
           setAuthToken(urlToken);
         }
       }
     }
-  }, [token]); 
-useEffect(() => {
-  if (!enableBotpress) return undefined;
+  }, [token]);
 
-  // Phase 5 (SECURITY_AUDIT.md FRONT-005): this URL is Botpress's own
-  // "v3.0" line, not a specific pinned release — Botpress pushes
-  // updates to this exact path on their CDN over time. A fixed
-  // Subresource Integrity hash computed against today's file content
-  // would start failing the moment Botpress ships an update, and with
-  // SRI the browser then REFUSES to run the script at all — silently
-  // breaking the chatbot for every user until someone notices and
-  // recomputes the hash. That's a worse outcome than the supply-chain
-  // risk SRI is meant to reduce, so a pinned hash was deliberately not
-  // added here. Instead: public/index.html's CSP restricts script-src
-  // to exactly https://cdn.botpress.cloud (no wildcard), which is the
-  // defense that's actually safe to keep in place unattended — it
-  // still means only Botpress's own origin can ever be loaded as a
-  // script here, just without pinning the exact file content.
-  const script = document.createElement("script");
-  script.src = "https://cdn.botpress.cloud/webchat/v3.0/webchat.js";
-  script.async = true;
-  script.crossOrigin = "anonymous";
-  script.onload = () => {
-    window.botpressWebChat?.init?.({
-      configUrl: "https://files.bpcontent.cloud/2025/06/28/09/20250628095833-D0OMUHIV.json"
-    });
-  };
-  document.body.appendChild(script);
-  return () => script.remove();
-}, [enableBotpress]);
+  useEffect(() => {
+    if (!enableBotpress) return undefined;
 
-
+    // Phase 5 (SECURITY_AUDIT.md FRONT-005): this URL is Botpress's own
+    // "v3.0" line, not a specific pinned release — Botpress pushes
+    // updates to this exact path on their CDN over time. A fixed
+    // Subresource Integrity hash computed against today's file content
+    // would start failing the moment Botpress ships an update, and with
+    // SRI the browser then REFUSES to run the script at all — silently
+    // breaking the chatbot for every user until someone notices and
+    // recomputes the hash. That's a worse outcome than the supply-chain
+    // risk SRI is meant to reduce, so a pinned hash was deliberately not
+    // added here. Instead: public/index.html's CSP restricts script-src
+    // to exactly https://cdn.botpress.cloud (no wildcard), which is the
+    // defense that's actually safe to keep in place unattended — it
+    // still means only Botpress's own origin can ever be loaded as a
+    // script here, just without pinning the exact file content.
+    const script = document.createElement("script");
+    script.src = "https://cdn.botpress.cloud/webchat/v3.0/webchat.js";
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.onload = () => {
+      window.botpressWebChat?.init?.({
+        configUrl: "https://files.bpcontent.cloud/2025/06/28/09/20250628095833-D0OMUHIV.json",
+      });
+    };
+    document.body.appendChild(script);
+    return () => script.remove();
+  }, [enableBotpress]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isTyping]);
 
-  useEffect(() => {
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        setExecutiveId(decoded.id);
-        setExecutiveName(decoded.name);
-        console.log("✅ Executive decoded:", decoded.id, decoded.name);
-      } catch (err) {
-        console.error("❌ Invalid token:", err);
+  // Stop the microphone when the chat is closed.
+  useEffect(
+    () => () => {
+      const rec = recognitionRef.current;
+      if (rec) {
+        rec.onend = null;
+        try {
+          rec.stop();
+        } catch (_) {
+          /* already stopped */
+        }
+        recognitionRef.current = null;
       }
-    }
-  }, [token]);
+    },
+    []
+  );
 
   const handleSend = async (input) => {
     const question = input.trim();
     if (!question || isTyping) return;
     if (!authToken) {
-      setRequestError("Please sign in again to use the assistant.");
+      setRequestError("Please sign in again to use ELSA AI.");
       return;
     }
     if (!API_BASE_URL) {
@@ -113,139 +110,33 @@ useEffect(() => {
     setMessages((prev) => [...prev, { text: question, isUser: true }]);
     setUserInput("");
     setIsTyping(true);
-  
+
     try {
       const response = await fetch(`${API_BASE_URL}/crew/executive`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(conversationIdRef.current ? { question, conversationId: conversationIdRef.current } : { question }),
       });
-  
+
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(data?.error || `Chat request failed (${response.status}).`);
       }
       if (typeof data?.answer !== "string" || !data.answer.trim()) {
-        throw new Error("The assistant returned an empty response.");
+        throw new Error("ELSA AI returned an empty response.");
       }
-  
+
+      if (data.conversation?.id) conversationIdRef.current = data.conversation.id;
       setMessages((prev) => [...prev, { text: data.answer, isUser: false }]);
     } catch (error) {
-      setRequestError(error.message || "Unable to get a response from the assistant.");
+      setRequestError(error.message || "Unable to get a response from ELSA AI.");
     } finally {
       setIsTyping(false);
     }
   };
-  
-
-  const toggleRecording = async () => {
-  console.log("🎬 toggleRecording clicked");
-  console.log("🎙️ isRecording state:", isRecording);
-
-  if (!isRecording) {
-    try {
-      console.log("🎤 Requesting mic access...");
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log("✅ Mic permission granted");
-
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      recordChunksRef.current = [];
-
-      mediaRecorderRef.current.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          recordChunksRef.current.push(e.data);
-          console.log("📦 ondataavailable fired:", e.data.size);
-        }
-      };
-
-      mediaRecorderRef.current.onstop = async () => {
-        console.log("🛑 onstop triggered");
-
-        const blob = new Blob(recordChunksRef.current, { type: "audio/webm" });
-        const fileName = `call_recording_${Date.now()}.webm`;
-        const fakePath = `C:/Users/${executiveName}/Downloads/${fileName}`;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        const storedClient = JSON.parse(localStorage.getItem("activeClient") || "{}");
-        const clientName = storedClient.name || "Unknown";
-        const clientPhone = storedClient.phone || "0000000000";
-
-        const callStartTime = recordStartTimeRef.current?.toISOString() || new Date().toISOString();
-        const callEndTime = new Date().toISOString();
-        const duration = Math.floor((new Date(callEndTime) - new Date(callStartTime)) / 1000);
-
-        console.log("📋 Call Metadata Preview:", {
-          executiveId,
-          executiveName,
-          duration,
-          clientName,
-          clientPhone,
-          callStartTime,
-          callEndTime,
-          fakePath,
-        });
-
-        if (!executiveId || !clientName || !clientPhone) {
-          alert("❌ Missing metadata. Please select a client and try again.");
-          return;
-        }
-
-        const formData = new FormData();
-        formData.append("executiveId", executiveId);
-        formData.append("duration", duration);
-        formData.append("clientName", clientName);
-        formData.append("clientPhone", clientPhone);
-        formData.append("callStartTime", callStartTime);
-        formData.append("callEndTime", callEndTime);
-        formData.append("recordingPath", fakePath);
-
-        try {
-          const res = await fetch(`${API_BASE_URL}/calldetails`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          });
-
-          const data = await res.json();
-          console.log("✅ Uploaded to backend:", data);
-        } catch (err) {
-          console.error("❌ Upload failed:", err);
-          if (err instanceof TypeError) {
-            console.warn("📛 Probably CORS or silent backend rejection");
-          }
-        }
-
-        recordChunksRef.current = [];
-      };
-
-      mediaRecorderRef.current.start();
-      console.log("▶️ mediaRecorder.start() successfully triggered");
-
-      recordStartTimeRef.current = new Date(); // ✅ Capture accurate start time
-      setIsRecording(true);
-      setRecordTime(0);
-      timerRef.current = setInterval(() => setRecordTime((t) => t + 1), 1000);
-    } catch (err) {
-      console.error("❌ Mic access error:", err);
-    }
-  } else {
-    console.log("🛑 Stopping recording...");
-    mediaRecorderRef.current?.stop();
-    clearInterval(timerRef.current);
-    setIsRecording(false);
-    setRecordTime(0);
-  }
-};
 
   const handleMicClick = () => {
     if (isListening) stopSpeechRecognition();
@@ -254,29 +145,43 @@ useEffect(() => {
 
   const startSpeechRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return alert("Speech recognition not supported.");
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = true;
-    recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = "en-US";
-    recognitionRef.current.onstart = () => setIsListening(true);
-    recognitionRef.current.onresult = (event) => {
-      let transcript = event.results[event.results.length - 1][0].transcript.trim();
+    if (!SpeechRecognition) {
+      setRequestError("Voice input is not supported in this browser.");
+      return;
+    }
+    setRequestError("");
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event) => {
+      const result = event.results[event.results.length - 1];
+      const transcript = result[0].transcript.trim();
       setUserInput(transcript);
-      if (event.results[event.results.length - 1].isFinal) handleSend(transcript);
+      if (result.isFinal) handleSend(transcript);
     };
-    recognitionRef.current.onerror = (e) => console.error("Speech error:", e.error);
-    recognitionRef.current.onend = () => {
-      if (!isCallActive && isListening) recognitionRef.current.start();
+    recognition.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        setRequestError("Microphone access was blocked. Allow it in your browser to use voice input.");
+      }
     };
-    recognitionRef.current.start();
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.start();
   };
 
   const stopSpeechRecognition = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current.onend = null;
-      recognitionRef.current = null;
+    const rec = recognitionRef.current;
+    if (rec) {
+      try {
+        rec.stop();
+      } catch (_) {
+        /* already stopped */
+      }
     }
     setIsListening(false);
   };
@@ -286,7 +191,7 @@ useEffect(() => {
       <div className="chat-container">
         <div className="chat-header">
           <MdSmartToy size={30} className="chat-icon" />
-          <h2 style={{color: "white"}}>AI ChatBot</h2>
+          <h2 style={{ color: "white" }}>ELSA AI</h2>
         </div>
 
         <div className="chat-messages" ref={chatContainerRef}>
@@ -294,7 +199,7 @@ useEffect(() => {
             <p className="chat-empty-state">Ask a question to start chatting.</p>
           )}
           {messages.map((msg, index) => (
-            <div className="message-row" key={index}>
+            <div className="message-row" key={msg.id ?? `local-${index}`}>
               <div className="bot-side">
                 {!msg.isUser ? (
                   <div className="message bot-message">
@@ -319,7 +224,7 @@ useEffect(() => {
           ))}
           {isTyping && (
             <div className="typing-indicator" role="status">
-              Assistant is responding...
+              ELSA AI is responding...
             </div>
           )}
         </div>
@@ -353,23 +258,19 @@ useEffect(() => {
           >
             <FaPaperPlane />
           </button>
-          <button type="button" onClick={handleMicClick} className={`mic-button ${isListening ? "active" : ""}`} aria-label="Use microphone">
+          <button
+            type="button"
+            onClick={handleMicClick}
+            className={`mic-button ${isListening ? "active" : ""}`}
+            aria-label={isListening ? "Stop voice input" : "Use microphone"}
+            aria-pressed={isListening}
+          >
             <FaMicrophone />
           </button>
-          <button type="button" onClick={toggleRecording} className={`record-button ${isRecording ? "active" : ""}`} aria-label={isRecording ? "Stop recording" : "Record call"}>
-            {isRecording ? <FaStopCircle /> : <BsRecordCircle />}
-          </button>
         </div>
- {/* Your existing chat UI */}
-      {!authToken && (
-        <div className="auth-warning">
-          <p>⚠️ Authentication required. Please login to use all features.</p>
-        </div>
-      )}
-
-        {isRecording && (
-          <div style={{ textAlign: "center", color: "red", marginTop: "5px" }}>
-            Recording Time: {recordTime}s
+        {!authToken && (
+          <div className="auth-warning">
+            <p>Authentication required. Please login to use ELSA AI.</p>
           </div>
         )}
       </div>

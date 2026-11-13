@@ -71,7 +71,7 @@ describe("tabs", () => {
   test("Team, Plan and Billing are gone; Page Access Controller still works", async () => {
     render(<AdminSettings />);
     const tabs = within(document.querySelector(".settings-tabs")).getAllByRole("button").map((b) => b.textContent);
-    expect(tabs).toEqual(["Profile", "Password", "Page Access Controller", "Integrations"]);
+    expect(tabs).toEqual(["Profile", "Password", "Page Access Controller", "Auto Logout", "Integrations"]);
     fireEvent.click(screen.getByText("Page Access Controller"));
     expect(screen.getByText("PAGE-ACCESS-CONTROLLER")).toBeInTheDocument();
   });

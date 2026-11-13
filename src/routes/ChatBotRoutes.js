@@ -1,13 +1,7 @@
 import React from "react";
-import Chat from "../features/chatbot/Chat";
-import "../styles/chatbot.css";
+import ElsaAI from "../features/chatbot/ElsaAI";
 
-const ChatBotRoutes = () => {
-    return (
-        <div className="chatbot-app-container">
-            <Chat />
-        </div>
-    );
-}
+// /executive/chat and /executive/chatbot both open the ELSA AI workspace.
+const ChatBotRoutes = () => <ElsaAI />;
 
 export default ChatBotRoutes;

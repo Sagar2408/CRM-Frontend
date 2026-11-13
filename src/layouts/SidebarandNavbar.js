@@ -1,32 +1,31 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
-import { MessageNavIcon, MessagingSidebarItem } from "../features/Messaging/MessagingNav";
+import { MessagingSidebarItem } from "../features/Messaging/MessagingNav";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import "../styles/sidebar.css";
 import BeepNotification from "../BeepNotification";
 import ExecutiveActivity from "../features/executive/ExecutiveActivity";
-import ChatbotAssistantModal from "../features/chatbot/ChatbotAssistantModal";
 import { useApi } from "../context/ApiContext";
 import { useAuth } from "../context/AuthContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
-import useWorkTimer from "../features/executive/useLoginTimer";
+import ExecutiveClock from "../features/executive/ExecutiveClock";
 import { useBreakTimer } from "../context/breakTimerContext";
-import { SearchContext } from "../context/SearchContext";
+import { displayName, initialOf } from "../utils/userDisplay";
+import LeadSearch from "../features/executive/LeadSearch";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBars,
   faHouse,
-  faUserPlus,
+  faCircleCheck,
   faUsers,
   faList,
   faClock,
   faCircleXmark,
   faFile,
-  faReceipt,
   faGear,
   faArrowLeft,
   faBell,
   faRobot,
-  faCircleUser,
+  faChevronDown,
   faRightFromBracket,
   faMugHot,
   faPersonWalking,
@@ -41,7 +40,6 @@ import {
   faStopCircle,
   faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
-import { FaPlay, FaPause } from "react-icons/fa";
 
 // Break timer icons
 const breakIcons = [
@@ -57,12 +55,27 @@ const breakIcons = [
   faYinYang,
 ];
 
-const SidebarandNavbar = () => {
-  const { breakTimer, startBreak, stopBreak, isBreakActive, resetBreakTimer } =
-    useBreakTimer();
-  const timer = useWorkTimer();
-  const chatbotRef = useRef(null);
-  const chatbotHeaderRef = useRef(null);
+const MOBILE_QUERY = "(max-width: 991px)";
+
+const useIsMobile = () => {
+  const get = () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(MOBILE_QUERY).matches : false);
+  const [mobile, setMobile] = useState(get);
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const on = () => setMobile(mq.matches);
+    on();
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => (mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on));
+  }, []);
+  return mobile;
+};
+
+// collapsed / onToggleCollapse come from ExecutiveLayout (it owns the saved
+// preference). On phones/tablets the hamburger opens the off-canvas drawer instead.
+const SidebarandNavbar = ({ collapsed = false, onToggleCollapse = () => {} }) => {
+  const { breakTimer, stopBreak, isBreakActive, resetBreakTimer } = useBreakTimer();
+  const isMobile = useIsMobile();
 
   const { logout } = useAuth();
   const {
@@ -77,49 +90,22 @@ const SidebarandNavbar = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { setSearchQuery } = useContext(SearchContext);
-  const [isOpen, setIsOpen] = useState(
-    () =>
-      location.pathname.startsWith("/freshlead") ||
-      location.pathname.startsWith("/follow-up") ||
-      location.pathname.startsWith("/customer") ||
-      location.pathname.startsWith("/close-leads")
-  );
   const [isActive, setIsActive] = useState(false);
   const [showTracker, setShowTracker] = useState(false);
   const [showUserPopover, setShowUserPopover] = useState(false);
-  const [showChatbot, setShowChatbot] = useState(false); // New state for chatbot popup
-  const [hourDeg, setHourDeg] = useState(0);
-  const [minuteDeg, setMinuteDeg] = useState(0);
-  const [secondDeg, setSecondDeg] = useState(0);
 
   const popoverRef = useRef(null);
   const userIconRef = useRef(null);
   const historyStackRef = useRef([]);
 
-  const toggleSidebar = () => setIsActive((prev) => !prev);
-  const toggle = async () => {
-    if (!isBreakActive) {
-      await startBreak();
-    } else {
-      await stopBreak();
-    }
-  };
-
-  // New function to handle chatbot toggle
-  const handleChatbotToggle = () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert("Please login again");
-      return;
-    }
-    setShowChatbot((prev) => !prev);
-  };
+  // Hamburger: collapse / expand on desktop, open / close the drawer on mobile.
+  const handleHamburger = () => (isMobile ? setIsActive((prev) => !prev) : onToggleCollapse());
+  const closeDrawer = () => setIsActive(false);
 
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
-      await stopBreak();
+      // logout() saves the work session first (a break in progress is closed too).
       await logout();
       resetBreakTimer();
     } catch (error) {
@@ -141,66 +127,11 @@ const SidebarandNavbar = () => {
     navigate("/executive");
   };
   useEffect(() => {
-    if (!showChatbot || !chatbotRef.current || !chatbotHeaderRef.current)
-      return;
-
-    const popup = chatbotRef.current;
-    const header = chatbotHeaderRef.current;
-
-    let isDragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    const onMouseDown = (e) => {
-      isDragging = true;
-      const rect = popup.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
-      popup.style.position = "absolute";
-      popup.style.zIndex = 10000;
-    };
-
-    const onMouseMove = (e) => {
-      if (isDragging) {
-        popup.style.left = `${e.clientX - offsetX}px`;
-        popup.style.top = `${e.clientY - offsetY}px`;
-      }
-    };
-
-    const onMouseUp = () => {
-      isDragging = false;
-    };
-
-    header.style.cursor = "move";
-    header.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-
-    return () => {
-      header.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [showChatbot]);
-
-  useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (user?.id && user?.role) {
       fetchNotifications({ userId: user.id, userRole: user.role });
     }
   }, [fetchNotifications]);
-
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      setSecondDeg(now.getSeconds() * 6);
-      setMinuteDeg(now.getMinutes() * 6 + now.getSeconds() * 0.1);
-      setHourDeg((now.getHours() % 12) * 30 + now.getMinutes() * 0.5);
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // BeepNotification handlers
   const handleDismissBeepNotification = () => {
@@ -220,7 +151,7 @@ const SidebarandNavbar = () => {
   }, [location]);
 
   useEffect(() => {
-    setIsOpen(false);
+    setIsActive(false); // close the mobile drawer after navigating
   }, [location.pathname]);
 
   const handleMarkAllAsRead = () => {
@@ -262,183 +193,78 @@ const SidebarandNavbar = () => {
     };
   }, []);
 
+  const isRoute = (to, exact) => (exact ? location.pathname === to || location.pathname === to + "/" : location.pathname.startsWith(to));
+
+  // One sidebar link: icon + label (label hidden when collapsed) + tooltip text.
+  const navItem = (to, icon, label, { exact = false } = {}) => (
+    <li key={to}>
+      <Link to={to} className={`sidebar_nav ${isRoute(to, exact) ? "active" : ""}`} data-tip={label} aria-label={label}>
+        <FontAwesomeIcon icon={icon} />
+        <span className="sb-label">{label}</span>
+      </Link>
+    </li>
+  );
+
   return (
     <>
       <section className="sidebar_navbar" data-theme={theme}>
-        <section className={`sidebar_container ${isActive ? "active" : ""}`}>
-          <button className="menuToggle" onClick={toggleSidebar}>
-            <FontAwesomeIcon icon={faBars} />
-          </button>
+        {isMobile && isActive && <div className="exec-backdrop" onClick={closeDrawer} aria-hidden="true" />}
+        <section id="exec-sidebar" className={`sidebar_container ${isActive ? "active" : ""}`}>
           <div className="sidebar_heading">
-            <h1>CRM</h1>
+            <button
+              type="button"
+              className="exec-hamburger exec-hamburger--sidebar"
+              onClick={handleHamburger}
+              aria-label={isMobile ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={isMobile ? isActive : !collapsed}
+              aria-controls="exec-sidebar"
+              data-tip={collapsed && !isMobile ? "Expand sidebar" : undefined}
+            >
+              <FontAwesomeIcon icon={faBars} />
+            </button>
+            <span className="sidebar_brand">CRM</span>
           </div>
-          <div>
-            <h3 className="sidebar_crm">CRM</h3>
-          </div>
-          <nav className="navbar_container">
+          <nav className="navbar_container" aria-label="Main">
             <ul>
-              <li>
-                <Link to="/executive" className="sidebar_nav">
-                  <FontAwesomeIcon icon={faHouse} /> Dashboard
-                </Link>
-              </li>
-              <li style={{ position: "relative" }}>
-                <Link
-                  to="#"
-                  className="sidebar_nav"
-                  onClick={() => setIsOpen(!isOpen)}
-                >
-                  <FontAwesomeIcon icon={faUserPlus} /> Leads
-                  <span style={{ marginLeft: "auto", fontSize: "12px" }}>
-                    ▼
-                  </span>
-                </Link>
-                {isOpen && (
-                  <ul className="submenu_nav">
-                    <li>
-                      <Link
-                        to="/executive/freshlead"
-                        className="submenu_item"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <FontAwesomeIcon icon={faUsers} /> Fresh Leads
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/executive/follow-up"
-                        className="submenu_item"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <FontAwesomeIcon icon={faList} /> Follow ups
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/executive/customer"
-                        className="submenu_item"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <FontAwesomeIcon icon={faClock} /> Convert
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/executive/close-leads"
-                        className="submenu_item"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <FontAwesomeIcon icon={faCircleXmark} /> Close
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-              </li>
+              {navItem("/executive", faHouse, "Dashboard", { exact: true })}
+              {navItem("/executive/freshlead", faUsers, "Fresh Leads")}
+              {navItem("/executive/follow-up", faList, "Follow-ups")}
+              {navItem("/executive/customer", faCircleCheck, "Converted Leads")}
+              {navItem("/executive/close-leads", faCircleXmark, "Closed Leads")}
               <MessagingSidebarItem variant="exec" />
-              <li>
-                <Link to="/executive/schedule" className="sidebar_nav">
-                  <FontAwesomeIcon icon={faFile} /> Scheduled Meetings
-                </Link>
-              </li>
-              <li>
-                <Link to="/executive/invoice" className="sidebar_nav">
-                  <FontAwesomeIcon icon={faReceipt} /> Invoice
-                </Link>
-              </li>
-              <li>
-                <Link to="/executive/settings" className="sidebar_nav">
-                  <FontAwesomeIcon icon={faGear} /> Settings
-                </Link>
-              </li>
+              {navItem("/executive/elsa", faRobot, "ELSA AI")}
+              {navItem("/executive/schedule", faFile, "Scheduled Meetings")}
+              {navItem("/executive/settings", faGear, "Settings")}
             </ul>
           </nav>
         </section>
 
-        <section className="navbar">
+        <header className="navbar">
           <div className="menu_search">
-            <button className="menu_toggle" onClick={toggleSidebar}>
-              <FontAwesomeIcon icon={faBars} />
+            {isMobile && (
+              <button type="button" className="exec-hamburger exec-hamburger--mobile" onClick={handleHamburger} aria-label="Open menu" aria-expanded={isActive} aria-controls="exec-sidebar">
+                <FontAwesomeIcon icon={faBars} />
+              </button>
+            )}
+            <button type="button" className="exec-iconbtn exec-back" onClick={handleBack} aria-label="Go back" title="Back">
+              <FontAwesomeIcon icon={faArrowLeft} />
             </button>
-            <div className="search_bar">
-              <FontAwesomeIcon
-                icon={faArrowLeft}
-                onClick={handleBack}
-                style={{ fontSize: "20px", cursor: "pointer" }}
-              />
-              <input
-                className="search-input-exec"
-                placeholder="Search"
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            <LeadSearch />
           </div>
 
-          <div className="compact-timer">
-            <div className="timer-item">
-              <button className="timer-btn-small">
-                <FaPause />
-              </button>
-              <span className="timer-label-small">Work:</span>
-              <span className="timer-box-small">{timer}</span>
-            </div>
-
-            <div className="analog-clock">
-              <div
-                className="hand hour"
-                style={{ transform: `rotate(${hourDeg}deg)` }}
-              ></div>
-              <div
-                className="hand minute"
-                style={{ transform: `rotate(${minuteDeg}deg)` }}
-              ></div>
-              <div
-                className="hand second"
-                style={{ transform: `rotate(${secondDeg}deg)` }}
-              ></div>
-              <div className="center-dot"></div>
-            </div>
-
-            <div className="timer-item">
-              <button className="timer-btn-small" onClick={toggle}>
-                {isBreakActive ? <FaPause /> : <FaPlay />}
-              </button>
-              <span className="timer-label-small">Break:</span>
-              <span className="timer-box-small">{breakTimer}</span>
-            </div>
-          </div>
+          <ExecutiveClock />
 
           <div className="navbar_icons">
-            <div className="navbar_divider"></div>
             <div className="notification-wrapper">
-              <FontAwesomeIcon
-                className="navbar_icon"
-                icon={faBell}
-                style={{ cursor: "pointer" }}
-                title="Notifications"
-                tabIndex="0"
-                onClick={() => navigate("/executive/notification")}
-              />
-              {unreadCount > 0 && (
-                <span className="notification-badge">{unreadCount}</span>
-              )}
+              <button type="button" className="exec-iconbtn" aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"} title="Notifications" onClick={() => navigate("/executive/notification")}>
+                <FontAwesomeIcon icon={faBell} />
+              </button>
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}
             </div>
 
-            {/* Updated chatbot icon to use popup instead of new window */}
-            <FontAwesomeIcon
-              className="navbar_icon bot_icon"
-              icon={faRobot}
-              onClick={handleChatbotToggle}
-              title="Open ChatBot"
-              style={{ cursor: "pointer" }}
-            />
-            <MessageNavIcon variant="fa" />
-            <FontAwesomeIcon
-              className="navbar_icon"
-              icon={faClock}
-              title="Toggle Activity Tracker"
-              onClick={() => setShowTracker((prev) => !prev)}
-              style={{ cursor: "pointer" }}
-            />
+            <button type="button" className="exec-iconbtn" aria-label="Activity tracker" aria-expanded={showTracker} title="Activity tracker" onClick={() => setShowTracker((prev) => !prev)}>
+              <FontAwesomeIcon icon={faClock} />
+            </button>
 
             {showTracker && (
               <div className="activity-tracker-wrapper">
@@ -446,50 +272,55 @@ const SidebarandNavbar = () => {
               </div>
             )}
 
+            <span className="exec-divider" aria-hidden="true" />
+
             <div className="user-icon-wrapper" ref={popoverRef}>
-              <FontAwesomeIcon
+              <button
+                type="button"
                 ref={userIconRef}
-                className="navbar_icon"
-                icon={faCircleUser}
+                className="exec-profile"
+                aria-haspopup="menu"
+                aria-expanded={showUserPopover}
                 onClick={() => setShowUserPopover((prev) => !prev)}
-              />
+              >
+                <span className="exec-profile__avatar" aria-hidden="true">
+                  {initialOf(executiveInfo)}
+                </span>
+                <span className="exec-profile__text">
+                  <span className="exec-profile__name">{displayName(executiveInfo) || "Account"}</span>
+                  <span className="exec-profile__role">{executiveInfo?.role || "Executive"}</span>
+                </span>
+                <FontAwesomeIcon icon={faChevronDown} className="exec-profile__caret" />
+              </button>
 
               {showUserPopover && (
-                <div className="user_popover">
+                <div className="user_popover" role="menu">
                   {executiveLoading ? (
                     <p>Loading user details...</p>
                   ) : (
                     <>
                       <div className="user_details">
-                        <div className="user_avatar">
-                          {executiveInfo.username?.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="user_name">{executiveInfo.username}</p>
-                          <p className="user_role">{executiveInfo.role}</p>
+                        <div className="user_avatar">{initialOf(executiveInfo)}</div>
+                        <div className="user_identity">
+                          <p className="user_name">{displayName(executiveInfo)}</p>
+                          {executiveInfo?.email && <p className="user_email">{executiveInfo.email}</p>}
+                          <p className="user_role">{executiveInfo?.role}</p>
                         </div>
                       </div>
+                      <Link to="/executive/settings" className="exec-menu-link" role="menuitem" onClick={() => setShowUserPopover(false)}>
+                        <FontAwesomeIcon icon={faGear} /> Settings
+                      </Link>
                       <button
                         className="logout_btns"
+                        role="menuitem"
                         onClick={handleLogout}
                         disabled={isLoggingOut}
-                        aria-label={
-                          isLoggingOut ? "Logging out, please wait" : "Logout"
-                        }
+                        aria-label={isLoggingOut ? "Logging out, please wait" : "Logout"}
                       >
-                        <FontAwesomeIcon
-                          icon={isLoggingOut ? faSpinner : faRightFromBracket}
-                          className={isLoggingOut ? "logout-spinner" : ""}
-                        />
-                        <span className="logout-text">
-                          {isLoggingOut ? "Logging out" : "Logout"}
-                        </span>
+                        <FontAwesomeIcon icon={isLoggingOut ? faSpinner : faRightFromBracket} className={isLoggingOut ? "logout-spinner" : ""} />
+                        <span className="logout-text">{isLoggingOut ? "Logging out" : "Logout"}</span>
                         {isLoggingOut && <span className="loading-dots"></span>}
-                        {isLoggingOut && (
-                          <span className="sr-only">
-                            Please wait while we log you out
-                          </span>
-                        )}
+                        {isLoggingOut && <span className="sr-only">Please wait while we log you out</span>}
                       </button>
                     </>
                   )}
@@ -497,7 +328,7 @@ const SidebarandNavbar = () => {
               )}
             </div>
           </div>
-        </section>
+        </header>
 
         {/* Break timer overlay */}
         {isBreakActive && (
@@ -521,15 +352,6 @@ const SidebarandNavbar = () => {
           </div>
         )}
 
-        {/* Chatbot Popup Overlay */}
-        {showChatbot && (
-          <ChatbotAssistantModal
-            onClose={() => setShowChatbot(false)}
-            token={localStorage.getItem("token")}
-            popupRef={chatbotRef}
-            headerRef={chatbotHeaderRef}
-          />
-        )}
       </section>
 
       <BeepNotification

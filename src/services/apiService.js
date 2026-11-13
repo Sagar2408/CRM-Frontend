@@ -486,10 +486,12 @@ export const updateUserSettings = async (updatedSettings) => {
     throw error; 
   }
 };
-export const fetchMeetings = async () => {
+// Meetings of the logged-in executive (always [] when there are none).
+// Optional params: { status, from, to } (ISO dates).
+export const fetchMeetings = async (params) => {
   try {
-    const response = await apiService.get("/meetings/exec");
-    return response.data.data; 
+    const response = await apiService.get("/meetings/exec", { params });
+    return response.data.data || [];
   } catch (error) {
     console.error("❌ Error fetching meetings:", error.response?.data || error.message);
     throw error;
@@ -1187,3 +1189,57 @@ export const changeManagerPassword = async (currentPassword, newPassword) => {
   }
 };
 export default apiService;
+
+// ---------------------------------------------------------------------------
+// Immigration news (Executive dashboard). The server fetches the feeds; the
+// client only ever sends a source KEY.
+// ---------------------------------------------------------------------------
+export const fetchNewsSources = async () => {
+  const response = await apiService.get("/news/sources");
+  return response.data;
+};
+
+export const fetchImmigrationNews = async (source, limit = 15) => {
+  const response = await apiService.get("/news", { params: { source, limit } });
+  return response.data;
+};
+
+// Change just the status of a meeting: Scheduled | Completed | Cancelled | No Show
+export const updateMeetingStatus = async (meetingId, status, notes) => {
+  const response = await apiService.patch(`/meetings/${meetingId}/status`, notes === undefined ? { status } : { status, notes });
+  return response.data;
+};
+
+export const deleteMeeting = async (meetingId) => {
+  const response = await apiService.delete(`/meetings/${meetingId}`);
+  return response.data;
+};
+
+// ---------------------------------------------------------------------------
+// ELSA AI conversations (per authenticated user; the server derives the user and
+// tenant from the JWT, so ids from another user simply 404).
+// ---------------------------------------------------------------------------
+export const elsaListConversations = async () => (await apiService.get("/crew/executive/conversations")).data.conversations || [];
+
+export const elsaGetMessages = async (conversationId) =>
+  (await apiService.get(`/crew/executive/conversations/${conversationId}/messages`)).data.messages || [];
+
+export const elsaRenameConversation = async (conversationId, title) =>
+  (await apiService.patch(`/crew/executive/conversations/${conversationId}`, { title })).data.conversation;
+
+export const elsaDeleteConversation = async (conversationId) =>
+  (await apiService.delete(`/crew/executive/conversations/${conversationId}`)).data;
+
+// The model can take a while; allow up to 75 s (the server gives up after ~55 s).
+export const elsaSendMessage = async (question, conversationId) =>
+  (
+    await apiService.post(
+      "/crew/executive",
+      conversationId ? { question, conversationId } : { question },
+      { timeout: 75000 }
+    )
+  ).data;
+
+// Executive header search: the logged-in executive's own leads (server scopes by JWT + tenant).
+export const searchLeads = async (q, signal) =>
+  (await apiService.get("/freshleads/search", { params: { q }, signal })).data.results || [];

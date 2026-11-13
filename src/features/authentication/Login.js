@@ -17,6 +17,18 @@ const Login = () => {
   const [companyCode, setCompanyCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Shown once after an automatic inactivity logout (set by AuthContext.logout).
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("crm.logoutNotice") === "inactivity") {
+        setNotice("You were logged out automatically because of inactivity. Your work time was saved.");
+        sessionStorage.removeItem("crm.logoutNotice");
+      }
+    } catch (_) {
+      /* storage unavailable */
+    }
+  }, []);
 
   // Memoize slides to prevent recreation on every render
   const slides = useMemo(
@@ -89,6 +101,11 @@ const Login = () => {
             <div className="create">
               Login to your Account
             </div>
+            {notice && (
+              <p role="status" className="login-notice" style={{ background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412", borderRadius: 8, padding: "8px 12px", fontSize: 13, margin: "8px 0 0" }}>
+                {notice}
+              </p>
+            )}
             <p style={{ paddingTop: "10px" }}>Enter your credentials</p>
             <form onSubmit={handleLogin}>
               <input
