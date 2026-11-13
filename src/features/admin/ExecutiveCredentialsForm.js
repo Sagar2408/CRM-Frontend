@@ -25,7 +25,7 @@ const ExecutiveCredentialsForm = () => {
   const [sidebarCollapsed] = useState(
     localStorage.getItem("adminSidebarExpanded") === "false"
   );
-  const { createExecutive, createAdmin, createTeamLead, createManager, createHr, createProcessPerson } = useApi();
+  const { createExecutive, createAdmin, createManager, createHr, createProcessPerson } = useApi();
   const [showPassword, setShowPassword] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [errors, setErrors] = useState({});
@@ -118,9 +118,6 @@ const ExecutiveCredentialsForm = () => {
         switch (role) {
           case "Executive":
             await createExecutive(formPayload);
-            break;
-          case "TL":
-            await createTeamLead(formPayload);
             break;
           case "Admin":
             await createAdmin(formPayload);
@@ -377,7 +374,6 @@ const ExecutiveCredentialsForm = () => {
                       >
                         <option value="" disabled>Select Role</option>
                         <option value="Executive">Executive</option>
-                        <option value="TL">Team Lead</option>
                         <option value="Admin">Admin</option>
                         <option value="Manager">Manager</option>
                         <option value="Hr">Hr</option>

@@ -7,7 +7,8 @@ import { companySupport, formatCountdown, SUPPORT_CATEGORIES } from "../../servi
 
 const EMPTY = { category: "", subject: "", description: "", contactNumber: "" };
 
-const SupportTickets = () => {
+/** Help & Support: the shared company inbox (Admin, and employees granted Help & Support). */
+const SupportTickets = ({ api = companySupport }) => {
   const [ctx, setCtx] = useState(null); // auto-filled admin/company details
   const [form, setForm] = useState(EMPTY);
   const [file, setFile] = useState(null);
@@ -28,19 +29,19 @@ const SupportTickets = () => {
 
   const loadList = useCallback(async () => {
     try {
-      const data = await companySupport.list(1, 50);
+      const data = await api.list(1, 50);
       setTickets(data.tickets);
     } catch (e) {
       notify("error", "Load Failed", e.message);
     } finally {
       setLoadingList(false);
     }
-  }, [notify]);
+  }, [notify, api]);
 
   useEffect(() => {
     (async () => {
       try {
-        const c = await companySupport.form();
+        const c = await api.form();
         setCtx(c);
         setWait(c.retryAfterSeconds || 0);
         setForm((f) => ({ ...f, contactNumber: c.contactNumber || "" }));
@@ -49,7 +50,7 @@ const SupportTickets = () => {
       }
     })();
     loadList();
-  }, [loadList, notify]);
+  }, [loadList, notify, api]);
 
   // Countdown. The server is the source of truth; this only mirrors it.
   useEffect(() => {
@@ -76,7 +77,7 @@ const SupportTickets = () => {
     setSubmitting(true);
     setFieldError("");
     try {
-      await companySupport.create(form, file);
+      await api.create(form, file);
       notify("success", "Query Submitted", "Our team will get back to you soon.");
       setForm({ ...EMPTY, contactNumber: form.contactNumber });
       setFile(null);
@@ -97,7 +98,7 @@ const SupportTickets = () => {
 
   const openTicket = async (id) => {
     try {
-      setOpen(await companySupport.get(id));
+      setOpen(await api.get(id));
       setTickets((ts) => ts.map((t) => (t.id === id ? { ...t, unread: false } : t)));
       setTimeout(() => threadRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     } catch (e) {
@@ -106,8 +107,8 @@ const SupportTickets = () => {
   };
 
   const reply = async (message, attachment) => {
-    await companySupport.reply(open.ticket.id, message, attachment);
-    setOpen(await companySupport.get(open.ticket.id));
+    await api.reply(open.ticket.id, message, attachment);
+    setOpen(await api.get(open.ticket.id));
     loadList();
   };
 
@@ -224,7 +225,7 @@ const SupportTickets = () => {
               ticket={open.ticket}
               conversation={open.conversation}
               onReply={reply}
-              onDownload={(m) => companySupport.download(open.ticket.id, m.id, m.attachment.name).catch((e) => notify("error", "Download Failed", e.message))}
+              onDownload={(m) => api.download(open.ticket.id, m.id, m.attachment.name).catch((e) => notify("error", "Download Failed", e.message))}
               placeholder="Add a follow-up message…"
               sendLabel="Send Message"
             />

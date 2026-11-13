@@ -13,6 +13,8 @@ import "../styles/admin.css";
 import ExecutiveList from "../features/admin/ExecutiveList";
 import { useApi } from "../context/ApiContext";
 import RequirePermission from '../features/admin-settings/RequirePermission'
+import { AccessGate } from "./PermissionedSidebar";
+import { NAV } from "./navConfig";
 import ManagerNavbar from "./ManagerNavbar";
 const ManagerLayout = () => {
     const { topExecutive, fetchExecutives, fetchExecutivesAPI } = useApi();
@@ -56,6 +58,7 @@ useEffect(() => {
       <ManagerSidebar className="admin-sidebar" />
       <main className="admin-main-content">
         <ManagerNavbar />
+        <AccessGate config={NAV.manager} landing={isDashboard}>
         {isDashboard ? (
           <RequirePermission requiredKey="dashboard">
            <div className="dashboard-wrapper">
@@ -113,6 +116,7 @@ useEffect(() => {
         ) : (
           <Outlet />
         )}
+        </AccessGate>
       </main>
     </div>
   );

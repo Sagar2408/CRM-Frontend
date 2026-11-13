@@ -18,16 +18,11 @@ import { useLocation } from "react-router-dom"; // ✅ at the top of App.js
 import AdminPanelRoutes from "./routes/MonitoringRoutes";
 import MasterRoutes from "./routes/MasterRoutes";
 import ProcessRoutes from "./routes/ProcessRoutes";
-import ClientLogin from "./features/process-client/ClientLogin";
 import ClientSignup from "./features/process-client/ClientSignup";
 import ExecutiveFormRoutes from "./routes/ExecutiveFormRoutes";
-import CustomerLogin from "./features/process-client/CustomerLogin";
 import { CustomerPrivateRoute } from "./services/processAuth";
 import { ProcessPrivateRoute } from "./services/processAuth";
 import ManagerRoutes from "./routes/ManagerRoutes";
-import LoginManager from "./features/authentication/LoginManager";
-import TLRoutes from "./routes/TLRoutes";
-import LoginHr from "./features/authentication/LoginHr";
 import HrRoutes from "./routes/HrRoutes";
 import SettingsRouteWrapper from "./routes/SettingsRouteWrapper";
 import ProcessDashboardRoutes from "./routes/ProcessDashboardRoutes";
@@ -74,19 +69,18 @@ useEffect(() => {
       <PresenceConnector />
 
       <Routes>
-      <Route path="/admin/login" element={<Login userType="admin" />} />
+      {/* One login for every tenant role. The old role-specific URLs just forward to it. */}
+      <Route path="/login" element={<Login />} />
+      {["/admin/login", "/manager/login", "/hr/login", "/process/client/login", "/customer/client/login"].map((p) => (
+        <Route key={p} path={p} element={<Navigate to="/login" replace />} />
+      ))}
       <Route path="/admin/signup" element={<CompanyAdminSignup />} />
-      <Route path="/login" element={<Login userType="executive" />} />
-      <Route path="/manager/login" element={<LoginManager userType="Manager" />} />
-      <Route path="/hr/login" element={<LoginHr userType="Hr" />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         {/* Public master routes - login & signup */}
         <Route path="/master/loginmaster" element={<LoginMaster />} />
         <Route path="/master/signupmaster" element={<SignupMaster />} />
-        <Route path="/process/client/login" element={<ClientLogin />} />
         <Route path="/process/client/signup" element={<ClientSignup />} />
-        <Route path="/customer/client/login" element={<CustomerLogin />} />
         
         <Route
   path="/executive/settings/*"
@@ -135,14 +129,8 @@ useEffect(() => {
     </PrivateRoute>
   } 
 />
-<Route 
-  path="/team-lead/*" 
-  element={
-    <PrivateRoute allowedRoles={["tl"]}>
-      <TLRoutes />
-    </PrivateRoute>
-  } 
-/>
+{/* Team Lead no longer exists as a role (former Team Leads are Managers): the old URL just forwards to the login. */}
+<Route path="/team-lead/*" element={<Navigate to="/login" replace />} />
 <Route 
   path="/hr/*" 
   element={

@@ -1,533 +1,472 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar,Clock, CheckCircle, XCircle, Filter, Search, Download, MessageSquare } from 'lucide-react';
-import { useApi } from '../../context/ApiContext';
-import '../../styles/leave-managment.css';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import SidebarToggle from "../admin/SidebarToggle";
+import { EMPLOYEE_TYPES, hrError, leaveApi, typeLabel } from "../../services/hrService";
+import MyLeave from "./MyLeave";
+import { ConfirmModal, Modal, Pager, StateBlock, fmtDate, fmtDateTime, useDebounced } from "./hrUi";
 
-const LeaveManagement = () => {
-  const { fetchExecutivesAPI, fetchLeaveApplicationsAPI, updateLeaveStatusAPI } = useApi();
-  const [allLeaveApplications, setAllLeaveApplications] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLeave, setSelectedLeave] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const TABS = [
+  { id: "requests", label: "Requests" },
+  { id: "balances", label: "Balances" },
+  { id: "types", label: "Leave types" },
+  { id: "mine", label: "My leave" },
+];
+const LIMIT = 10;
 
-  // New state for HR comment modal
-  const [showCommentModal, setShowCommentModal] = useState(false);
-  const [commentAction, setCommentAction] = useState(null); // 'approve' or 'reject'
-  const [commentLeaveId, setCommentLeaveId] = useState(null);
-  const [hrComment, setHrComment] = useState('');
-
+// ------------------------------------------------------------------ requests
+const Requests = ({ types }) => {
+  const [filters, setFilters] = useState({ status: "Pending", employeeType: "", leaveTypeId: "", q: "" });
+  const q = useDebounced(filters.q);
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState({ requests: [], total: 0, counts: {} });
+  const [state, setState] = useState({ loading: true, error: "" });
+  const [reload, setReload] = useState(0);
+  const [action, setAction] = useState(null); // {leave, kind: Approved|Rejected|revoke}
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [detail, setDetail] = useState(null);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    const fetchAllLeaves = async () => {
-      setLoading(true);
-      try {
-        // Step 1: Fetch all executives
-        const executives = await fetchExecutivesAPI();
-        // Step 2: Fetch leave applications for each executive in parallel
-        const leavePromises = executives.map(exec => fetchLeaveApplicationsAPI(exec.id));
-        const leaveResults = await Promise.all(leavePromises);
-        // Step 3: Combine all leave applications into a single array
-        const allLeaves = leaveResults.flat();
-        setAllLeaveApplications(allLeaves);
-      } catch (error) {
-        console.error("Error fetching all leave applications:", error);
-        setAllLeaveApplications([]);
-      } finally {
-        setLoading(false);
-      }
+    let alive = true;
+    setState({ loading: true, error: "" });
+    leaveApi
+      .requests({ status: filters.status, employeeType: filters.employeeType, leaveTypeId: filters.leaveTypeId, q, page, limit: LIMIT })
+      .then((d) => {
+        if (!alive) return;
+        setData(d);
+        setState({ loading: false, error: "" });
+      })
+      .catch((e) => alive && setState({ loading: false, error: hrError(e, "Could not load leave requests.") }));
+    return () => {
+      alive = false;
     };
+  }, [filters.status, filters.employeeType, filters.leaveTypeId, q, page, reload]);
 
-    fetchAllLeaves();
-  }, [fetchExecutivesAPI,fetchLeaveApplicationsAPI]);
-
-  // Open comment modal
-  const openCommentModal = (leaveId, action) => {
-    setCommentLeaveId(leaveId);
-    setCommentAction(action);
-    setHrComment('');
-    setShowCommentModal(true);
+  const setFilter = (name, value) => {
+    setFilters((f) => ({ ...f, [name]: value }));
+    setPage(1);
   };
 
-  // Close comment modal
-  const closeCommentModal = () => {
-    setShowCommentModal(false);
-    setCommentAction(null);
-    setCommentLeaveId(null);
-    setHrComment('');
-    setIsSubmitting(false); // Reset submitting state
+  const close = () => {
+    setAction(null);
+    setComment("");
+    setActionError("");
   };
 
-  // Handle comment submission
-  const handleCommentSubmission = async () => {
-    if (!commentLeaveId || !commentAction) return;
-    setIsSubmitting(true); // Start loading
+  const run = async () => {
+    if (action.kind === "revoke" && !comment.trim()) {
+      setActionError("A reason is required to revoke a leave.");
+      return;
+    }
+    setBusy(true);
+    setActionError("");
     try {
-      const status = commentAction === 'approve' ? 'Approved' : 'Rejected';
-      await updateLeaveStatusAPI(commentLeaveId, status, hrComment);
-
-      // Refresh the leave applications after status update
-      const executives = await fetchExecutivesAPI();
-      const leavePromises = executives.map(exec => fetchLeaveApplicationsAPI(exec.id));
-      const leaveResults = await Promise.all(leavePromises);
-      setAllLeaveApplications(leaveResults.flat());
-
-      closeCommentModal();
-    } catch (error) {
-      console.error(`Error ${commentAction}ing leave:`, error);
+      if (action.kind === "revoke") await leaveApi.cancel(action.leave.id, comment.trim());
+      else await leaveApi.decide(action.leave.id, action.kind, comment.trim());
+      setNotice(action.kind === "revoke" ? "Leave revoked." : `Leave ${action.kind.toLowerCase()}.`);
+      close();
+      setReload((n) => n + 1);
+    } catch (e) {
+      setActionError(hrError(e, "Could not update the request."));
     } finally {
-      setIsSubmitting(false); // End loading
+      setBusy(false);
     }
   };
 
-  const handleApprove = async (id) => {
-    openCommentModal(id, 'approve');
-  };
-
-  const handleReject = async (id) => {
-    openCommentModal(id, 'reject');
-  };
-
-  const filteredRequests = allLeaveApplications.filter(request => {
-    const matchesFilter = selectedFilter === 'all' || request.status.toLowerCase() === selectedFilter;
-    const matchesSearch = request.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.leaveType.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
-  const getStatusClass = (status) => {
-    switch (status.toLowerCase()) {
-      case 'approved': return 'lm-status-approved';
-      case 'rejected': return 'lm-status-rejected';
-      case 'pending': return 'lm-status-pending';
-      default: return 'lm-status-pending';
+  const openDetail = async (leave) => {
+    try {
+      setDetail(await leaveApi.request(leave.id));
+    } catch (e) {
+      setNotice(hrError(e, "Could not load the request."));
     }
   };
-
-  const stats = {
-    total: allLeaveApplications.length,
-    pending: allLeaveApplications.filter(r => r.status.toLowerCase() === 'pending').length,
-    approved: allLeaveApplications.filter(r => r.status.toLowerCase() === 'approved').length,
-    rejected: allLeaveApplications.filter(r => r.status.toLowerCase() === 'rejected').length
-  };
-
-  if (loading) {
-    return (
-      <div className="lm-loading-container">
-        Loading leave applications...
-      </div>
-    );
-  }
 
   return (
-    <div className="lm-leave-management-container">
-      {/* Header */}
-      <div className="lm-leave-management-header">
-        <div>
-          <h1 className="lm-header-title">
-            Employee Leave Management
-          </h1>
-          <p className="lm-header-subtitle">
-            Executive Dashboard - Manage and approve employee leave requests
-          </p>
-        </div>
-        <div className="lm-header-actions">
-          <button className="lm-export-btn">
-            <Download size={16} />
-            Export Report
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="lm-main-content">
-        {/* Stats Cards */}
-        <div className="lm-stats-grid">
-          <div className="lm-stat-card">
-            <div className="lm-stat-icon lm-stat-icon-total">
-              <Calendar size={24} color="#3b82f6" />
-            </div>
-            <div>
-              <div className="lm-stat-value">{stats.total}</div>
-              <div className="lm-stat-label">Total Requests</div>
-            </div>
-          </div>
-
-          <div className="lm-stat-card">
-            <div className="lm-stat-icon lm-stat-icon-pending">
-              <Clock size={24} color="#f59e0b" />
-            </div>
-            <div>
-              <div className="lm-stat-value">{stats.pending}</div>
-              <div className="lm-stat-label">Pending Approval</div>
-            </div>
-          </div>
-
-          <div className="lm-stat-card">
-            <div className="lm-stat-icon lm-stat-icon-approved">
-              <CheckCircle size={24} color="#10b981" />
-            </div>
-            <div>
-              <div className="lm-stat-value">{stats.approved}</div>
-              <div className="lm-stat-label">Approved</div>
-            </div>
-          </div>
-
-          <div className="lm-stat-card">
-            <div className="lm-stat-icon lm-stat-icon-rejected">
-              <XCircle size={24} color="#ef4444" />
-            </div>
-            <div>
-              <div className="lm-stat-value">{stats.rejected}</div>
-              <div className="lm-stat-label">Rejected</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters and Search */}
-        <div className="lm-filters-container">
-          <div className="lm-filter-label">
-            <Filter size={20} color="#6b7280" />
-            <span>Filter:</span>
-          </div>
-          {['all', 'pending', 'approved', 'rejected'].map(filter => (
-            <button
-              key={filter}
-              onClick={() => setSelectedFilter(filter)}
-              className={`lm-filter-btn ${selectedFilter === filter ? 'lm-filter-btn-active' : 'lm-filter-btn-inactive'}`}
-            >
-              {filter === 'all' ? 'All Requests' : filter}
-            </button>
+    <>
+      {notice && <div className="hr-ok" role="status">{notice}</div>}
+      <div className="hr-toolbar">
+        <input type="search" placeholder="Search by employee name" aria-label="Search requests" value={filters.q} onChange={(e) => setFilter("q", e.target.value)} />
+        <select aria-label="Filter by status" value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
+          <option value="">All statuses</option>
+          {["Pending", "Approved", "Rejected", "Cancelled"].map((s) => (
+            <option key={s} value={s}>{s}{data.counts?.[s] !== undefined ? ` (${data.counts[s]})` : ""}</option>
           ))}
-          <div className="lm-search-container">
-            <Search size={18} color="#6b7280" className="lm-search-icon" />
-            <input
-              type="text"
-              placeholder="Search employees, leave types..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="lm-search-input"
-            />
-          </div>
-        </div>
-
-        {/* Leave Requests Table */}
-        <div className="lm-table-container">
-          <div className="lm-table-wrapper">
-            <table className="lm-leave-table">
-              <thead>
-                <tr className="lm-table-header">
-                  <th>Employee</th>
-                  <th>Leave Type</th>
-                  <th>Duration</th>
-                  <th>Status</th>
-                  <th>Applied Date</th>
-                  <th>Actions</th>
+        </select>
+        <select aria-label="Filter by role" value={filters.employeeType} onChange={(e) => setFilter("employeeType", e.target.value)}>
+          <option value="">All roles</option>
+          {EMPLOYEE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        <select aria-label="Filter by leave type" value={filters.leaveTypeId} onChange={(e) => setFilter("leaveTypeId", e.target.value)}>
+          <option value="">All leave types</option>
+          {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      </div>
+      <StateBlock loading={state.loading} error={state.error} onRetry={() => setReload((n) => n + 1)}>
+        <div className="hr-table-wrap">
+          <table className="hr-table">
+            <thead>
+              <tr><th>Employee</th><th>Role</th><th>Leave type</th><th>From</th><th>To</th><th className="num">Days</th><th>Reason</th><th>Status</th><th /></tr>
+            </thead>
+            <tbody>
+              {data.requests.length === 0 && <tr><td colSpan={9} className="hr-empty">No leave requests match these filters.</td></tr>}
+              {data.requests.map((l) => (
+                <tr key={l.id}>
+                  <td><button type="button" className="hr-link" onClick={() => openDetail(l)}>{l.fullName}</button></td>
+                  <td>{typeLabel(l.employeeType)}</td>
+                  <td>{l.leaveType}</td>
+                  <td>{fmtDate(l.startDate)}</td>
+                  <td>{fmtDate(l.endDate)}</td>
+                  <td className="num">{l.workingDays ?? l.totalDays}</td>
+                  <td style={{ maxWidth: 240, overflowWrap: "anywhere" }}>{l.reason}</td>
+                  <td><span className={`hr-pill ${l.status}`}>{l.status}</span></td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {l.status === "Pending" && !l.isOwn && (
+                      <>
+                        <button type="button" className="hr-btn ok sm" onClick={() => setAction({ leave: l, kind: "Approved" })}>Approve</button>{" "}
+                        <button type="button" className="hr-btn danger sm" onClick={() => setAction({ leave: l, kind: "Rejected" })}>Reject</button>
+                      </>
+                    )}
+                    {l.status === "Pending" && l.isOwn && <span className="hr-help">Your own request needs another approver</span>}
+                    {l.status === "Approved" && !l.isOwn && (
+                      <button type="button" className="hr-link danger" onClick={() => setAction({ leave: l, kind: "revoke" })}>Revoke</button>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredRequests.map((request) => (
-                  <tr key={request.id} className="lm-table-row">
-                    <td className="lm-table-cell">
-                      <div className="lm-employee-info">
-                        <div className="lm-employee-avatar">
-                          {request.fullName.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div>
-                          <div className="lm-employee-name">
-                            {request.fullName}
-                          </div>
-                          <div className="lm-employee-details">
-                            {request.positionTitle} • {request.employeeId}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="lm-table-cell">
-                      <span className="lm-leave-type-badge">
-                        {request.leaveType}
-                      </span>
-                    </td>
-                    <td className="lm-table-cell">
-                      <div className="lm-duration-days">
-                        {request.totalDays} days
-                      </div>
-                      <div className="lm-duration-dates">
-                        {request.startDate} to {request.endDate}
-                      </div>
-                    </td>
-                    <td className="lm-table-cell">
-                      <span className={`lm-status-badge ${getStatusClass(request.status)}`}>
-                        {request.status}
-                      </span>
-                    </td>
-                    <td className="lm-table-cell lm-applied-date">
-                      {request.appliedDate}
-                    </td>
-                    <td className="lm-table-cell">
-                      <div className="lm-actions-container">
-                        <button
-                          onClick={() => setSelectedLeave(request)}
-                          className="lm-action-btn"
-                        >
-                          View
-                        </button>
-                        {request.status.toLowerCase() === 'pending' && (
-                          <>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Pager page={page} limit={LIMIT} total={data.total} onPage={setPage} />
+      </StateBlock>
 
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {action && (
+        <ConfirmModal
+          title={action.kind === "revoke" ? "Revoke approved leave?" : `${action.kind === "Approved" ? "Approve" : "Reject"} leave request?`}
+          message={`${action.leave.fullName} · ${action.leave.leaveType} · ${fmtDate(action.leave.startDate)} to ${fmtDate(action.leave.endDate)}.${action.kind === "Approved" ? " Attendance will show Leave for every working day in this range." : action.kind === "revoke" ? " Attendance and the leave balance will be restored." : ""}`}
+          confirmLabel={action.kind === "revoke" ? "Revoke" : action.kind === "Approved" ? "Approve" : "Reject"}
+          danger={action.kind !== "Approved"}
+          busy={busy}
+          onConfirm={run}
+          onCancel={close}
+        >
+          <label className="hr-form">
+            <span>{action.kind === "revoke" ? "Reason (required)" : "Comment (optional)"}</span>
+            <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={500} aria-label="Comment" />
+          </label>
+          {actionError && <div className="hr-error" role="alert">{actionError}</div>}
+        </ConfirmModal>
+      )}
+      {detail && (
+        <Modal title="Leave request" onClose={() => setDetail(null)}>
+          <p>
+            <strong>{detail.leave.fullName}</strong> ({typeLabel(detail.leave.employeeType)}) — {detail.leave.leaveType}
+            <br />
+            {fmtDate(detail.leave.startDate)} to {fmtDate(detail.leave.endDate)} · {detail.leave.workingDays} working day(s)
+          </p>
+          <p>{detail.leave.reason}</p>
+          <h3>History</h3>
+          <ul className="hr-list">
+            {detail.events.map((e) => (
+              <li key={e.id}><time>{fmtDateTime(e.createdAt)}</time><span><strong>{e.action}</strong> by {e.actorName || e.actorRole}{e.comment ? ` — ${e.comment}` : ""}</span></li>
+            ))}
+          </ul>
+          <div className="hr-modal-actions"><button type="button" className="hr-btn ghost" onClick={() => setDetail(null)}>Close</button></div>
+        </Modal>
+      )}
+    </>
+  );
+};
+
+// ------------------------------------------------------------------ balances
+const AllocationModal = ({ target, types, year, onClose, onSaved }) => {
+  const [f, setF] = useState({ leaveTypeId: "", mode: "ALLOCATE", days: "", reason: "" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const set = (e) => setF((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+  const submit = async (ev) => {
+    ev.preventDefault();
+    const days = Number(f.days);
+    if (!f.leaveTypeId) return setError("Choose a leave type.");
+    if (!days || Number.isNaN(days)) return setError("Enter the number of days.");
+    if (days % 0.5 !== 0) return setError("Days must be a whole or half number.");
+    if (f.mode === "ALLOCATE" && days <= 0) return setError("An allocation must be positive. Use Adjust to reduce a balance.");
+    if (f.reason.trim().length < 3) return setError("Give a reason (at least 3 characters).");
+    setSaving(true);
+    setError("");
+    try {
+      const body = { employeeType: target.employeeType, employeeId: target.employeeId, leaveTypeId: Number(f.leaveTypeId), year, days, reason: f.reason.trim() };
+      await (f.mode === "ALLOCATE" ? leaveApi.allocate(body) : leaveApi.adjust(body));
+      onSaved();
+    } catch (e) {
+      setError(hrError(e, "Could not update the balance."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={`Leave balance — ${target.name} (${year})`} onClose={onClose}>
+      <form className="hr-form" onSubmit={submit} noValidate>
+        <label>Leave type
+          <select name="leaveTypeId" value={f.leaveTypeId} onChange={set}>
+            <option value="">Select</option>
+            {types.filter((t) => t.active).map((t) => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
+          </select>
+        </label>
+        <div className="hr-row">
+          <label>Action
+            <select name="mode" value={f.mode} onChange={set}>
+              <option value="ALLOCATE">Allocate (add days)</option>
+              <option value="ADJUST">Adjust (+/− days)</option>
+            </select>
+          </label>
+          <label>Days<input name="days" type="number" step="0.5" value={f.days} onChange={set} /></label>
+        </div>
+        <label>Reason<input name="reason" value={f.reason} onChange={set} maxLength={500} /></label>
+        <span className="hr-help">Allocation is manual. Nothing is added automatically, and unused days expire at the end of {year}.</span>
+        {error && <div className="hr-error" role="alert">{error}</div>}
+        <div className="hr-modal-actions">
+          <button type="button" className="hr-btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="submit" className="hr-btn" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+const History = ({ employee, onClose }) => {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    leaveApi
+      .history({ employeeType: employee.employeeType, employeeId: employee.employeeId, limit: 50 })
+      .then((d) => setRows(d.history))
+      .catch((e) => setError(hrError(e, "Could not load history.")));
+  }, [employee]);
+  return (
+    <Modal title={`Allocation history — ${employee.name}`} onClose={onClose}>
+      <StateBlock loading={!rows && !error} error={error} empty={rows && rows.length === 0} emptyText="No allocations yet.">
+        <div className="hr-table-wrap">
+          <table className="hr-table">
+            <thead><tr><th>When</th><th>Type</th><th>Year</th><th className="num">Change</th><th className="num">Balance</th><th>By</th><th>Reason</th></tr></thead>
+            <tbody>
+              {(rows || []).map((h) => (
+                <tr key={h.id}>
+                  <td>{fmtDateTime(h.createdAt)}</td><td>{h.leaveTypeName}</td><td>{h.year}</td>
+                  <td className="num">{Number(h.delta) > 0 ? "+" : ""}{h.delta}</td><td className="num">{h.newAllocated}</td>
+                  <td>{h.actorName || h.actorRole}</td><td>{h.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </StateBlock>
+      <div className="hr-modal-actions"><button type="button" className="hr-btn ghost" onClick={onClose}>Close</button></div>
+    </Modal>
+  );
+};
+
+const Balances = ({ types }) => {
+  const thisYear = new Date().getFullYear();
+  const [year, setYear] = useState(thisYear);
+  const [filters, setFilters] = useState({ employeeType: "", q: "" });
+  const q = useDebounced(filters.q);
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState({ employees: [], total: 0 });
+  const [state, setState] = useState({ loading: true, error: "" });
+  const [reload, setReload] = useState(0);
+  const [target, setTarget] = useState(null);
+  const [history, setHistory] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    setState({ loading: true, error: "" });
+    leaveApi
+      .balanceOverview({ year, employeeType: filters.employeeType, q, page, limit: LIMIT })
+      .then((d) => {
+        if (!alive) return;
+        setData(d);
+        setState({ loading: false, error: "" });
+      })
+      .catch((e) => alive && setState({ loading: false, error: hrError(e, "Could not load balances.") }));
+    return () => {
+      alive = false;
+    };
+  }, [year, filters.employeeType, q, page, reload]);
+
+  const activeTypes = useMemo(() => types.filter((t) => t.active), [types]);
+
+  return (
+    <>
+      <div className="hr-toolbar">
+        <input type="search" placeholder="Search employee" aria-label="Search employees" value={filters.q} onChange={(e) => { setFilters((f) => ({ ...f, q: e.target.value })); setPage(1); }} />
+        <select aria-label="Filter by role" value={filters.employeeType} onChange={(e) => { setFilters((f) => ({ ...f, employeeType: e.target.value })); setPage(1); }}>
+          <option value="">All roles</option>
+          {EMPLOYEE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        <select aria-label="Leave year" value={year} onChange={(e) => { setYear(Number(e.target.value)); setPage(1); }}>
+          {[thisYear - 1, thisYear, thisYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+      <div className="hr-note" style={{ marginBottom: 12 }}>Policy: manual allocation only · no carry forward · unused balance expires at the end of the leave year.</div>
+      <StateBlock loading={state.loading} error={state.error} onRetry={() => setReload((n) => n + 1)}>
+        <div className="hr-table-wrap">
+          <table className="hr-table">
+            <thead>
+              <tr><th>Employee</th><th>Role</th>{activeTypes.map((t) => <th key={t.id} className="num">{t.code} (left / allocated)</th>)}<th /></tr>
+            </thead>
+            <tbody>
+              {data.employees.length === 0 && <tr><td colSpan={3 + activeTypes.length} className="hr-empty">No employees found.</td></tr>}
+              {data.employees.map((e) => (
+                <tr key={`${e.employeeType}-${e.employeeId}`}>
+                  <td>{e.name}</td>
+                  <td>{typeLabel(e.employeeType)}</td>
+                  {activeTypes.map((t) => {
+                    const b = e.balances.find((x) => x.leaveTypeId === t.id);
+                    return <td key={t.id} className="num">{b ? `${b.remaining} / ${b.allocated}` : "0 / 0"}</td>;
+                  })}
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button type="button" className="hr-btn sm" onClick={() => setTarget({ ...e })}>Allocate / adjust</button>{" "}
+                    <button type="button" className="hr-link" onClick={() => setHistory(e)}>History</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Pager page={page} limit={LIMIT} total={data.total} onPage={setPage} />
+      </StateBlock>
+      {target && <AllocationModal target={target} types={types} year={year} onClose={() => setTarget(null)} onSaved={() => { setTarget(null); setReload((n) => n + 1); }} />}
+      {history && <History employee={history} onClose={() => setHistory(null)} />}
+    </>
+  );
+};
+
+// --------------------------------------------------------------------- types
+const TypeModal = ({ type, onClose, onSaved }) => {
+  const [f, setF] = useState({ name: type?.name || "", code: type?.code || "", description: type?.description || "", isPaid: !!type?.isPaid, requiresBalance: type ? !!type.requiresBalance : true });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const set = (e) => setF((p) => ({ ...p, [e.target.name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+
+  const submit = async (ev) => {
+    ev.preventDefault();
+    if (f.name.trim().length < 2) return setError("Enter a name.");
+    if (!type && !/^[A-Za-z0-9_-]{1,20}$/.test(f.code.trim())) return setError("Code must be 1–20 letters, numbers, - or _.");
+    setSaving(true);
+    setError("");
+    try {
+      if (type) await leaveApi.updateType(type.id, { name: f.name.trim(), description: f.description, isPaid: f.isPaid, requiresBalance: f.requiresBalance });
+      else await leaveApi.createType({ name: f.name.trim(), code: f.code.trim(), description: f.description, isPaid: f.isPaid, requiresBalance: f.requiresBalance });
+      onSaved();
+    } catch (e) {
+      setError(hrError(e, "Could not save the leave type."));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal title={type ? "Edit leave type" : "New leave type"} onClose={onClose}>
+      <form className="hr-form" onSubmit={submit} noValidate>
+        <div className="hr-row">
+          <label>Name<input name="name" value={f.name} onChange={set} maxLength={100} placeholder="Casual Leave" /></label>
+          <label>Code<input name="code" value={f.code} onChange={set} maxLength={20} placeholder="CL" disabled={!!type} /></label>
+        </div>
+        <label>Description<input name="description" value={f.description} onChange={set} maxLength={500} /></label>
+        <label style={{ flexDirection: "row", gap: 8 }}><input type="checkbox" name="isPaid" checked={f.isPaid} onChange={set} /> Paid leave (not deducted in payroll)</label>
+        <label style={{ flexDirection: "row", gap: 8 }}><input type="checkbox" name="requiresBalance" checked={f.requiresBalance} onChange={set} /> Requires an allocated balance</label>
+        {error && <div className="hr-error" role="alert">{error}</div>}
+        <div className="hr-modal-actions">
+          <button type="button" className="hr-btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="submit" className="hr-btn" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+const Types = ({ types, onChanged, error }) => {
+  const [modal, setModal] = useState(null); // {type?}
+  const [busyId, setBusyId] = useState(null);
+  const [err, setErr] = useState("");
+  const toggle = async (t) => {
+    setBusyId(t.id);
+    setErr("");
+    try {
+      await leaveApi.updateType(t.id, { active: !t.active });
+      onChanged();
+    } catch (e) {
+      setErr(hrError(e, "Could not update the leave type."));
+    } finally {
+      setBusyId(null);
+    }
+  };
+  return (
+    <>
+      <div className="hr-toolbar"><button type="button" className="hr-btn" onClick={() => setModal({})}>+ New leave type</button></div>
+      {(error || err) && <div className="hr-error" role="alert">{error || err}</div>}
+      <div className="hr-table-wrap">
+        <table className="hr-table">
+          <thead><tr><th>Name</th><th>Code</th><th>Paid</th><th>Needs balance</th><th>Status</th><th /></tr></thead>
+          <tbody>
+            {types.length === 0 && <tr><td colSpan={6} className="hr-empty">No leave types yet. Create types such as CL, PL or SL, then allocate balances.</td></tr>}
+            {types.map((t) => (
+              <tr key={t.id}>
+                <td>{t.name}</td><td>{t.code}</td><td>{t.isPaid ? "Yes" : "No"}</td><td>{t.requiresBalance ? "Yes" : "No"}</td>
+                <td><span className={`hr-pill ${t.active ? "Approved" : "Cancelled"}`}>{t.active ? "Active" : "Inactive"}</span></td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <button type="button" className="hr-link" onClick={() => setModal({ type: t })}>Edit</button>
+                  <button type="button" className={`hr-link ${t.active ? "danger" : ""}`} disabled={busyId === t.id} onClick={() => toggle(t)}>{t.active ? "Deactivate" : "Activate"}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {modal && <TypeModal type={modal.type} onClose={() => setModal(null)} onSaved={() => { setModal(null); onChanged(); }} />}
+    </>
+  );
+};
+
+// ---------------------------------------------------------------------- page
+const LeaveManagement = () => {
+  const [tab, setTab] = useState("requests");
+  const [types, setTypes] = useState([]);
+  const [typesError, setTypesError] = useState("");
+  const loadTypes = useCallback(async () => {
+    try {
+      setTypes(await leaveApi.types());
+      setTypesError("");
+    } catch (e) {
+      setTypesError(hrError(e, "Could not load leave types."));
+    }
+  }, []);
+  useEffect(() => {
+    loadTypes();
+  }, [loadTypes]);
+
+  return (
+    <div className="hr-page">
+      <SidebarToggle />
+      <div className="hr-head">
+        <div>
+          <h1>Leave Management</h1>
+          <p>Define leave types, allocate balances manually, and review leave requests for every role.</p>
         </div>
       </div>
-
-      {/* Leave Details Modal */}
-      {selectedLeave && (
-        <div className="lm-modal-overlay">
-          <div className="lm-modal-content">
-            <div className="lm-modal-header">
-              <h2 className="lm-modal-title">
-                Leave Request Details
-              </h2>
-              <button
-                onClick={() => setSelectedLeave(null)}
-                className="lm-modal-close"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="lm-modal-body">
-              <div className="lm-modal-grid-2">
-                <div>
-                  <label className="lm-modal-label">
-                    Employee Name
-                  </label>
-                  <div className="lm-modal-value">
-                    {selectedLeave.fullName}
-                  </div>
-                </div>
-                <div>
-                  <label className="lm-modal-label">
-                    Employee ID
-                  </label>
-                  <div className="lm-modal-value">
-                    {selectedLeave.employeeId}
-                  </div>
-                </div>
-              </div>
-
-              <div className="lm-modal-grid-2">
-                <div>
-                  <label className="lm-modal-label">
-                    Position
-                  </label>
-                  <div className="lm-modal-value-normal">
-                    {selectedLeave.positionTitle}
-                  </div>
-                </div>
-                <div>
-                  <label className="lm-modal-label">
-                    Role
-                  </label>
-                  <div className="lm-modal-value-normal">
-                    {selectedLeave.role}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="lm-modal-label">
-                  Leave Type
-                </label>
-                <div className="lm-modal-value-normal">
-                  {selectedLeave.leaveType}
-                </div>
-              </div>
-
-              <div className="lm-modal-grid-3">
-                <div>
-                  <label className="lm-modal-label">
-                    Start Date
-                  </label>
-                  <div className="lm-modal-value-normal">
-                    {selectedLeave.startDate}
-                  </div>
-                </div>
-                <div>
-                  <label className="lm-modal-label">
-                    End Date
-                  </label>
-                  <div className="lm-modal-value-normal">
-                    {selectedLeave.endDate}
-                  </div>
-                </div>
-                <div>
-                  <label className="lm-modal-label">
-                    Duration
-                  </label>
-                  <div className="lm-modal-value-normal">
-                    {selectedLeave.totalDays} days
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="lm-modal-label">
-                  Reason
-                </label>
-                <div className="lm-modal-textarea">
-                  {selectedLeave.reason}
-                </div>
-              </div>
-
-              <div>
-                <label className="lm-modal-label">
-                  Work Handover Plan
-                </label>
-                <div className="lm-modal-textarea">
-                  {selectedLeave.handoverNotes || 'N/A'}
-                </div>
-              </div>
-
-              <div className="lm-modal-grid-2">
-                <div>
-                  <label className="lm-modal-label">
-                    Emergency Contact
-                  </label>
-                  <div className="lm-modal-value-normal">
-                    {selectedLeave.emergencyContactName}
-                  </div>
-                </div>
-                <div>
-                  <label className="lm-modal-label">
-                    Contact Phone
-                  </label>
-                  <div className="lm-modal-value-normal">
-                    {selectedLeave.emergencyPhone}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="lm-modal-label">
-                  Status
-                </label>
-                <div className="lm-modal-value-normal">
-                  <span className={`lm-status-badge ${getStatusClass(selectedLeave.status)}`}>
-                    {selectedLeave.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* Display HR Comment if available */}
-              {selectedLeave.hrComment && (
-                <div>
-                  <label className="lm-modal-label">
-                    HR Comment
-                  </label>
-                  <div className="lm-modal-textarea">
-                    {selectedLeave.hrComment}
-                  </div>
-                </div>
-              )}
-
-              {selectedLeave.status.toLowerCase() === 'pending' && (
-                <div className="lm-modal-actions">
-                  <button
-                    onClick={() => {
-                      handleApprove(selectedLeave.id);
-                      setSelectedLeave(null);
-                    }}
-                    className="lm-modal-approve-btn"
-                  >
-                    Approve Leave
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleReject(selectedLeave.id);
-                      setSelectedLeave(null);
-                    }}
-                    className="lm-modal-reject-btn"
-                  >
-                    Reject Leave
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* HR Comment Modal */}
-      {showCommentModal && (
-        <div className="lm-modal-overlay">
-          <div className="lm-modal-content lm-comment-modal">
-            <div className="lm-modal-header">
-              <h2 className="lm-modal-title">
-                <MessageSquare size={20} style={{ marginRight: '8px' }} />
-                {commentAction === 'approve' ? 'Approve' : 'Reject'} Leave Request
-              </h2>
-              <button
-                onClick={closeCommentModal}
-                className="lm-modal-close"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="lm-modal-body">
-              <div className="lm-comment-section">
-                <label className="lm-modal-label">
-                  HR Comment {commentAction === 'reject' ? '(Required)' : '(Optional)'}
-                </label>
-                <textarea
-                  value={hrComment}
-                  onChange={(e) => setHrComment(e.target.value)}
-                  placeholder={
-                    commentAction === 'approve'
-                      ? 'Add any additional notes for approval...'
-                      : 'Please provide a reason for rejection...'
-                  }
-                  className="lm-comment-textarea"
-                  rows="4"
-                />
-              </div>
-
-              <div className="lm-comment-actions">
-                <button
-                  onClick={closeCommentModal}
-                  className="lm-comment-cancel-btn"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCommentSubmission}
-                  className={`lm-comment-submit-btn ${commentAction === 'approve' ? 'lm-comment-approve' : 'lm-comment-reject'
-                    }`}
-                  disabled={isSubmitting || (commentAction === 'reject' && !hrComment.trim())}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="lm-spinner"></div>
-                      {commentAction === 'approve' ? 'Approving...' : 'Rejecting...'}
-                    </>
-                  ) : (
-                    `${commentAction === 'approve' ? 'Approve' : 'Reject'} Leave`
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="hr-tabs" role="tablist">
+        {TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" className="hr-tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>
+        ))}
+      </div>
+      <div className="hr-card">
+        {tab === "requests" && <Requests types={types} />}
+        {tab === "balances" && <Balances types={types} />}
+        {tab === "types" && <Types types={types} onChanged={loadTypes} error={typesError} />}
+        {tab === "mine" && <MyLeave />}
+      </div>
     </div>
   );
 };

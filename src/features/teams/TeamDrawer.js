@@ -11,7 +11,7 @@ const Tile = ({ label, value, testId }) => (
 );
 
 /** Detailed team dashboard (right-hand drawer). */
-const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged }) => {
+const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged, readOnly = false }) => {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState(null); // {type:'archive'|'remove', member?}
@@ -110,7 +110,7 @@ const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged }) => {
 
             <div className="tm-section-head">
               <h3>Members ({t.memberCount})</h3>
-              {!archived && (
+              {!archived && !readOnly && (
                 <button type="button" className="tm-btn small" onClick={openAdd}>
                   Add members
                 </button>
@@ -164,7 +164,7 @@ const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged }) => {
                         )}
                       </td>
                       <td>
-                        {m.current && !archived && (
+                        {m.current && !archived && !readOnly && (
                           <button type="button" className="tm-link danger" aria-label={`Remove ${m.name}`} onClick={() => setConfirm({ type: "remove", member: m })}>
                             Remove
                           </button>
@@ -181,6 +181,7 @@ const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged }) => {
               </table>
             </div>
 
+            {!readOnly && (
             <div className="tm-actions spread">
               {archived ? (
                 <button type="button" className="tm-btn" disabled={busy} onClick={() => run(() => teamApi.restore(t.id))}>
@@ -197,6 +198,7 @@ const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged }) => {
                 </>
               )}
             </div>
+            )}
           </>
         )}
       </aside>

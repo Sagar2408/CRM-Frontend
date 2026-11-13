@@ -5,7 +5,6 @@ const BASE_BY_ROLE = {
   admin: "/admin",
   hr: "/hr",
   manager: "/manager",
-  tl: "/team-lead",
   executive: "/executive",
 };
 

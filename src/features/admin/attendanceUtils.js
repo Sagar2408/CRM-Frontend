@@ -4,7 +4,6 @@ import dayjs from "dayjs";
 export const ROLE_OPTIONS = [
   { value: "", label: "All roles" },
   { value: "Executive", label: "Executive" },
-  { value: "TL", label: "Team Lead" },
   { value: "Manager", label: "Manager" },
   { value: "HR", label: "HR" },
   { value: "ProcessPerson", label: "Process Person" },
@@ -58,4 +57,4 @@ export const validateCorrection = ({ status, reason, date, today }) => {
 
 export const canCorrect = (role) => role === "Admin";
 export const canProcessPayroll = (role) => role === "Admin" || role === "HR";
-export const PAYROLL_TYPES = ["Executive", "TL", "Manager", "HR"];
+export const PAYROLL_TYPES = ["Executive", "Manager", "HR"];

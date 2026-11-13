@@ -54,19 +54,23 @@ const saveBlob = async (api, url, filename) => {
   }
 };
 
-// ---- Company Admin ----
-export const companySupport = {
-  form: () => unwrap(apiService.get("/support/form"), "Failed to load support form"),
+// ---- Company side ----
+// The company side of the ticket system (/support). It serves the Admin and every
+// employee the Admin granted "Help & Support" (RolePermission.weekly_summary):
+// they all see the SAME company-wide inbox; the server enforces the permission.
+const makeCompanySupport = (base) => ({
+  form: () => unwrap(apiService.get(`${base}/form`), "Failed to load support form"),
   create: (fields, file) =>
-    unwrap(apiService.post("/support/tickets", buildForm(fields, file), multipart), "Failed to submit query"),
+    unwrap(apiService.post(`${base}/tickets`, buildForm(fields, file), multipart), "Failed to submit query"),
   list: (page = 1, limit = 20) =>
-    unwrap(apiService.get("/support/tickets", { params: { page, limit } }), "Failed to load support history"),
-  get: (id) => unwrap(apiService.get(`/support/tickets/${id}`), "Failed to load ticket"),
+    unwrap(apiService.get(`${base}/tickets`, { params: { page, limit } }), "Failed to load support history"),
+  get: (id) => unwrap(apiService.get(`${base}/tickets/${id}`), "Failed to load ticket"),
   reply: (id, message, file) =>
-    unwrap(apiService.post(`/support/tickets/${id}/replies`, buildForm({ message }, file), multipart), "Failed to send reply"),
+    unwrap(apiService.post(`${base}/tickets/${id}/replies`, buildForm({ message }, file), multipart), "Failed to send reply"),
   download: (id, messageId, name) =>
-    saveBlob(apiService, `/support/tickets/${id}/messages/${messageId}/attachment`, name),
-};
+    saveBlob(apiService, `${base}/tickets/${id}/messages/${messageId}/attachment`, name),
+});
+export const companySupport = makeCompanySupport("/support");
 
 // ---- Master Admin ----
 export const masterSupport = {

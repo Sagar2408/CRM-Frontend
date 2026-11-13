@@ -175,8 +175,6 @@ describe("PageAccessControl — User Access Management", () => {
 
     expect(createPermission).toHaveBeenCalledWith({
       role: "Executive",
-      manager_id: null,
-      hr_id: null,
       user_id: 1,
     });
     expect(togglePermission).toHaveBeenCalledWith("new-perm-id", "dashboard");

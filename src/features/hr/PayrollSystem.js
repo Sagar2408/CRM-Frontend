@@ -1,549 +1,261 @@
-import React, { useState } from 'react';
-import { Search, ChevronDown, Filter, Download, TrendingUp, Users, DollarSign, Calendar } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from "react";
+import SidebarToggle from "../admin/SidebarToggle";
+import { PAYROLL_TYPES, currentMonth, hrError, money, payrollApi, typeLabel } from "../../services/hrService";
+import { ConfirmModal, Modal, Pager, Stat, StateBlock, fmtDate, useDebounced } from "./hrUi";
 
-const PayrollSystem = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [setSelectedEmployee] = useState(null);
-  
-  const employees = [
-    {
-      id: 'EMP001',
-      name: 'Ethan Walker',
-      designation: 'Software Engineer',
-      attendance: '20/22',
-      attendanceRate: 91,
-      grossSalary: '$60,000',
-      deductions: '$5,000',
-      netSalary: '$55,000',
-      avatar: 'EW',
-      department: 'Engineering',
-      status: 'Active'
-    },
-    {
-      id: 'EMP002',
-      name: 'Olivia Barnett',
-      designation: 'Product Manager',
-      attendance: '21/22',
-      attendanceRate: 95,
-      grossSalary: '$75,000',
-      deductions: '$6,000',
-      netSalary: '$69,000',
-      avatar: 'OB',
-      department: 'Product',
-      status: 'Active'
-    },
-    {
-      id: 'EMP003',
-      name: 'Noah Carter',
-      designation: 'UX Designer',
-      attendance: '22/22',
-      attendanceRate: 100,
-      grossSalary: '$65,000',
-      deductions: '$5,500',
-      netSalary: '$59,500',
-      avatar: 'NC',
-      department: 'Design',
-      status: 'Active'
-    },
-    {
-      id: 'EMP004',
-      name: 'Chloe Foster',
-      designation: 'Marketing Specialist',
-      attendance: '19/22',
-      attendanceRate: 86,
-      grossSalary: '$55,000',
-      deductions: '$4,500',
-      netSalary: '$50,500',
-      avatar: 'CF',
-      department: 'Marketing',
-      status: 'Active'
+const LIMIT = 10;
+const today = () => new Date().toISOString().slice(0, 10);
+const STATUS_LABEL = { processed: "Processed", pending: "Pending", "no-salary": "No salary" };
+
+const SalaryModal = ({ employee, onClose, onSaved }) => {
+  const [history, setHistory] = useState(null);
+  const [f, setF] = useState({ grossSalary: employee.grossSalary ?? "", designation: employee.designation || "", effectiveFrom: today(), note: "" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    payrollApi
+      .salaryHistory(employee.employeeType, employee.employeeId)
+      .then(setHistory)
+      .catch((e) => setError(hrError(e, "Could not load salary history.")));
+  }, [employee]);
+
+  const set = (e) => setF((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const submit = async (ev) => {
+    ev.preventDefault();
+    const gross = Number(f.grossSalary);
+    if (!gross || gross <= 0) return setError("Enter a salary greater than zero.");
+    if (!f.effectiveFrom) return setError("Choose the date this salary takes effect.");
+    setSaving(true);
+    setError("");
+    try {
+      await payrollApi.saveSalary({
+        employeeType: employee.employeeType,
+        employeeId: employee.employeeId,
+        grossSalary: gross,
+        designation: f.designation,
+        effectiveFrom: f.effectiveFrom,
+        note: f.note,
+      });
+      onSaved();
+    } catch (e) {
+      setError(hrError(e, "Could not save the salary."));
+    } finally {
+      setSaving(false);
     }
-  ];
-
-  const filteredEmployees = employees.filter(employee =>
-    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const totalPayroll = employees.reduce((sum, emp) => sum + parseInt(emp.netSalary.replace(/[$,]/g, '')), 0);
-  const avgAttendance = employees.reduce((sum, emp) => sum + emp.attendanceRate, 0) / employees.length;
-
-  const getAttendanceColor = (rate) => {
-    if (rate >= 95) return '#10b981';
-    if (rate >= 85) return '#f59e0b';
-    return '#ef4444';
-  };
-
-  const getStatusColor = (status) => {
-    return status === 'Active' ? '#10b981' : '#ef4444';
   };
 
   return (
-    <div style={{ 
-      padding: '32px', 
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-      minHeight: '100vh', 
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' 
-    }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Animated Header */}
-        <div style={{ 
-          marginBottom: '32px',
-          textAlign: 'center',
-          animation: 'fadeInUp 0.6s ease-out'
-        }}>
-          <h1 style={{ 
-            fontSize: '42px', 
-            fontWeight: '800', 
-            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            margin: '0 0 16px 0',
-            textShadow: '0 4px 8px rgba(0,0,0,0.1)'
-          }}>
-            ✨ Employee Payroll Dashboard
-          </h1>
-          <p style={{ 
-            fontSize: '18px', 
-            color: 'rgba(255, 255, 255, 0.8)', 
-            margin: '0',
-            fontWeight: '300'
-          }}>
-            Manage employee salaries with style and precision
-          </p>
+    <Modal title={`Salary — ${employee.name}`} onClose={onClose}>
+      <form className="hr-form" onSubmit={submit} noValidate>
+        <div className="hr-row">
+          <label>Monthly gross salary<input name="grossSalary" type="number" min="0" step="0.01" value={f.grossSalary} onChange={set} /></label>
+          <label>Effective from<input name="effectiveFrom" type="date" value={f.effectiveFrom} onChange={set} /></label>
         </div>
-
-        {/* Stats Cards */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '24px', 
-          marginBottom: '32px' 
-        }}>
-          {[
-            { icon: Users, title: 'Total Employees', value: employees.length, color: '#3b82f6' },
-            { icon: DollarSign, title: 'Total Payroll', value: `$${totalPayroll.toLocaleString()}`, color: '#10b981' },
-            { icon: TrendingUp, title: 'Avg Attendance', value: `${avgAttendance.toFixed(1)}%`, color: '#f59e0b' },
-            { icon: Calendar, title: 'Active Month', value: 'December', color: '#8b5cf6' }
-          ].map((stat, index) => (
-            <div key={index} style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(20px)',
-              borderRadius: '20px',
-              padding: '24px',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-              transition: 'all 0.3s ease',
-              cursor: 'pointer',
-              animation: `slideInUp 0.6s ease-out ${index * 0.1}s both`
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-5px)';
-              e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{
-                  width: '60px',
-                  height: '60px',
-                  borderRadius: '16px',
-                  backgroundColor: stat.color,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: `0 4px 16px ${stat.color}40`
-                }}>
-                  <stat.icon size={24} color="white" />
-                </div>
-                <div>
-                  <p style={{ margin: '0', fontSize: '14px', color: 'rgba(255, 255, 255, 0.7)' }}>
-                    {stat.title}
-                  </p>
-                  <p style={{ margin: '0', fontSize: '24px', fontWeight: '700', color: 'white' }}>
-                    {stat.value}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
+        <label>Designation<input name="designation" value={f.designation} onChange={set} maxLength={100} /></label>
+        <label>Note<input name="note" value={f.note} onChange={set} maxLength={500} placeholder="e.g. annual revision" /></label>
+        <span className="hr-help">Saving adds a new entry to the salary history; earlier entries are never overwritten.</span>
+        {error && <div className="hr-error" role="alert">{error}</div>}
+        <div className="hr-modal-actions">
+          <button type="button" className="hr-btn ghost" onClick={onClose} disabled={saving}>Close</button>
+          <button type="submit" className="hr-btn" disabled={saving}>{saving ? "Saving…" : "Save salary"}</button>
         </div>
-
-        {/* Main Content Card */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(20px)',
-          borderRadius: '24px',
-          padding: '32px',
-          border: '1px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
-          animation: 'fadeIn 0.8s ease-out'
-        }}>
-          {/* Search and Controls */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '20px', 
-            marginBottom: '32px',
-            flexWrap: 'wrap',
-            alignItems: 'center'
-          }}>
-            <div style={{ 
-              position: 'relative', 
-              flex: '1',
-              minWidth: '300px'
-            }}>
-              <Search 
-                size={20} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '16px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)', 
-                  color: '#9ca3af' 
-                }} 
-              />
-              <input
-                type="text"
-                placeholder="Search employees..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '16px 20px 16px 52px',
-                  border: '2px solid transparent',
-                  borderRadius: '16px',
-                  fontSize: '16px',
-                  backgroundColor: '#f8fafc',
-                  outline: 'none',
-                  transition: 'all 0.3s ease',
-                  boxSizing: 'border-box',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#667eea';
-                  e.target.style.backgroundColor = '#ffffff';
-                  e.target.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.15)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'transparent';
-                  e.target.style.backgroundColor = '#f8fafc';
-                  e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.05)';
-                }}
-              />
-            </div>
-            
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              {['Department', 'Designation', 'Month', 'Status'].map((filter) => (
-                <button key={filter} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '12px 20px',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '12px',
-                  backgroundColor: '#ffffff',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.borderColor = '#667eea';
-                  e.target.style.backgroundColor = '#667eea';
-                  e.target.style.color = 'white';
-                  e.target.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.borderColor = '#e5e7eb';
-                  e.target.style.backgroundColor = '#ffffff';
-                  e.target.style.color = '#374151';
-                  e.target.style.transform = 'translateY(0)';
-                }}>
-                  <Filter size={16} />
-                  {filter}
-                  <ChevronDown size={16} />
-                </button>
+      </form>
+      <h3 style={{ marginTop: 18 }}>Salary history</h3>
+      <StateBlock loading={!history && !error} empty={history && history.history.length === 0} emptyText="No salary recorded yet.">
+        <div className="hr-table-wrap">
+          <table className="hr-table">
+            <thead><tr><th>Effective</th><th className="num">Gross</th><th>Designation</th><th>By</th><th>Note</th></tr></thead>
+            <tbody>
+              {(history?.history || []).map((h) => (
+                <tr key={h.id}><td>{fmtDate(h.effectiveFrom)}</td><td className="num">{money(h.grossSalary)}</td><td>{h.designation || "—"}</td><td>{h.createdByName || h.createdByRole}</td><td>{h.note || "—"}</td></tr>
               ))}
-            </div>
+            </tbody>
+          </table>
+        </div>
+      </StateBlock>
+      {history && history.payrolls.length > 0 && (
+        <>
+          <h3 style={{ marginTop: 18 }}>Processed months</h3>
+          <div className="hr-table-wrap">
+            <table className="hr-table">
+              <thead><tr><th>Month</th><th className="num">Gross</th><th className="num">Present / working</th><th className="num">Deductions</th><th className="num">Net</th></tr></thead>
+              <tbody>
+                {history.payrolls.map((p) => (
+                  <tr key={p.id}><td>{p.month}</td><td className="num">{money(p.gross_salary)}</td><td className="num">{p.total_present_days} / {p.total_working_days}</td><td className="num">{money(p.deductions)}</td><td className="num">{money(p.net_salary)}</td></tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        </>
+      )}
+    </Modal>
+  );
+};
 
-          {/* Action Buttons */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '16px', 
-            marginBottom: '32px',
-            flexWrap: 'wrap'
-          }}>
-            <button style={{
-              padding: '14px 28px',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 4px 16px rgba(102, 126, 234, 0.3)';
-            }}>
-              <Download size={16} />
-              Export Data
-            </button>
-            <button style={{
-              padding: '14px 28px',
-              backgroundColor: '#ffffff',
-              color: '#374151',
-              border: '2px solid #e5e7eb',
-              borderRadius: '12px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.borderColor = '#667eea';
-              e.target.style.color = '#667eea';
-              e.target.style.transform = 'translateY(-2px)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.borderColor = '#e5e7eb';
-              e.target.style.color = '#374151';
-              e.target.style.transform = 'translateY(0)';
-            }}>
-              Reset Filters
-            </button>
-          </div>
+/** HR Payroll: salary records, monthly processing (duplicate-safe), filters, export. */
+const PayrollSystem = () => {
+  const [month, setMonth] = useState(currentMonth());
+  const [filters, setFilters] = useState({ employeeType: "", status: "", q: "" });
+  const q = useDebounced(filters.q);
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState(null);
+  const [state, setState] = useState({ loading: true, error: "" });
+  const [reload, setReload] = useState(0);
+  const [salaryFor, setSalaryFor] = useState(null);
+  const [confirm, setConfirm] = useState(null); // {reprocess}
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [notice, setNotice] = useState("");
+  const [exportError, setExportError] = useState("");
 
-          {/* Enhanced Table */}
-          <div style={{ 
-            borderRadius: '16px',
-            overflow: 'hidden',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-            border: '1px solid rgba(0, 0, 0, 0.05)'
-          }}>
-            <table style={{ 
-              width: '100%', 
-              borderCollapse: 'collapse',
-              backgroundColor: '#ffffff'
-            }}>
+  const load = useCallback(() => setReload((n) => n + 1), []);
+
+  useEffect(() => {
+    let alive = true;
+    setState({ loading: true, error: "" });
+    payrollApi
+      .overview({ month, employeeType: filters.employeeType, status: filters.status, q, page, limit: LIMIT })
+      .then((d) => {
+        if (!alive) return;
+        setData(d);
+        setState({ loading: false, error: "" });
+      })
+      .catch((e) => alive && setState({ loading: false, error: hrError(e, "Could not load payroll.") }));
+    return () => {
+      alive = false;
+    };
+  }, [month, filters.employeeType, filters.status, q, page, reload]);
+
+  const setFilter = (name, value) => {
+    setFilters((f) => ({ ...f, [name]: value }));
+    setPage(1);
+  };
+
+  const runProcess = async () => {
+    setBusy(true);
+    try {
+      const out = await payrollApi.process({ month, employeeType: filters.employeeType || undefined, reprocess: !!confirm.reprocess });
+      setResult(out);
+      setNotice(`${month}: ${out.created} created, ${out.updated} updated, ${out.skipped} skipped, ${out.failed} failed.`);
+      setConfirm(null);
+      load();
+    } catch (e) {
+      setNotice(hrError(e, "Payroll processing failed."));
+      setConfirm(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doExport = async () => {
+    setExportError("");
+    try {
+      await payrollApi.exportCsv({ month, employeeType: filters.employeeType, q });
+    } catch (e) {
+      setExportError(hrError(e, "Could not export payroll."));
+    }
+  };
+
+  const s = data?.summary;
+  const isFuture = month > currentMonth();
+
+  return (
+    <div className="hr-page">
+      <SidebarToggle />
+      <div className="hr-head">
+        <div>
+          <h1>Payroll</h1>
+          <p>Salary = gross − (absent days × per-day pay). Attendance, approved leave, joining date and holidays are applied automatically.</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" className="hr-btn ghost" onClick={doExport}>Export CSV</button>
+          <button type="button" className="hr-btn" disabled={isFuture || !s || s.pending === 0} onClick={() => setConfirm({ reprocess: false })}>
+            Process {month}
+          </button>
+        </div>
+      </div>
+      {notice && <div className="hr-ok" role="status">{notice}</div>}
+      {exportError && <div className="hr-error" role="alert">{exportError}</div>}
+
+      <div className="hr-grid cols-4" style={{ marginBottom: 16 }}>
+        <Stat testId="pay-employees" label="Employees" value={s ? s.employees : "—"} sub={s ? `${s.processed} processed · ${s.pending} pending` : ""} />
+        <Stat label="Gross (processed)" value={s ? money(s.totalGross) : "—"} />
+        <Stat label="Deductions" value={s ? money(s.totalDeductions) : "—"} />
+        <Stat testId="pay-net" label="Net payable" value={s ? money(s.totalNet) : "—"} tone="ok" sub={s && s.noSalary ? `${s.noSalary} without a salary` : ""} />
+      </div>
+
+      <div className="hr-card">
+        <div className="hr-toolbar">
+          <input type="search" placeholder="Search employee" aria-label="Search employees" value={filters.q} onChange={(e) => setFilter("q", e.target.value)} />
+          <input type="month" aria-label="Payroll month" value={month} max={currentMonth()} onChange={(e) => { if (e.target.value) { setMonth(e.target.value); setPage(1); } }} />
+          <select aria-label="Filter by role" value={filters.employeeType} onChange={(e) => setFilter("employeeType", e.target.value)}>
+            <option value="">All roles</option>
+            {PAYROLL_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+          <select aria-label="Filter by status" value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
+            <option value="">All statuses</option>
+            <option value="processed">Processed</option>
+            <option value="pending">Pending</option>
+            <option value="no-salary">No salary</option>
+          </select>
+        </div>
+        <StateBlock loading={state.loading && !data} error={state.error} onRetry={load}>
+          <div className="hr-table-wrap">
+            <table className="hr-table">
               <thead>
-                <tr style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' }}>
-                  {['Employee', 'Designation', 'Attendance', 'Gross Salary', 'Deductions', 'Net Salary', 'Status'].map((header) => (
-                    <th key={header} style={{ 
-                      padding: '20px 24px', 
-                      textAlign: 'left', 
-                      fontSize: '14px', 
-                      fontWeight: '700', 
-                      color: '#1e293b', 
-                      textTransform: 'uppercase', 
-                      letterSpacing: '0.05em',
-                      borderBottom: '2px solid #e2e8f0'
-                    }}>
-                      {header}
-                    </th>
-                  ))}
-                </tr>
+                <tr><th>Employee</th><th>Role</th><th className="num">Gross</th><th className="num">Present / working</th><th className="num">Deductions</th><th className="num">Net salary</th><th>Status</th><th /></tr>
               </thead>
               <tbody>
-                {filteredEmployees.map((employee, index) => (
-                  <tr key={employee.id} style={{ 
-                    borderBottom: '1px solid #f1f5f9',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f8fafc';
-                    e.currentTarget.style.transform = 'scale(1.01)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                  onClick={() => setSelectedEmployee(employee)}>
-                    {/* Employee Column */}
-                    <td style={{ padding: '20px 24px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{
-                          width: '50px',
-                          height: '50px',
-                          borderRadius: '12px',
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontSize: '16px',
-                          fontWeight: '600',
-                          boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
-                        }}>
-                          {employee.avatar}
-                        </div>
-                        <div>
-                          <p style={{ margin: '0', fontSize: '16px', fontWeight: '600', color: '#1e293b' }}>
-                            {employee.name}
-                          </p>
-                          <p style={{ margin: '0', fontSize: '14px', color: '#64748b' }}>
-                            {employee.id}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    
-                    {/* Designation */}
-                    <td style={{ padding: '20px 24px' }}>
-                      <div style={{
-                        display: 'inline-block',
-                        padding: '6px 12px',
-                        backgroundColor: '#f1f5f9',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        color: '#475569'
-                      }}>
-                        {employee.designation}
-                      </div>
-                    </td>
-                    
-                    {/* Attendance */}
-                    <td style={{ padding: '20px 24px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '50%',
-                          background: `conic-gradient(${getAttendanceColor(employee.attendanceRate)} ${employee.attendanceRate * 3.6}deg, #e2e8f0 0deg)`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          color: '#1e293b'
-                        }}>
-                          {employee.attendanceRate}%
-                        </div>
-                        <div>
-                          <p style={{ margin: '0', fontSize: '14px', fontWeight: '500', color: '#1e293b' }}>
-                            {employee.attendance}
-                          </p>
-                          <p style={{ margin: '0', fontSize: '12px', color: '#64748b' }}>
-                            This month
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    
-                    {/* Gross Salary */}
-                    <td style={{ 
-                      padding: '20px 24px', 
-                      fontSize: '16px', 
-                      fontWeight: '600',
-                      color: '#1e293b'
-                    }}>
-                      {employee.grossSalary}
-                    </td>
-                    
-                    {/* Deductions */}
-                    <td style={{ 
-                      padding: '20px 24px', 
-                      fontSize: '16px', 
-                      fontWeight: '600',
-                      color: '#ef4444'
-                    }}>
-                      {employee.deductions}
-                    </td>
-                    
-                    {/* Net Salary */}
-                    <td style={{ 
-                      padding: '20px 24px', 
-                      fontSize: '18px', 
-                      fontWeight: '700',
-                      color: '#10b981'
-                    }}>
-                      {employee.netSalary}
-                    </td>
-                    
-                    {/* Status */}
-                    <td style={{ padding: '20px 24px' }}>
-                      <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        backgroundColor: `${getStatusColor(employee.status)}20`,
-                        borderRadius: '20px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        color: getStatusColor(employee.status)
-                      }}>
-                        <div style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: getStatusColor(employee.status)
-                        }}></div>
-                        {employee.status}
-                      </div>
-                    </td>
+                {data && data.employees.length === 0 && <tr><td colSpan={8} className="hr-empty">No employees match these filters.</td></tr>}
+                {(data?.employees || []).map((e) => (
+                  <tr key={`${e.employeeType}-${e.employeeId}`}>
+                    <td><strong>{e.name}</strong><div className="hr-help">{e.designation}</div></td>
+                    <td>{typeLabel(e.employeeType)}</td>
+                    <td className="num">{e.payroll ? money(e.payroll.grossSalary) : e.grossSalary !== null ? money(e.grossSalary) : "—"}</td>
+                    <td className="num">{e.payroll ? `${e.payroll.presentDays} / ${e.payroll.workingDays}` : "—"}</td>
+                    <td className="num">{e.payroll ? money(e.payroll.deductions) : "—"}</td>
+                    <td className="num">{e.payroll ? money(e.payroll.netSalary) : "—"}</td>
+                    <td><span className={`hr-pill ${e.status}`}>{STATUS_LABEL[e.status]}</span></td>
+                    <td><button type="button" className="hr-link" onClick={() => setSalaryFor(e)}>{e.grossSalary === null ? "Set salary" : "Salary & history"}</button></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+          <Pager page={page} limit={LIMIT} total={data?.total || 0} onPage={setPage} />
+        </StateBlock>
+        {result && result.details.some((d) => d.outcome !== "created" && d.outcome !== "updated") && (
+          <div className="hr-note" style={{ marginTop: 12 }}>
+            <strong>Not processed:</strong>
+            <ul className="hr-list">
+              {result.details.filter((d) => d.outcome === "skipped" || d.outcome === "failed").map((d) => (
+                <li key={`${d.employeeType}-${d.employeeId}`}><span>{d.name} — {d.reason || d.outcome}</span></li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {s && s.processed > 0 && (
+          <p style={{ marginTop: 12 }}>
+            <button type="button" className="hr-link danger" onClick={() => setConfirm({ reprocess: true })}>Reprocess already-processed payroll for {month}…</button>
+          </p>
+        )}
       </div>
-      
-      {/* CSS Animations */}
-      <style>
-        {`
-          @keyframes fadeInUp {
-            from {
-              opacity: 0;
-              transform: translateY(30px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          
-          @keyframes slideInUp {
-            from {
-              opacity: 0;
-              transform: translateY(50px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
-        `}
-      </style>
+
+      {salaryFor && <SalaryModal employee={salaryFor} onClose={() => setSalaryFor(null)} onSaved={() => { setSalaryFor(null); setNotice("Salary saved."); load(); }} />}
+      {confirm && (
+        <ConfirmModal
+          title={confirm.reprocess ? `Reprocess ${month}?` : `Process payroll for ${month}?`}
+          message={confirm.reprocess
+            ? "This OVERWRITES the existing payroll records for this month using the latest attendance, leave and salary data."
+            : "Payroll is calculated for every employee who has a salary and no payroll yet this month. Employees already processed are skipped, so nothing is duplicated."}
+          confirmLabel={confirm.reprocess ? "Overwrite" : "Process"}
+          danger={confirm.reprocess}
+          busy={busy}
+          onConfirm={runProcess}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   );
 };

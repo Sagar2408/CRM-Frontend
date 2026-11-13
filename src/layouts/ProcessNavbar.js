@@ -20,9 +20,9 @@ const userRole = localStorage.getItem("userType");
       const userType = localStorage.getItem("userType");
   
       if (userType === "customer") {
-        navigate("/customer/client/login");
+        navigate("/login");
       } else if (userType === "processperson") {
-        navigate("/process/client/login");
+        navigate("/login");
       } else {
         // Fallback if userType is not set or unknown
         navigate("/");

@@ -3,7 +3,7 @@ import apiService from "./apiService";
 // Admin User Management API (backend: routes/UserManagement.routes.js).
 // `kind` is the identity table: user | manager | hr | processperson.
 // Creation is NOT here: it reuses the existing per-role create endpoints
-// through ApiContext (createExecutive, createTeamLead, ...).
+// through ApiContext (createExecutive, createManager, ...).
 
 export const apiError = (err, fallback = "Something went wrong") => {
   const data = err?.response?.data;
@@ -11,7 +11,15 @@ export const apiError = (err, fallback = "Something went wrong") => {
   return data?.message || err?.message || fallback;
 };
 
-const base = "/user-management/users";
+// The Admin page talks to /user-management/users; the HR "Employee Management"
+// page reuses the same components against /hr-management/employees (same
+// response shapes, narrower server-side permissions). The page sets the base
+// before its first request and restores it on unmount.
+const DEFAULT_BASE = "/user-management/users";
+let base = DEFAULT_BASE;
+export const setUserManagementBase = (next) => {
+  base = next || DEFAULT_BASE;
+};
 
 export const listUsers = async (params) => (await apiService.get(base, { params })).data;
 export const getUser = async (kind, id) => (await apiService.get(`${base}/${kind}/${id}`)).data.user;
@@ -31,7 +39,6 @@ export const deleteUserPhoto = async (kind, id) => (await apiService.delete(`${b
 
 export const ROLE_OPTIONS = [
   { value: "Executive", label: "Executive" },
-  { value: "TL", label: "Team Lead" },
   { value: "Manager", label: "Manager" },
   { value: "HR", label: "HR" },
   { value: "ProcessPerson", label: "Process Person" },

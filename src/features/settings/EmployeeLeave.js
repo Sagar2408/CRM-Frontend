@@ -5,6 +5,7 @@ import { Calendar, FileText, User, Clock, CheckCircle, AlertCircle, X, History, 
 import { useApi } from '../../context/ApiContext';
 import moment from 'moment';
 import '../../styles/setting.css';
+import { leaveApi } from '../../services/hrService';
 
 const EmployeeLeave = () => {
   const { uploadFileAPI, createLeaveApplication, fetchLeaveApplicationsAPI, getHrProfile } = useApi();
@@ -37,20 +38,18 @@ const EmployeeLeave = () => {
   const [sandwichLeaveSundays, setSandwichLeaveSundays] = useState([]);
   const [currentView, setCurrentView] = useState('form'); // 'form' or 'history'
 
-  const leaveTypes = [
-    'Annual Leave',
-    'Sick Leave',
-    'Personal Leave',
-    'Emergency Leave',
-    'Bereavement Leave',
-    'Maternity/Paternity Leave',
-    'Study Leave',
-    'Sabbatical Leave',
-  ];
+  // Leave types are defined by HR (Leave Management > Leave types); the server
+  // validates the chosen type and the employee's allocated balance.
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  useEffect(() => {
+    leaveApi
+      .types()
+      .then((types) => setLeaveTypes(types.map((t) => t.name)))
+      .catch(() => setLeaveTypes([]));
+  }, []);
 
   const roleOptions = [
     'Executive',
-    'Team Leader',
     'Manager',
     'HR',
     'Admin',
@@ -226,7 +225,7 @@ const EmployeeLeave = () => {
       }
     } catch (error) {
       console.error('Error submitting leave application:', error);
-      setSubmissionError(error.message || 'Failed to submit leave application. Please try again.');
+      setSubmissionError(error.response?.data?.message || error.message || 'Failed to submit leave application. Please try again.');
     } finally {
       setUploading(false);
     }

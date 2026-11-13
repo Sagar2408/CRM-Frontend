@@ -109,7 +109,7 @@ const signup = async (fullName, email, password, userType, companyCode) => {
       const userType = user?.type || "customer";
       await logoutUser(userType);
       await stopWork(user?.id)
-       navigate("/process/client/login");
+       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error.message);
     } finally {

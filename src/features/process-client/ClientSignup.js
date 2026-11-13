@@ -19,7 +19,7 @@ const ClientSignup = () => {
 
       // ✅ Redirect to login after 2 seconds
       setTimeout(() => {
-        navigate("/process/client/login");
+        navigate("/login");
       }, 2000);
     } catch (error) {
       alert(error.message);
@@ -60,7 +60,7 @@ const ClientSignup = () => {
         </button>
 
         <p className="process-footer-text">
-          Already have an account? <Link to="/process/client/login">Log in</Link>
+          Already have an account? <Link to="/login">Log in</Link>
         </p>
       </div>
     </div>

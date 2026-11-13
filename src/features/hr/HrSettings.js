@@ -1,423 +1,204 @@
-
-
-import React, { useState, useEffect, useRef } from "react";
-import "../../styles/adminsettings.css";
+import React, { useCallback, useEffect, useState } from "react";
 import SidebarToggle from "../admin/SidebarToggle";
-import PageAccessControl from "../admin-settings/PageAccessControl";
-import { useApi } from "../../context/ApiContext";
-import { useLoading } from "../../context/LoadingContext";
-import AdminSpinner from "../spinner/AdminSpinner";
-import { Alert, soundManager } from "../modal/alert";
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { hrError, hrProfileApi } from "../../services/hrService";
+import { initialsOf } from "../admin/user-management/Avatar";
+import { StateBlock } from "./hrUi";
 
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const PHOTO_MAX = 2 * 1024 * 1024;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const validateProfile = (f) => {
+  const e = {};
+  if (!f.name.trim()) e.name = "Name is required.";
+  if (!f.username.trim()) e.username = "Username is required.";
+  if (!EMAIL_RE.test(f.email)) e.email = "Enter a valid email address.";
+  return e;
+};
+export const validatePassword = (f) => {
+  const e = {};
+  if (!f.currentPassword) e.currentPassword = "Enter your current password.";
+  if (f.newPassword.length < 6) e.newPassword = "New password must be at least 6 characters.";
+  else if (f.newPassword === f.currentPassword) e.newPassword = "New password must be different from the current one.";
+  if (f.confirm !== f.newPassword) e.confirm = "Passwords do not match.";
+  return e;
+};
+
+/**
+ * HR Settings: own profile, photo and password only. The Admin-only tabs
+ * (Page Access Control etc.) were removed - HR never had authority over them.
+ * Changing the password re-verifies the current password on the server.
+ */
 const HrSettings = () => {
-  const [activeTab, setActiveTab] = useState("profile");
-  const { fetchHrUserData, updateHrProfileById, handleChangeHrPassword, isHrPasswordUpdating } = useApi();
-  const { showLoader, hideLoader, isLoading, variant } = useLoading();
-  const hasLoaded = useRef(false);
-  const [alerts, setAlerts] = useState([]); // Added for alert.js integration
+  const [tab, setTab] = useState("profile");
+  const [profile, setProfile] = useState(null);
+  const [state, setState] = useState({ loading: true, error: "" });
+  const [form, setForm] = useState({ name: "", username: "", email: "", jobTitle: "" });
+  const [errors, setErrors] = useState({});
+  const [msg, setMsg] = useState({ type: "", text: "" });
+  const [saving, setSaving] = useState(false);
+
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [pw, setPw] = useState({ currentPassword: "", newPassword: "", confirm: "" });
+  const [pwErrors, setPwErrors] = useState({});
+
+  const loadPhoto = useCallback(async () => {
+    try {
+      const blob = await hrProfileApi.getPhoto();
+      setPhotoUrl((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return URL.createObjectURL(blob);
+      });
+    } catch {
+      setPhotoUrl((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return null;
+      });
+    }
+  }, []);
 
   useEffect(() => {
-    const handleSidebarToggle = () => {
-      const expanded = localStorage.getItem("adminSidebarExpanded") !== "false";
-      document.body.classList.toggle("sidebar-collapsed", !expanded);
-      document.body.classList.toggle("sidebar-expanded", expanded);
-    };
-
-    handleSidebarToggle();
-    window.addEventListener("sidebarToggle", handleSidebarToggle);
-
-    const init = async () => {
-      if (hasLoaded.current) return;
-      hasLoaded.current = true;
-
-      try {
-        showLoader("Loading HR profile...", "admin");
-        const currentUser = JSON.parse(localStorage.getItem("user"));
-        if (!currentUser?.id) throw new Error("No HR ID found");
-
-        const hrData = await fetchHrUserData(currentUser.id);
-        setHrProfile({
-          id: hrData.id || "",
-          name: hrData.name || "",
-          email: hrData.email || "",
-          username: hrData.username || "",
-          role: hrData.role || "",
-          jobTitle: hrData.jobTitle || "",
-        });
-      } catch (err) {
-        console.error("Failed to load HR profile:", err);
-      setAlerts((prevAlerts) => [
-  ...prevAlerts,
-  {
-    id: Date.now(),
-    type: "error",
-    title: "Load Failed",
-    message: "Failed to load HR profile.",
-    duration: 5000,
-  },
-]);
-
-        soundManager.playSound("error");
-      } finally {
-        hideLoader();
-      }
-    };
-
-    init();
-
+    let alive = true;
+    hrProfileApi
+      .get()
+      .then((hr) => {
+        if (!alive) return;
+        setProfile(hr);
+        setForm({ name: hr.name || "", username: hr.username || "", email: hr.email || "", jobTitle: hr.jobTitle || "" });
+        setState({ loading: false, error: "" });
+      })
+      .catch((e) => alive && setState({ loading: false, error: hrError(e, "Could not load your profile.") }));
+    loadPhoto();
     return () => {
-      window.removeEventListener("sidebarToggle", handleSidebarToggle);
+      alive = false;
     };
-  }, [fetchHrUserData, showLoader, hideLoader]);
+  }, [loadPhoto]);
 
-  // Handle alert close
-  const handleAlertClose = (id) => {
-    setAlerts(alerts.filter((alert) => alert.id !== id));
-  };
+  const say = (type, text) => setMsg({ type, text });
 
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
+  const saveProfile = async (ev) => {
+    ev.preventDefault();
+    const found = validateProfile(form);
+    setErrors(found);
+    if (Object.keys(found).length) return;
+    setSaving(true);
     try {
-      await updateHrProfileById(hrProfile.id, {
-        name: hrProfile.name,
-        email: hrProfile.email,
-        username: hrProfile.username,
-        jobTitle: hrProfile.jobTitle,
-      });
-      setAlerts([
-        ...alerts,
-        {
-          id: Date.now(),
-          type: "success",
-          title: "Profile Updated",
-          message: "HR profile updated successfully!",
-          duration: 5000,
-        },
-      ]);
-      soundManager.playSound("success");
-    } catch (err) {
-      console.error("Update failed:", err);
-      setAlerts([
-        ...alerts,
-        {
-          id: Date.now(),
-          type: "error",
-          title: "Update Failed",
-          message: "Failed to update HR profile",
-          duration: 5000,
-        },
-      ]);
-      soundManager.playSound("error");
-    }
-  };
-
-  const handlePasswordChange = (e) => {
-    const { name, value } = e.target;
-    setPasswordData({ ...passwordData, [name]: value });
-  };
-
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
-    setPasswordError("");
-    setPasswordSuccess("");
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setAlerts([
-        ...alerts,
-        {
-          id: Date.now(),
-          type: "warning",
-          title: "Password Mismatch",
-          message: "New password and confirm password do not match.",
-          duration: 5000,
-        },
-      ]);
-      soundManager.playSound("warning");
-      return;
-    }
-
-    try {
-      showLoader("Updating password...", "admin");
-      await handleChangeHrPassword(passwordData.currentPassword, passwordData.newPassword);
-      setAlerts([
-        ...alerts,
-        {
-          id: Date.now(),
-          type: "success",
-          title: "Password Updated",
-          message: "Password updated successfully!",
-          duration: 5000,
-        },
-      ]);
-      soundManager.playSound("success");
-      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } catch (err) {
-      setAlerts([
-        ...alerts,
-        {
-          id: Date.now(),
-          type: "error",
-          title: "Password Update Failed",
-          message: err.response?.data?.message || "Failed to update password.",
-          duration: 5000,
-        },
-      ]);
-      soundManager.playSound("error");
+      await hrProfileApi.update(profile.id, { name: form.name.trim(), username: form.username.trim(), email: form.email.trim(), jobTitle: form.jobTitle });
+      const stored = JSON.parse(localStorage.getItem("user") || "null");
+      if (stored) localStorage.setItem("user", JSON.stringify({ ...stored, name: form.name.trim(), email: form.email.trim() }));
+      say("ok", "Profile updated.");
+    } catch (e) {
+      say("error", hrError(e, "Could not update your profile."));
     } finally {
-      hideLoader();
+      setSaving(false);
     }
   };
 
-  const tabs = [
-    { key: "profile", label: "Profile" },
-    { key: "password", label: "Password" },
-    { key: "pageAccess", label: "Page Access Controller" },
-    { key: "team", label: "Team" },
-    { key: "plan", label: "Plan" },
-    { key: "billing", label: "Billing" },
-    { key: "integrations", label: "Integrations" },
-  ];
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "pageAccess":
-        return <PageAccessControl />;
-      case "plan":
-        return (
-          <div className="blur-overlay-wrapper">
-            <div className="section-block">
-              <h3>Current Plan</h3>
-              <p>
-                You are on the <strong>Pro</strong> plan. Next billing: <strong>May 10, 2025</strong>
-              </p>
-              <button className="primary-btn">Upgrade Plan</button>
-            </div>
-          </div>
-        );
-      case "billing":
-        return (
-          <div className="blur-overlay-wrapper">
-            <div className="section-block">
-              <h3>Billing History</h3>
-              <table className="billing-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>April 10</td>
-                    <td>$49</td>
-                    <td>Paid</td>
-                    <td><button className="mini-btn">Download</button></td>
-                  </tr>
-                  <tr>
-                    <td>March 10</td>
-                    <td>$49</td>
-                    <td>Paid</td>
-                    <td><button className="mini-btn">Download</button></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      case "team":
-        return (
-          <div className="blur-overlay-wrapper">
-            <div className="section-block">
-              <h3>Team Members</h3>
-              <ul className="team-list">
-                {[
-                  { id: 1, name: "Sakshi Verma", email: "sakshi@example.com", role: "Executive" },
-                  { id: 2, name: "Rohan Malhotra", email: "rohan@example.com", role: "Manager" },
-                  { id: 3, name: "Neha Sinha", email: "neha@example.com", role: "Admin" },
-                ].map((member) => (
-                  <li key={member.id}>
-                    <span><strong>ID:</strong> {member.id}</span>
-                    <span><strong>Name:</strong> {member.name}</span>
-                    <span><strong>Email:</strong> {member.email}</span>
-                    <span><strong>Role:</strong> {member.role}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        );
-      case "integrations":
-        return (
-          <div className="blur-overlay-wrapper">
-            <div className="section-block">
-              <h3>Connected Apps</h3>
-              <ul className="integration-list">
-                <li>Slack <button className="mini-btn">Disconnect</button></li>
-                <li>Google Drive <button className="mini-btn">Disconnect</button></li>
-                <li>Connect new <button className="mini-btn">Add Integration</button></li>
-              </ul>
-            </div>
-          </div>
-        );
-      case "password":
-        return (
-          <>
-            <h3>Change Password</h3>
-            <form className="profile-form" onSubmit={handlePasswordSubmit}>
-              <div className="form-group full">
-                <label>Current Password</label>
-                <input
-                  name="currentPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordChange}
-                  required
-                />
-              </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>New Password</label>
-                  <input
-                    name="newPassword"
-                    type="password"
-                    placeholder="New password"
-                    value={passwordData.newPassword}
-                    onChange={handlePasswordChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Confirm Password</label>
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    placeholder="Confirm password"
-                    value={passwordData.confirmPassword}
-                    onChange={handlePasswordChange}
-                    required
-                  />
-                </div>
-              </div>
-              {passwordError && <p className="error-text">{passwordError}</p>}
-              {passwordSuccess && <p className="success-text">{passwordSuccess}</p>}
-              <div className="form-group full save-btn-wrapper">
-                <button
-                  className="save-btn"
-                  type="submit"
-                  disabled={isHrPasswordUpdating}
-                >
-                  {isHrPasswordUpdating ? "Updating..." : "Update Password"}
-                </button>
-              </div>
-            </form>
-          </>
-        );
-      case "profile":
-      default:
-        return (
-          <>
-            <h3>Profile</h3>
-            <form className="profile-form" onSubmit={handleProfileSubmit}>
-              <div className="form-group full profile-pic">
-                <label>Your Photo</label>
-                <div className="pic-wrapper">
-                <AccountCircleIcon style={{width:"80px", height:"80px"}} />
-                  <div className="pic-actions">
-                    <button type="button">Delete</button>
-                    <button type="button">Update</button>
-                  </div>
-                </div>
-              </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Full Name</label>
-                  <input
-                    type="text"
-                    value={hrProfile.name}
-                    onChange={(e) => setHrProfile({ ...hrProfile, name: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Email Address</label>
-                  <input
-                    type="email"
-                    value={hrProfile.email}
-                    onChange={(e) => setHrProfile({ ...hrProfile, email: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Username</label>
-                  <input
-                    type="text"
-                    value={hrProfile.username || ""}
-                    onChange={(e) => setHrProfile({ ...hrProfile, username: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Role</label>
-                  <input type="text" value={hrProfile.role} readOnly />
-                </div>
-                <div className="form-group">
-                  <label>Job Title</label>
-                  <input
-                    type="text"
-                    value={hrProfile.jobTitle || ""}
-                    onChange={(e) => setHrProfile({ ...hrProfile, jobTitle: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="form-group full save-btn-wrapper">
-                <button className="save-btn" type="submit">Save Changes</button>
-              </div>
-            </form>
-          </>
-        );
+  const changePassword = async (ev) => {
+    ev.preventDefault();
+    const found = validatePassword(pw);
+    setPwErrors(found);
+    if (Object.keys(found).length) return;
+    setSaving(true);
+    try {
+      await hrProfileApi.changePassword(pw.currentPassword, pw.newPassword);
+      setPw({ currentPassword: "", newPassword: "", confirm: "" });
+      say("ok", "Password changed.");
+    } catch (e) {
+      say("error", hrError(e, "Could not change your password."));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const [hrProfile, setHrProfile] = useState({
-    id: "",
-    name: "",
-    email: "",
-    username: "",
-    role: "",
-    jobTitle: "",
-  });
+  const onPhoto = async (ev) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file) return;
+    if (!PHOTO_TYPES.includes(file.type)) return say("error", "Photo must be a JPEG, PNG or WEBP image.");
+    if (file.size > PHOTO_MAX) return say("error", "Photo must be 2MB or smaller.");
+    setPhotoBusy(true);
+    try {
+      await hrProfileApi.uploadPhoto(file);
+      await loadPhoto();
+      say("ok", "Profile photo updated.");
+    } catch (e) {
+      say("error", hrError(e, "Could not upload the photo."));
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const removePhoto = async () => {
+    setPhotoBusy(true);
+    try {
+      await hrProfileApi.deletePhoto();
+      await loadPhoto();
+      say("ok", "Profile photo removed.");
+    } catch (e) {
+      say("error", hrError(e, "Could not remove the photo."));
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const set = (setter) => (e) => setter((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   return (
-    <div className="admin-settings">
+    <div className="hr-page">
       <SidebarToggle />
-      {isLoading && variant === "admin" && (
-        <AdminSpinner text="Loading Settings..." />
-      )}
-      <div className="settings-header">
-        <h2>Settings</h2>
+      <div className="hr-head">
+        <div>
+          <h1>Settings</h1>
+          <p>Manage your own profile, photo and password.</p>
+        </div>
       </div>
-      <div className="settings-tabs">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            className={activeTab === tab.key ? "active" : ""}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
+      <div className="hr-tabs" role="tablist">
+        {[["profile", "Profile"], ["password", "Password"]].map(([id, label]) => (
+          <button key={id} type="button" role="tab" className="hr-tab" aria-selected={tab === id} onClick={() => { setTab(id); setMsg({ type: "", text: "" }); }}>{label}</button>
         ))}
       </div>
-      <div className="settings-card">{renderTabContent()}</div>
-      <Alert alerts={alerts} onClose={handleAlertClose} />
+      {msg.text && <div className={msg.type === "ok" ? "hr-ok" : "hr-error"} role={msg.type === "ok" ? "status" : "alert"}>{msg.text}</div>}
+
+      <StateBlock loading={state.loading} error={state.error}>
+        {tab === "profile" && profile && (
+          <div className="hr-grid cols-2">
+            <div className="hr-card">
+              <h3>Profile photo</h3>
+              <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                {photoUrl ? <img className="hr-avatar" src={photoUrl} alt="Your profile" /> : <span className="hr-avatar" aria-label="No profile photo">{initialsOf(profile.name)}</span>}
+                <div className="hr-stack" style={{ gap: 8 }}>
+                  <label className="hr-btn" style={{ display: "inline-block", textAlign: "center" }}>
+                    {photoBusy ? "Working…" : photoUrl ? "Change photo" : "Upload photo"}
+                    <input type="file" accept={PHOTO_TYPES.join(",")} onChange={onPhoto} disabled={photoBusy} style={{ display: "none" }} aria-label="Upload profile photo" />
+                  </label>
+                  {photoUrl && <button type="button" className="hr-btn ghost" onClick={removePhoto} disabled={photoBusy}>Remove photo</button>}
+                  <span className="hr-help">JPEG, PNG or WEBP, up to 2MB.</span>
+                </div>
+              </div>
+            </div>
+            <form className="hr-card hr-form" onSubmit={saveProfile} noValidate>
+              <h3>Profile details</h3>
+              <label>Full name<input name="name" value={form.name} onChange={set(setForm)} maxLength={100} />{errors.name && <span className="hr-error">{errors.name}</span>}</label>
+              <label>Username<input name="username" value={form.username} onChange={set(setForm)} maxLength={50} />{errors.username && <span className="hr-error">{errors.username}</span>}</label>
+              <label>Email<input name="email" type="email" value={form.email} onChange={set(setForm)} />{errors.email && <span className="hr-error">{errors.email}</span>}</label>
+              <label>Job title<input name="jobTitle" value={form.jobTitle} onChange={set(setForm)} maxLength={100} /></label>
+              <label>Role<input value={profile.role || "HR"} disabled aria-label="Role" /></label>
+              <div><button type="submit" className="hr-btn" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button></div>
+            </form>
+          </div>
+        )}
+        {tab === "password" && (
+          <form className="hr-card hr-form" onSubmit={changePassword} noValidate style={{ maxWidth: 480 }}>
+            <h3>Change password</h3>
+            <label>Current password<input name="currentPassword" type="password" autoComplete="current-password" value={pw.currentPassword} onChange={set(setPw)} />{pwErrors.currentPassword && <span className="hr-error">{pwErrors.currentPassword}</span>}</label>
+            <label>New password<input name="newPassword" type="password" autoComplete="new-password" value={pw.newPassword} onChange={set(setPw)} />{pwErrors.newPassword && <span className="hr-error">{pwErrors.newPassword}</span>}</label>
+            <label>Confirm new password<input name="confirm" type="password" autoComplete="new-password" value={pw.confirm} onChange={set(setPw)} />{pwErrors.confirm && <span className="hr-error">{pwErrors.confirm}</span>}</label>
+            <div><button type="submit" className="hr-btn" disabled={saving}>{saving ? "Saving…" : "Change password"}</button></div>
+          </form>
+        )}
+      </StateBlock>
     </div>
   );
 };

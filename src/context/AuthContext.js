@@ -38,7 +38,44 @@ export const AuthProvider = ({ children }) => {
   // -----------------------
   // LOGIN
   // -----------------------
-  const login = async (email, password, role, companyCode) => {
+  const startWorkTimer = () => {
+    if (localStorage.getItem("workStartTime")) return;
+    recordStartWork()
+      .then((res) => {
+        if (res?.activity?.startWorkTime) {
+          localStorage.setItem("workStartTime", res.activity.startWorkTime);
+        }
+      })
+      .catch((err) => console.warn("Start work failed after navigation:", err.message));
+  };
+
+  const loginSuccessToast = () =>
+    toast.success(
+      <div className="toast-content">
+        <div className="textToast">Login Successful</div>
+      </div>,
+      { className: "custom-toast", bodyClassName: "custom-toast-body" }
+    );
+
+  // Dashboard for each staff role, taken from the role the SERVER verified in
+  // the response - never from the page the user logged in on or localStorage.
+  const DASHBOARD_BY_ROLE = {
+    admin: "/admin",
+    executive: "/executive",
+    manager: "/manager",
+    hr: "/hr",
+  };
+
+  // -----------------------
+  // LOGIN (one page for every tenant role)
+  // -----------------------
+  // POST /login with { email, password, companyCode } only. The backend finds
+  // the account in the company's identity tables, verifies the password and
+  // answers with `identity` (which table matched) plus that table's profile.
+  // Process Person and Customer sessions use the same storage keys their own
+  // portals have always used, then a full navigation so ProcessAuthContext
+  // (mounted once at the app root) picks the session up.
+  const login = async (email, password, companyCode) => {
     if (!email || !password || !companyCode) {
       toast.error(<div className="textToast">All fields are required</div>, {
         className: "custom-toast-error",
@@ -48,112 +85,36 @@ export const AuthProvider = ({ children }) => {
 
     try {
       setLoading(true);
+      const response = await authService.loginUser(email, password, companyCode);
 
-      let response;
-      let isProcessPerson = false;
-      try {
-        response = await authService.loginUser(email, password, role, companyCode);
-      } catch (primaryErr) {
-        // Process Person integration: the common employee login page
-        // (Login.js, userType="executive") now also authenticates
-        // Process Person accounts, which live in a separate model/table
-        // (see controllers/ProcessPerson.controller.js) — not reachable
-        // through the User-table lookup /login just did. Only fall
-        // back when that lookup found no User account at all (404,
-        // "User not found" — see controllers/User.controller.js's
-        // login): a wrong password, a disabled account, or an expired
-        // subscription against a REAL User account must surface as
-        // that exact error, never be silently retried as a different
-        // identity type. Scoped to role === "executive" (the general
-        // employee page) only — the dedicated /admin/login page
-        // (userType="admin") never attempts this fallback.
-        if (role === "executive" && primaryErr.status === 404) {
-          response = await authService.loginProcessPersonAPI(email, password, companyCode);
-          isProcessPerson = true;
-        } else {
-          throw primaryErr;
-        }
-      }
-
-      if (isProcessPerson) {
-        // Mirrors ProcessAuthContext.js's own login() storage shape
-        // exactly (same localStorage keys/values), so the dedicated
-        // /process/client/login page and ProcessPrivateRoute/
-        // ProcessRoutes.js guards keep working unchanged for a session
-        // started from here.
-        const processUser = { ...response.person, type: "processperson" };
+      if (response.identity === "processperson" || response.identity === "customer") {
+        const isCustomer = response.identity === "customer";
+        const type = isCustomer ? "customer" : "processperson";
+        const profile = { ...(isCustomer ? response.customer : response.person), type };
         localStorage.setItem("token", response.token);
-        localStorage.setItem("user", JSON.stringify(processUser));
-        localStorage.setItem("userType", "processperson");
-
-        toast.success(
-          <div className="toast-content">
-            <div className="textToast">Login Successful</div>
-          </div>,
-          {
-            className: "custom-toast",
-            bodyClassName: "custom-toast-body",
-          }
-        );
-
-        // A full navigation (not react-router's navigate()) is
-        // deliberate: AuthContext and ProcessAuthContext are two
-        // separate providers mounted once each at the app root
-        // (src/index.js) — ProcessAuthContext only reads
-        // localStorage.user into its own React state on its initial
-        // mount. Without a full reload, ProcessRoutes.js's
-        // `user?.type === "processperson"` check (driven by
-        // ProcessAuthContext's state, not this context's) would still
-        // see no user and hide the Process Person-only routes even
-        // though localStorage/the token are already correct.
+        localStorage.setItem("user", JSON.stringify(profile));
+        localStorage.setItem("userType", type);
+        loginSuccessToast();
         setTimeout(() => {
-          window.location.href = "/process";
+          window.location.href = isCustomer ? "/customer/client/dashboard" : "/process";
         }, 1500);
         return;
       }
 
-      const user = response.user;
-
-      // Save session data
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("executiveId", user.id);
-
-      setUser(user);
-
-      toast.success(
-        <div className="toast-content">
-          <div className="textToast">Login Successful</div>
-        </div>,
-        {
-          className: "custom-toast",
-          bodyClassName: "custom-toast-body",
-        }
-      );
-
-      // Start work time if not already started
-      const alreadyStarted = localStorage.getItem("workStartTime");
-      if (!alreadyStarted) {
-        recordStartWork()
-          .then((res) => {
-            if (res?.activity?.startWorkTime) {
-              localStorage.setItem("workStartTime", res.activity.startWorkTime);
-            }
-          })
-          .catch((err) =>
-            console.warn("Start work failed after navigation:", err.message)
-          );
+      const staff = response.user || response.hr || response.manager;
+      const role = String(staff?.role || "").toLowerCase();
+      if (!staff || !DASHBOARD_BY_ROLE[role]) {
+        throw new Error("Login succeeded but the account role is not recognised.");
       }
 
-      // Navigate based on role
-      setTimeout(() => {
-        const role = user.role.toLowerCase();
-        if (role === "admin") navigate("/admin");
-        else if (role === "executive") navigate("/executive");
-        else if (role === "Manager") navigate("/manager");
-        else if (role === "hr") navigate("/hr");
-        else if (role === "tl") navigate("/team-lead");
-      }, 2000);
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(staff));
+      if (response.identity === "user") localStorage.setItem("executiveId", staff.id);
+      localStorage.removeItem("userType");
+      setUser(staff);
+      loginSuccessToast();
+      startWorkTimer();
+      setTimeout(() => navigate(DASHBOARD_BY_ROLE[role]), 2000);
     } catch (err) {
       if (err.code === "SUBSCRIPTION_EXPIRED") {
         emitSubscriptionExpired({
@@ -164,9 +125,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         toast.error(
           <div className="textToast">{err.message || "Login Failed"}</div>,
-          {
-            className: "custom-toast-error",
-          }
+          { className: "custom-toast-error" }
         );
       }
     } finally {
@@ -174,76 +133,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-
-  const handleLoginManager = async (email, password, companyCode) => {
-    if (!email || !password || !companyCode) {
-      toast.error(<div className="textToast">All fields are required</div>, {
-        className: "custom-toast-error",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-         const response = await authService.loginManager(email, password, companyCode);
-      const manager = response.manager;
-        setUser(manager);
-
-      // Save session data
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("user", JSON.stringify(manager));
-     
- 
-      setUser(manager);
-
-      toast.success(
-        <div className="toast-content">
-          <div className="textToast">Login Successful</div>
-        </div>,
-        {
-          className: "custom-toast",
-          bodyClassName: "custom-toast-body",
-        }
-      );
-
-      // Start work time if not already started
-      const alreadyStarted = localStorage.getItem("workStartTime");
-      if (!alreadyStarted) {
-        recordStartWork()
-          .then((res) => {
-            if (res?.activity?.startWorkTime) {
-              localStorage.setItem("workStartTime", res.activity.startWorkTime);
-            }
-          })
-          .catch((err) =>
-            console.warn("Start work failed after navigation:", err.message)
-          );
-      }
-
-      // Navigate based on role
-    setTimeout(() => {
-  const role = manager.role?.toLowerCase();
-  if (role === "manager") navigate("/manager");
-}, 2000);
-    } catch (err) {
-      if (err.code === "SUBSCRIPTION_EXPIRED") {
-        emitSubscriptionExpired({
-          companyName: err.companyName,
-          expiryDate: err.expiryDate,
-          message: err.message,
-        });
-      } else {
-        toast.error(
-          <div className="textToast">{err.message || "Login Failed"}</div>,
-          {
-            className: "custom-toast-error",
-          }
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Inside AuthProvider
 
@@ -263,7 +152,7 @@ const handleLogoutManager = async () => {
     setClearTimer(true); // stop work timer
     forceLightTheme(); // reset theme if needed
     setTimeout(() => {
-      navigate("/manager/login");
+      navigate("/login");
     }, 100);
     } catch (err) {
     console.error("Logout failed:", err.message);
@@ -279,75 +168,6 @@ const handleLogoutManager = async () => {
 };
 
 
-const handleLoginHr = async (email, password, companyCode) => {
-  if (!email || !password || !companyCode) {
-    toast.error(<div className="textToast">All fields are required</div>, {
-      className: "custom-toast-error",
-    });
-    return;
-  }
-
-  try {
-    setLoading(true);
-       const response = await authService.loginHr(email, password, companyCode);
-    const hr = response.hr;
-      setUser(hr);
-
-    // Save session data
-    localStorage.setItem("token", response.token);
-    localStorage.setItem("user", JSON.stringify(hr));
-   
-
-    setUser(hr);
-
-    toast.success(
-      <div className="toast-content">
-        <div className="textToast">Login Successful</div>
-      </div>,
-      {
-        className: "custom-toast",
-        bodyClassName: "custom-toast-body",
-      }
-    );
-
-    // Start work time if not already started
-    const alreadyStarted = localStorage.getItem("workStartTime");
-    if (!alreadyStarted) {
-      recordStartWork()
-        .then((res) => {
-          if (res?.activity?.startWorkTime) {
-            localStorage.setItem("workStartTime", res.activity.startWorkTime);
-          }
-        })
-        .catch((err) =>
-          console.warn("Start work failed after navigation:", err.message)
-        );
-    }
-
-    // Navigate based on role
-  setTimeout(() => {
-const role = hr.role?.toLowerCase();
-if (role === "hr") navigate("/hr");
-}, 2000);
-  } catch (err) {
-    if (err.code === "SUBSCRIPTION_EXPIRED") {
-      emitSubscriptionExpired({
-        companyName: err.companyName,
-        expiryDate: err.expiryDate,
-        message: err.message,
-      });
-    } else {
-      toast.error(
-        <div className="textToast">{err.message || "Login Failed"}</div>,
-        {
-          className: "custom-toast-error",
-        }
-      );
-    }
-  } finally {
-    setLoading(false);
-  }
-};
   const handleLogoutHr = async () => {
     try {
       setLoading(true);
@@ -364,7 +184,7 @@ if (role === "hr") navigate("/hr");
       setClearTimer(true); // stop work timer
       forceLightTheme(); // reset theme if needed
       setTimeout(() => {
-        navigate("/hr/login");
+        navigate("/login");
       }, 100);   
      } catch (err) {
       console.error("Logout failed:", err.message);
@@ -457,9 +277,7 @@ if (role === "hr") navigate("/hr");
         logout,
         forgotPassword,
         resetPassword,
-        handleLoginManager,
         handleLogoutManager,
-        handleLoginHr,
         handleLogoutHr,
         isAuthenticated: !!user,
       }}

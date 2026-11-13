@@ -7,7 +7,10 @@ import img1 from "../../assets/img1.jpg";
 import img3 from "../../assets/img2.jpg";
 import img4 from "../../assets/img3.jpg";
 
-const Login = ({ userType }) => {
+// The one login page for every tenant role (Admin, Executive, TL, HR, Manager,
+// Process Person, Customer): company code + email + password. The server works
+// out who the user is; nothing about the role is chosen or sent from here.
+const Login = () => {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,19 +41,15 @@ const Login = ({ userType }) => {
       setLoading(true);
 
       try {
-        await login(email, password, userType?.toLowerCase(), companyCode);
-        // Navigate after successful login if needed
-        // navigate('/dashboard'); // Uncomment and adjust route as needed
+        await login(email, password, companyCode);
       } catch (error) {
         console.error("Login failed:", error);
       } finally {
         setLoading(false);
       }
     },
-    [email, password, companyCode, userType, login]
+    [email, password, companyCode, login]
   );
-
-  const isAdmin = userType === "admin";
 
   return (
     <div className="main-container">
@@ -88,7 +87,7 @@ const Login = ({ userType }) => {
         <div className="right-half">
           <div className="login-form">
             <div className="create">
-              {isAdmin ? "Login to your Account" : "Login to your Account"}
+              Login to your Account
             </div>
             <p style={{ paddingTop: "10px" }}>Enter your credentials</p>
             <form onSubmit={handleLogin}>
@@ -118,12 +117,10 @@ const Login = ({ userType }) => {
               </button>
 
               <div className="text-bottom">
-                {isAdmin && (
-                  <p className="small-text">
-                    Don't have an account?{" "}
-                    <Link to="/admin/signup">Signup</Link>
-                  </p>
-                )}
+                <p className="small-text">
+                  Registering a new company?{" "}
+                  <Link to="/admin/signup">Sign up</Link>
+                </p>
                 <Link
                   to="/forgot-password"
                   style={{ color: "black", marginTop: "10px" }}

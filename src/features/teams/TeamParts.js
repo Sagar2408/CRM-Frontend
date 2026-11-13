@@ -31,7 +31,7 @@ export const ConfirmDialog = ({ title, message, confirmLabel, busy, onConfirm, o
   </Modal>
 );
 
-/** Role-agnostic employee picker: any mix of Admin/TL/Executive/Manager/HR/Process Person. */
+/** Role-agnostic employee picker: any mix of Admin/Executive/Manager/HR/Process Person. */
 export const EmployeePicker = ({ employees, selected, onToggle, excludeKeys = [] }) => {
   const [q, setQ] = useState("");
   const list = useMemo(

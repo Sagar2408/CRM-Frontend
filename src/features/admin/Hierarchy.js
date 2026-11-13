@@ -7,7 +7,6 @@ import {
   User,
   UserCheck,
   Crown,
-  Briefcase,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -24,7 +23,6 @@ export const ROLE_META = {
   Admin: { icon: Crown, tone: "admin", label: "Admin" },
   Manager: { icon: Users, tone: "manager", label: "Manager" },
   HR: { icon: User, tone: "hr", label: "HR" },
-  TL: { icon: Briefcase, tone: "tl", label: "Team Lead" },
   Executive: { icon: UserCheck, tone: "executive", label: "Executive" },
   ProcessPerson: { icon: User, tone: "process", label: "Process Person" },
 };
@@ -133,11 +131,11 @@ const Hierarchy = () => {
     })();
   }, [fetchOrganizationHierarchyAPI]);
 
-  // Small organisations open fully; large ones open to Level 2 so the chart stays readable.
+  // Small organisations open fully; large ones show down to Level 2 (the Admin's direct reports) so the chart stays readable.
   useEffect(() => {
     if (!data) return;
     const all = [...nodeMap.values()];
-    const open = all.length <= 40 ? all : all.filter((n) => n.level && n.level <= 2);
+    const open = all.length <= 40 ? all : all.filter((n) => n.level && n.level <= 1);
     setExpanded(new Set(open.map((n) => n.key)));
   }, [data, nodeMap]);
 
@@ -213,7 +211,7 @@ const Hierarchy = () => {
   const total = data?.summary?.total || 0;
   const unassignedCount = data?.summary?.unassigned || 0;
 
-  const legendRoles = ["Admin", "Manager", "HR", "TL", "Executive", "ProcessPerson"];
+  const legendRoles = ["Admin", "Manager", "HR", "Executive", "ProcessPerson"];
 
   return (
     <div className="oh-page" data-theme={theme}>

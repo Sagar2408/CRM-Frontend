@@ -57,7 +57,6 @@ describe("navbar message icon / sidebar item", () => {
 
   test.each([
     [{ id: 1, role: "Admin" }, null],
-    [{ id: 4, role: "TL" }, { messaging: true }],
     [{ id: 2, role: "Executive" }, { messaging: true }],
     [{ id: 3, role: "Manager" }, { messaging: true }],
     [{ id: 5, role: "HR" }, { messaging: true }],
@@ -82,11 +81,18 @@ describe("navbar message icon / sidebar item", () => {
   });
 
   test("clicking the navbar icon goes to the role's messaging page", () => {
-    setUser({ id: 4, role: "TL" });
+    setUser({ id: 4, role: "Manager" });
     usePermissionContext.mockReturnValue({ permissions: { messaging: true }, loading: false });
     page(<MessageNavIcon />);
     fireEvent.click(screen.getByLabelText("Messaging"));
-    expect(mockNavigate).toHaveBeenCalledWith("/team-lead/messaging");
+    expect(mockNavigate).toHaveBeenCalledWith("/manager/messaging");
+  });
+
+  test("a legacy Team Lead role gets no messaging entry at all (the role no longer exists)", () => {
+    setUser({ id: 4, role: "TL" });
+    usePermissionContext.mockReturnValue({ permissions: { messaging: true }, loading: false });
+    page(<MessageNavIcon />);
+    expect(screen.queryByLabelText("Messaging")).not.toBeInTheDocument();
   });
 
   test("sidebar item links to the right path per role", () => {

@@ -3,7 +3,7 @@ import { Modal } from "./ConfirmDialog";
 import { useApi } from "../../../context/ApiContext";
 import { apiError, ROLE_OPTIONS } from "../../../services/userManagementService";
 
-const STAFF = ["Executive", "TL", "Admin"]; // rows in the Users table: have username + location fields
+const STAFF = ["Executive", "Admin"]; // rows in the Users table: have username + location fields
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMPTY = { role: "", username: "", firstname: "", lastname: "", email: "", password: "", country: "", state: "", city: "", postal_code: "" };
 
@@ -47,8 +47,9 @@ const Field = ({ id, label, error, children }) => (
   </div>
 );
 
-const CreateUserModal = ({ onClose, onCreated }) => {
-  const { createExecutive, createTeamLead, createAdmin, createManager, createHr, createProcessPerson } = useApi();
+const CreateUserModal = ({ onClose, onCreated, roles = null }) => {
+  const roleChoices = roles ? ROLE_OPTIONS.filter((r) => roles.includes(r.value)) : ROLE_OPTIONS;
+  const { createExecutive, createAdmin, createManager, createHr, createProcessPerson } = useApi();
   const [f, setF] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
@@ -62,7 +63,6 @@ const CreateUserModal = ({ onClose, onCreated }) => {
 
   const call = {
     Executive: createExecutive,
-    TL: createTeamLead,
     Admin: createAdmin,
     Manager: createManager,
     HR: createHr,
@@ -95,7 +95,7 @@ const CreateUserModal = ({ onClose, onCreated }) => {
           <Field id="cu-role" label="Role" error={errors.role}>
             <select id="cu-role" name="role" value={f.role} onChange={set}>
               <option value="" disabled>Select role</option>
-              {ROLE_OPTIONS.map((r) => (
+              {roleChoices.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import "../../../styles/userManagement.css";
 import SidebarToggle from "../SidebarToggle";
 import { Alert, soundManager } from "../../modal/alert";
@@ -8,11 +8,31 @@ import CreateUserModal from "./CreateUserModal";
 import EditUserModal from "./EditUserModal";
 import ViewUserModal from "./ViewUserModal";
 import { RoleBadge, StatusBadge, fmtDate } from "./badges";
-import { apiError, listUsers, ROLE_OPTIONS, setUserActive } from "../../../services/userManagementService";
+import { apiError, listUsers, ROLE_OPTIONS, setUserActive, setUserManagementBase } from "../../../services/userManagementService";
 
 const PAGE_SIZE = 10;
 
-const UserManagement = () => {
+/**
+ * Admin User Management. HR "Employee Management" renders the same page with:
+ *   base          API prefix (default: the Admin endpoints)
+ *   roleOptions   roles offered in the filter
+ *   createRoles   roles the Create dialog offers (default: all)
+ *   readOnlyRoles roles whose rows can be viewed but not edited/deactivated
+ */
+const UserManagement = ({
+  base = null,
+  title = "User Management",
+  subtitle = "Create, view and manage everyone in your organisation.",
+  roleOptions = ROLE_OPTIONS,
+  createRoles = null,
+  readOnlyRoles = [],
+}) => {
+  // useLayoutEffect runs before any child's passive (data-fetching) effect.
+  useLayoutEffect(() => {
+    setUserManagementBase(base);
+    return () => setUserManagementBase(null);
+  }, [base]);
+
   const [filters, setFilters] = useState({ q: "", role: "", status: "" });
   const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
@@ -96,8 +116,8 @@ const UserManagement = () => {
       <div className="um-page">
         <div className="um-header">
           <div>
-            <h1>User Management</h1>
-            <p>Create, view and manage everyone in your organisation.</p>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
           </div>
           <button type="button" className="um-btn um-btn-primary" onClick={() => setModal({ type: "create" })}>
             + Create User
@@ -115,7 +135,7 @@ const UserManagement = () => {
             />
             <select value={filters.role} onChange={(e) => setFilter("role", e.target.value)} aria-label="Filter by role">
               <option value="">All roles</option>
-              {ROLE_OPTIONS.map((r) => (
+              {roleOptions.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>
@@ -180,16 +200,20 @@ const UserManagement = () => {
                         <td className="um-col-actions">
                           <div className="um-row-actions">
                             <button type="button" className="um-link" onClick={() => setModal({ type: "view", user: u })} aria-label={`View ${u.name}`}>View</button>
-                            <button type="button" className="um-link" onClick={() => setModal({ type: "edit", user: u })} aria-label={`Edit ${u.name}`}>Edit</button>
-                            <button
-                              type="button"
-                              className={`um-link ${u.active ? "um-link-danger" : "um-link-ok"}`}
-                              onClick={() => onToggle(u)}
-                              disabled={busy}
-                              aria-label={`${u.active ? "Deactivate" : "Activate"} ${u.name}`}
-                            >
-                              {u.active ? "Deactivate" : "Activate"}
-                            </button>
+                            {!readOnlyRoles.includes(u.role) && (
+                              <>
+                                <button type="button" className="um-link" onClick={() => setModal({ type: "edit", user: u })} aria-label={`Edit ${u.name}`}>Edit</button>
+                                <button
+                                  type="button"
+                                  className={`um-link ${u.active ? "um-link-danger" : "um-link-ok"}`}
+                                  onClick={() => onToggle(u)}
+                                  disabled={busy}
+                                  aria-label={`${u.active ? "Deactivate" : "Activate"} ${u.name}`}
+                                >
+                                  {u.active ? "Deactivate" : "Activate"}
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -216,6 +240,7 @@ const UserManagement = () => {
 
       {modal?.type === "create" && (
         <CreateUserModal
+          roles={createRoles}
           onClose={() => setModal(null)}
           onCreated={(message) => {
             setModal(null);
@@ -226,7 +251,7 @@ const UserManagement = () => {
         />
       )}
       {modal?.type === "view" && (
-        <ViewUserModal user={modal.user} version={photoVersion} onClose={() => setModal(null)} onEdit={(u) => setModal({ type: "edit", user: u })} />
+        <ViewUserModal user={modal.user} version={photoVersion} onClose={() => setModal(null)} onEdit={readOnlyRoles.includes(modal.user.role) ? null : (u) => setModal({ type: "edit", user: u })} />
       )}
       {modal?.type === "edit" && <EditUserModal user={modal.user} onClose={() => setModal(null)} onSaved={afterEdit} />}
       {confirm && (

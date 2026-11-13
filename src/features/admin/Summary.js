@@ -52,9 +52,6 @@ switch (user.role.toLowerCase()) {
     basePath = "/manager/executive-assignments";
     break;
  
-  case "tl":
-    basePath = "/team-lead/executive-assignments";
-    break;
   default:
     console.error("Unknown role:", user.role);
     return;

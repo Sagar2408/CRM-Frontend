@@ -693,16 +693,6 @@ const toggleProcessPersonLoginAccess = async (processPersonId, can_login) => {
   }
 };
 
-const toggleTlLoginAccess = async (userId, can_login) => {
-  try {
-    const response = await apiService.toggleTeamLeadLoginAccess(userId, can_login);
-    return response.data;
-  } catch (err) {
-    console.error("❌ Error toggling Team Lead login:", err);
-    throw err;
-  }
-};
-
 const [verificationResults, setVerificationResults] = useState({});
 const [verificationLoading, setVerificationLoading] = useState(false);
 
@@ -862,19 +852,6 @@ const updateClientLead = async (clientLeadId, updateFields) => {
     throw error;
   }
 };
-const createTeamLead = async (teamData) => {
-  setLoading(true);
-  
-  try {
-    const result = await apiService.createTeamLeadApi(teamData);
-    return result;
-  } catch (err) {
-
-    throw err;
-  } finally {
-    setLoading(false);
-  }
-};
 const createAdmin = async (adminData) => {
   setLoading(true);
   
@@ -936,7 +913,7 @@ const createHr = async (hrData) => {
 // Process Person — created by an authenticated Admin from
 // ExecutiveCredentialsForm.js's "Process Person" role option. Sent as
 // a plain JSON object (not FormData, unlike createExecutive/
-// createTeamLead/createAdmin/createManager/createHr above) because the
+// createAdmin/createManager/createHr above) because the
 // backend route (POST /processperson/admin-create) only parses
 // application/json bodies — see apiService.createProcessPersonApi.
 const createProcessPerson = async (processPersonData) => {
@@ -1192,22 +1169,6 @@ const fetchAllProcessPersonsAPI = useCallback(async () => {
     setAllProcessPersonsLoading(false);
   }
 }, []);
-  const [allTeamLeads, setAllTeamLeads] = useState([]);
-  const [allTeamLeadsLoading, setAllTeamLeadsLoading] = useState(false);
-const fetchAllTeamLeadsAPI = useCallback(async () => {
-  setAllTeamLeadsLoading(true);
-  try {
-    const data = await apiService.fetchAllTeamLeads();
-    setAllTeamLeads(data);
-    return data;
-  } catch (error) {
-    console.error("❌ Error fetching Team Leads:", error);
-    return [];
-  } finally {
-    setAllTeamLeadsLoading(false);
-  }
-}, []);
-    
   const [managerTeams, setManagerTeams] = useState([]);
   const [managerTeamsLoading, setManagerTeamsLoading] = useState(false);
   const [managerTeamsError, setManagerTeamsError] = useState(null);
@@ -1638,7 +1599,6 @@ if (currentUser?.id) {
  toggleManagerLoginAccess,
         toggleHrLoginAccess,
         toggleProcessPersonLoginAccess,
-        toggleTlLoginAccess,
  meetings,
  refreshMeetings,
  fetchDealFunnelData: apiService.fetchDealFunnelData,
@@ -1671,9 +1631,6 @@ if (currentUser?.id) {
         meetingsLoading,
         createFreshLeadAPI,
         createLeadAPI,
-        allTeamLeads,
-allTeamLeadsLoading,
-fetchAllTeamLeadsAPI,
 getAllConverted,
 summaryLoading,
         updateFreshLeadFollowUp,
@@ -1703,7 +1660,6 @@ summaryLoading,
       followUpClientsLoading,
       fetchFollowUpClientsAPI,
       createAdmin,
-        createTeamLead,
         refreshDashboard,
       triggerDashboardRefresh,
         closeLeads, // Add the state for Close Leads

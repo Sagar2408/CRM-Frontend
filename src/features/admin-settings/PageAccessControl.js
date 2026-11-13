@@ -6,13 +6,12 @@ import "../../styles/pageAccessControl.css";
 // Only permission keys that an actual RequirePermission (frontend) or
 // requirePermission() (backend) check somewhere in this app reads —
 // confirmed by grepping every requiredKey="..." and requirePermission("...")
-// call site. The RolePermission model/table also has overview, billing,
-// create_user, weekly_summary, account_updates, marketing_emails,
-// sms_notifications and email_notifications columns, but nothing in the
-// app ever checks any of them (not a single gate, frontend or backend) —
-// confirmed the same way. Those columns are left alone in the database
-// (no schema change here); they're just not offered in this UI since
-// toggling them would do nothing.
+// call site. The RolePermission model/table also has overview, create_user,
+// marketing_emails, sms_notifications and email_notifications columns that
+// nothing checks, so they are not offered. HR workspace phase: three previously
+// unused EXISTING columns now gate real pages - billing (Payroll & Salary),
+// account_updates (Leave Management) and weekly_summary (Help & Support). No
+// column was added and nothing is granted automatically: they default to false.
 const PERMISSION_DEFINITIONS = [
   {
     key: "dashboard",
@@ -49,7 +48,7 @@ const PERMISSION_DEFINITIONS = [
     key: "user_management",
     label: "User Management",
     category: "User Management",
-    description: "Create and manage executive login credentials.",
+    description: "Create and manage employee accounts (HR: Employee Management; Manager: Create Executive).",
   },
   {
     key: "assign_task",
@@ -59,9 +58,29 @@ const PERMISSION_DEFINITIONS = [
   },
   {
     key: "executive_details",
-    label: "Executive Details",
+    label: "Executive Details, Teams & Attendance",
     category: "User Management",
-    description: "View executive details, attendance and activity history.",
+    description:
+      "View executive details, Team Management and the attendance report. For HR this also allows viewing teams; creating or editing teams additionally needs User Management.",
+  },
+  {
+    key: "account_updates",
+    label: "Leave Management",
+    category: "HR",
+    description:
+      "HR: manage leave types, balances and approve or reject leave. Manager: apply for and track their own leave (My Leave).",
+  },
+  {
+    key: "billing",
+    label: "Payroll & Salary",
+    category: "HR",
+    description: "View and manage employee salaries, payroll processing and payroll exports. Salary data is only returned to users with this access.",
+  },
+  {
+    key: "weekly_summary",
+    label: "Help & Support",
+    category: "Page Access",
+    description: "Open the Help & Support page to submit queries and read replies.",
   },
   {
     key: "task_management",
@@ -89,7 +108,7 @@ const PERMISSION_DEFINITIONS = [
   },
 ];
 
-const CATEGORY_ORDER = ["Page Access", "User Management", "CRM Operations", "Notification Settings"];
+const CATEGORY_ORDER = ["Page Access", "User Management", "HR", "CRM Operations", "Notification Settings"];
 
 // RolePermission.controller.js's getAllUsersHrsAndManagers (no record
 // yet) and getAllRolePermissions (has a record) both now return
@@ -110,13 +129,19 @@ function normalizeUser(u, hasRecord) {
   };
 }
 
+// Each role is keyed by a different table/column: Manager -> managers.id
+// (manager_id), HR -> hrs.id (hr_id), TL/Executive -> users.id (user_id).
+// Send ONLY the id that belongs to the role, as a real number — never the
+// other keys as null (the backend rejects "manager_id must be a number").
 function buildCreatePayload(role, entityId) {
-  return {
-    role,
-    manager_id: role === "Manager" ? Number(entityId) : null,
-    hr_id: role === "HR" ? Number(entityId) : null,
-    user_id: role === "TL" || role === "Executive" ? Number(entityId) : null,
-  };
+  const numericId = Number(entityId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    throw new Error("Invalid employee id for permission creation.");
+  }
+  if (role === "Manager") return { role, manager_id: numericId };
+  if (role === "HR") return { role, hr_id: numericId };
+  if (role === "Executive") return { role, user_id: numericId };
+  throw new Error("Unsupported role for permission creation: " + role);
 }
 
 const emptyPermissionState = () =>
@@ -278,8 +303,18 @@ const PageAccessControlInner = () => {
     try {
       let recordId = permissionRecordId;
       if (!recordId) {
-        const createRes = await createPermission(buildCreatePayload(selectedUser.role, selectedUser.entityId));
-        recordId = createRes?.record?.id;
+        try {
+          const createRes = await createPermission(buildCreatePayload(selectedUser.role, selectedUser.entityId));
+          recordId = createRes?.record?.id;
+        } catch (createErr) {
+          // 409 = a record already exists (stale list / double save): reuse it
+          // instead of failing or creating a duplicate.
+          if (createErr.response?.status === 409 && createErr.response?.data?.record?.id) {
+            recordId = createErr.response.data.record.id;
+          } else {
+            throw createErr;
+          }
+        }
         if (!recordId) throw new Error("Create succeeded but no record id was returned.");
       }
 

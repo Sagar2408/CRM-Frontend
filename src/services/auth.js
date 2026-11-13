@@ -15,7 +15,7 @@ const BASE_HEADERS = {
  * login failure, instead of only getting a flat message string.
  */
 function loginError(body, status) {
-  const error = new Error(body?.message || "Login failed");
+  const error = new Error(body?.message || body?.error || "Login failed");
   if (body?.code) error.code = body.code;
   if (body?.companyName) error.companyName = body.companyName;
   if (body?.expiryDate) error.expiryDate = body.expiryDate;
@@ -30,61 +30,21 @@ function loginError(body, status) {
 }
 
 /*------------------------------LOGIN (fetch)---------------------------*/
-export const loginUser = async (email, password, role, companyCode) => {
+// The single tenant login. Only credentials and the company code are sent: the
+// server resolves the company, finds the account in the right table, and
+// returns `identity` (user | hr | manager | processperson | customer) with the
+// matching profile object. A role or page identifier is never sent or needed.
+export const loginUser = async (email, password, companyCode) => {
   const res = await fetch(`${API_BASE_URL}/login`, {
     method: "POST",
     headers: BASE_HEADERS,
-    body: JSON.stringify({
-      email,
-      password,
-      role,
-      companyCode,
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw loginError(err, res.status);
-  }
-
-  return await res.json();
-};
-
-/*------------------------------PROCESS PERSON LOGIN---------------------------*/
-// Process Person integration (common login page): the general
-// employee login page (Login.js, userType="executive") falls back to
-// this when the primary /login lookup finds no matching User account
-// at all (404) — see AuthContext.js's login(). Hits the SAME backend
-// endpoint the dedicated /process/client/login page already uses
-// (POST /processperson/login — controllers/ProcessPerson.controller.js,
-// unchanged), so Process Person authentication logic itself is fully
-// reused, not reimplemented.
-export const loginProcessPersonAPI = async (email, password, companyCode) => {
-  const res = await fetch(`${API_BASE_URL}/processperson/login`, {
-    method: "POST",
-    headers: BASE_HEADERS,
+    credentials: "include",
     body: JSON.stringify({ email, password, companyCode }),
   });
 
   if (!res.ok) {
     const err = await res.json();
     throw loginError(err, res.status);
-  }
-
-  return await res.json();
-};
-
-/*------------------------------MANAGER LOGIN---------------------------*/
-export const loginManager = async (email, password, companyCode) => {
-  const res = await fetch(`${API_BASE_URL}/manager/login`, {
-    method: "POST",
-    headers: BASE_HEADERS,
-    body: JSON.stringify({ email, password, companyCode }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw loginError(err);
   }
 
   return await res.json();
@@ -106,22 +66,6 @@ export const logoutManager = async () => {
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.message || "Logout failed");
-  }
-
-  return await res.json();
-};
-
-/*------------------------------HR LOGIN---------------------------*/
-export const loginHr = async (email, password, companyCode) => {
-  const res = await fetch(`${API_BASE_URL}/hr/login`, {
-    method: "POST",
-    headers: BASE_HEADERS,
-    body: JSON.stringify({ email, password, companyCode }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw loginError(err);
   }
 
   return await res.json();

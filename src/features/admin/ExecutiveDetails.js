@@ -15,7 +15,6 @@ const ExecutiveDetails = () => {
     fetchAllManagersAPI,
     fetchAllHRsAPI,
     fetchAllProcessPersonsAPI,
-    fetchAllTeamLeadsAPI,
     createManagerTeam,
     fetchAllTeamsAPI,
     managerTeams,
@@ -24,7 +23,6 @@ const ExecutiveDetails = () => {
     toggleManagerLoginAccess,
     toggleHrLoginAccess,
     toggleProcessPersonLoginAccess,
-    toggleTlLoginAccess,
     deleteTeamById,
   } = useApi();
   const clearAllPopups = () => {
@@ -239,8 +237,7 @@ const [, setManagers] = useState([]);
         await toggleManagerLoginAccess(userId, newStatus);
       } else if (r === "hr") {
         await toggleHrLoginAccess(userId, newStatus);
-      } else if (r === "tl" || r === "team lead") {
-        await toggleTlLoginAccess(userId, newStatus);
+
       } else if (r === "process" || r.includes("process")) {
         await toggleProcessPersonLoginAccess(userId, newStatus);
       } else {
@@ -281,8 +278,6 @@ const [, setManagers] = useState([]);
           data = await fetchAllHRsAPI();
         } else if (filter === "Process") {
           data = await fetchAllProcessPersonsAPI();
-        } else if (filter === "TL") {
-          data = await fetchAllTeamLeadsAPI();
         }
 
         const teamLookup = {};
@@ -347,7 +342,6 @@ const [, setManagers] = useState([]);
   }, [filter,fetchAllHRsAPI,
   fetchAllManagersAPI,
   fetchAllProcessPersonsAPI,
-  fetchAllTeamLeadsAPI,
   fetchAllTeamsAPI,
   fetchExecutivesAPI,
   hideLoader,
@@ -653,7 +647,6 @@ const [, setManagers] = useState([]);
               <option value="Manager">All Managers</option>
               <option value="HR">All HR</option>
               <option value="Process">All Process Persons</option>
-              <option value="TL">All Team Leads</option>
             </select>
 
             <button

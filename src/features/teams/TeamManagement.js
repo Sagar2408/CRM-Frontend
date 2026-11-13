@@ -22,8 +22,13 @@ const Card = ({ label, value, sub, testId }) => (
   </div>
 );
 
-/** Admin → Team Management (replaces Executive Details for Admin). */
-const TeamManagement = () => {
+/**
+ * Team Management (replaces Executive Details). Admin has full control. HR
+ * renders it with canManage={false} unless the Admin also granted the
+ * user_management key - the server enforces the same rule; this only hides the
+ * controls that would be refused.
+ */
+const TeamManagement = ({ canManage = true }) => {
   const { theme } = useContext(ThemeContext) || {};
   const isSidebarExpanded = localStorage.getItem("adminSidebarExpanded") === "true";
   const [data, setData] = useState(null);
@@ -84,9 +89,11 @@ const TeamManagement = () => {
               <h1>Team Management</h1>
               <p className="tm-muted">Create cross-role teams, set goals and track real performance from CRM records.</p>
             </div>
-            <button type="button" className="tm-btn primary" onClick={openCreate}>
-              Create Team
-            </button>
+            {canManage && (
+              <button type="button" className="tm-btn primary" onClick={openCreate}>
+                Create Team
+              </button>
+            )}
           </div>
 
           {error && (
@@ -139,7 +146,7 @@ const TeamManagement = () => {
           {data && teams.length === 0 && (
             <div className="tm-empty">
               <h3>{data.teams.length === 0 ? "No teams yet" : "No teams match your filters"}</h3>
-              <p>{data.teams.length === 0 ? "Create your first team to start tracking goals." : "Try a different search or status filter."}</p>
+              <p>{data.teams.length === 0 ? (canManage ? "Create your first team to start tracking goals." : "No teams have been created yet.") : "Try a different search or status filter."}</p>
             </div>
           )}
           <div className="tm-grid">
@@ -192,6 +199,7 @@ const TeamManagement = () => {
           onClose={() => setOpenId(null)}
           onChanged={load}
           onEdit={(team) => setForm({ team })}
+          readOnly={!canManage}
         />
       )}
     </div>

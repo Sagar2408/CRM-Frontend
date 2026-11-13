@@ -88,7 +88,7 @@ export const getUserType = () => {
 export const ProcessPrivateRoute = ({ children }) => {
   return isAuthenticated()
     ? children
-    : <Navigate to="/process/client/login" replace />;
+    : <Navigate to="/login" replace />;
 };
 
 export const CustomerPrivateRoute = ({ children }) => {
@@ -97,7 +97,7 @@ export const CustomerPrivateRoute = ({ children }) => {
 
   if (!token) {
     // Save the full location (even nested) so it can be used post-login
-    return <Navigate to="/customer/client/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return children;

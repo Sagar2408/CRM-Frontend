@@ -57,7 +57,7 @@ const ViewUserModal = ({ user, version, onClose, onEdit }) => {
       </dl>
       <div className="um-actions">
         <button type="button" className="um-btn um-btn-ghost" onClick={onClose}>Close</button>
-        <button type="button" className="um-btn um-btn-primary" onClick={() => onEdit(user)}>Edit</button>
+        {onEdit && <button type="button" className="um-btn um-btn-primary" onClick={() => onEdit(user)}>Edit</button>}
       </div>
     </Modal>
   );

@@ -32,7 +32,7 @@ const CompanyAdminSignup = () => {
           confirmPassword,
         });
         toast.success("Admin account created! Redirecting to login...");
-        setTimeout(() => navigate("/admin/login"), 2000);
+        setTimeout(() => navigate("/login"), 2000);
       } catch (error) {
         toast.error(error.message || "Signup failed");
       } finally {
@@ -52,7 +52,7 @@ const CompanyAdminSignup = () => {
             <div className="create">Create Your Company Admin Account</div>
             <p className="small-text">
               Already have an account?{" "}
-              <Link to="/admin/login" style={{ color: "black" }}>
+              <Link to="/login" style={{ color: "black" }}>
                 Login
               </Link>
             </p>

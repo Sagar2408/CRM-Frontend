@@ -86,15 +86,6 @@ export const toggleProcessPersonLoginAccess = async (processPersonId, can_login)
   return await apiService.post("/processperson/toggle-login", { processPersonId, can_login });
 };
 
-export const toggleTeamLeadLoginAccess = async (userId, can_login) => {
-  try {
-    const response = await apiService.post("/admin/toggle-login", { userId, can_login });
-    return response.data;
-  } catch (err) {
-    console.error("❌ Error toggling Team Lead login:", err);
-    throw err;
-  }
-};
 // ✅ Function to fetch all leads
 export const fetchLeadsAPI = async (limit = 10, offset = 0) => {
   try {
@@ -753,15 +744,6 @@ export const fetchAllClientLeads = async (params = {}) => {
     throw error;
   }
 };
-export const createTeamLeadApi = async (adminData) => {
-  try {
-    const response = await apiService.post("/create-tl",adminData);
-    return response.data;
-  } catch (error) {
-    console.error("❌ Error ", error);
-    throw error;
-  }
-};
 export const createAdminApi = async (adminData) => {
   try {
     const response = await apiService.post("/create-admin",adminData);
@@ -960,16 +942,6 @@ export const fetchAllProcessPersons = async () => {
   return response.data.processPersons || [];
 };
 
-// ✅ Fetch all Team Leads (Admin-only)
-export const fetchAllTeamLeads = async () => {
-  try {
-    const response = await apiService.get("/team-leads");
-    return response.data.teamLeads || []; // Adjust key based on actual backend response
-  } catch (error) {
-    console.error("❌ Error fetching team leads:", error);
-    throw error;
-  }
-};
 // ================== 👥 Manager Team APIs ==================
 
 // ✅ Create a new Team (Manager only)
