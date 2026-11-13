@@ -1243,3 +1243,8 @@ export const elsaSendMessage = async (question, conversationId) =>
 // Executive header search: the logged-in executive's own leads (server scopes by JWT + tenant).
 export const searchLeads = async (q, signal) =>
   (await apiService.get("/freshleads/search", { params: { q }, signal })).data.results || [];
+
+// The signed-in Executive's own profile photo as a blob (404 when none). Same stored
+// photo the Admin sees in User Management; the id comes from the JWT on the server.
+export const getOwnExecutivePhoto = async () =>
+  (await apiService.get("/executive/profile/photo", { responseType: "blob" })).data;

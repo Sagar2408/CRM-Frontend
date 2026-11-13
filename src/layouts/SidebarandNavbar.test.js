@@ -1,8 +1,9 @@
 import React from "react";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import SidebarandNavbar from "./SidebarandNavbar";
 import { ThemeContext } from "../features/admin/ThemeContext";
 import { SearchContext } from "../context/SearchContext";
+import { getOwnExecutivePhoto } from "../services/apiService";
 
 jest.mock("react-router-dom", () => ({
   Link: ({ to, children, ...rest }) => (
@@ -16,6 +17,7 @@ jest.mock("react-router-dom", () => ({
 jest.mock("../features/Messaging/MessagingNav", () => ({ MessageNavIcon: () => null, MessagingSidebarItem: () => null }));
 jest.mock("../BeepNotification", () => () => null);
 jest.mock("../features/executive/ExecutiveActivity", () => () => null);
+jest.mock("../services/apiService", () => ({ getOwnExecutivePhoto: jest.fn() }));
 jest.mock("../features/executive/LeadSearch", () => () => <div data-testid="lead-search" />);
 jest.mock("../features/executive/ExecutiveClock", () => () => <div data-testid="clock" />);
 let mockInfo = { username: "sam", role: "Executive" };
@@ -56,6 +58,7 @@ const renderBar = (props = {}) =>
 
 beforeEach(() => {
   mockInfo = { username: "sam", role: "Executive" };
+  getOwnExecutivePhoto.mockRejectedValue({ response: { status: 404 } });
   localStorage.clear();
   localStorage.setItem("user", JSON.stringify({ id: 1, role: "Executive" }));
   setViewport(false);
@@ -178,4 +181,30 @@ test("falls back to the username when no name is stored", () => {
   renderBar();
   const profile = within(document.querySelector(".navbar")).getByRole("button", { name: /sam/ });
   expect(profile.querySelector(".exec-profile__avatar")).toHaveTextContent("S");
+});
+
+test("the profile photo appears in the header avatar AND the dropdown; initials when it fails or is missing", async () => {
+  global.URL.createObjectURL = jest.fn(() => "blob:me");
+  global.URL.revokeObjectURL = jest.fn();
+  getOwnExecutivePhoto.mockResolvedValue(new Blob(["x"], { type: "image/png" }));
+  mockInfo = { id: 7, username: "executive2", firstname: "Dev", lastname: "Singh", email: "dev@gmail.com", role: "Executive", hasPhoto: true };
+  renderBar();
+  const bar = document.querySelector(".navbar");
+  await waitFor(() => expect(bar.querySelector(".exec-profile__avatar img")).not.toBeNull());
+  expect(bar.querySelector(".exec-profile__avatar img")).toHaveAttribute("src", "blob:me");
+  fireEvent.click(within(bar).getByRole("button", { name: /Dev Singh/ }));
+  const big = bar.querySelector(".user_avatar img");
+  expect(big).toHaveAttribute("src", "blob:me");
+  expect(getOwnExecutivePhoto).toHaveBeenCalledTimes(1); // one fetch shared by both avatars
+  fireEvent.error(big);
+  expect(bar.querySelector(".user_avatar img")).toBeNull();
+  expect(bar.querySelector(".user_avatar")).toHaveTextContent("D");
+});
+
+test("no photo on file: initials, and no request is made", () => {
+  getOwnExecutivePhoto.mockClear();
+  mockInfo = { id: 7, username: "executive2", firstname: "Dev", lastname: "Singh", role: "Executive", hasPhoto: false };
+  renderBar();
+  expect(document.querySelector(".navbar .exec-profile__avatar")).toHaveTextContent("D");
+  expect(getOwnExecutivePhoto).not.toHaveBeenCalled();
 });

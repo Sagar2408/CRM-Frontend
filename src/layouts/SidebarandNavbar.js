@@ -10,6 +10,7 @@ import { ThemeContext } from "../features/admin/ThemeContext";
 import ExecutiveClock from "../features/executive/ExecutiveClock";
 import { useBreakTimer } from "../context/breakTimerContext";
 import { displayName, initialOf } from "../utils/userDisplay";
+import ProfileAvatar, { useOwnPhotoUrl } from "../features/executive/ProfileAvatar";
 import LeadSearch from "../features/executive/LeadSearch";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -91,6 +92,7 @@ const SidebarandNavbar = ({ collapsed = false, onToggleCollapse = () => {} }) =>
   const navigate = useNavigate();
   const location = useLocation();
   const [isActive, setIsActive] = useState(false);
+  const photoUrl = useOwnPhotoUrl(executiveInfo?.id, executiveInfo?.hasPhoto);
   const [showTracker, setShowTracker] = useState(false);
   const [showUserPopover, setShowUserPopover] = useState(false);
 
@@ -283,9 +285,7 @@ const SidebarandNavbar = ({ collapsed = false, onToggleCollapse = () => {} }) =>
                 aria-expanded={showUserPopover}
                 onClick={() => setShowUserPopover((prev) => !prev)}
               >
-                <span className="exec-profile__avatar" aria-hidden="true">
-                  {initialOf(executiveInfo)}
-                </span>
+                <ProfileAvatar className="exec-profile__avatar" url={photoUrl} initial={initialOf(executiveInfo)} alt="" />
                 <span className="exec-profile__text">
                   <span className="exec-profile__name">{displayName(executiveInfo) || "Account"}</span>
                   <span className="exec-profile__role">{executiveInfo?.role || "Executive"}</span>
@@ -300,7 +300,7 @@ const SidebarandNavbar = ({ collapsed = false, onToggleCollapse = () => {} }) =>
                   ) : (
                     <>
                       <div className="user_details">
-                        <div className="user_avatar">{initialOf(executiveInfo)}</div>
+                        <ProfileAvatar className="user_avatar" url={photoUrl} initial={initialOf(executiveInfo)} alt={displayName(executiveInfo) + " profile photo"} />
                         <div className="user_identity">
                           <p className="user_name">{displayName(executiveInfo)}</p>
                           {executiveInfo?.email && <p className="user_email">{executiveInfo.email}</p>}

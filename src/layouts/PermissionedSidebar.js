@@ -78,7 +78,7 @@ export const PermissionedSidebar = ({ config }) => {
       <aside className={`admin-sidebar ${isExpanded ? "expanded active" : "collapsed"}`}>
         <div className="admin-header-wrapper">
           <h2>
-            <span className="highlight">Atozee Visas</span>
+            <span className="highlight">Ad Agency 360</span>
           </h2>
         </div>
         <nav aria-label={`${config.title} navigation`}>

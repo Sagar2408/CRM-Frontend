@@ -73,7 +73,7 @@ const ExecutiveActivity = () => {
 
             <div className="motivation-box">
               <blockquote>"Small consistent actions lead to big results."</blockquote>
-              <small>- AtoZee Motivation</small>
+              <small>- Ad Agency 360 Motivation</small>
             </div>
           </div>
 

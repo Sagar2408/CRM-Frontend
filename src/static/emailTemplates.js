@@ -2,10 +2,10 @@ export const getEmailTemplates = (clientInfo, executiveInfo) => [
     {
       id: "welcome",
       name: "Welcome Email",
-      subject: "Welcome to AtoZee Visas",
+      subject: "Welcome to Ad Agency 360",
       body: `Hello ${clientInfo.name},
   
-  Welcome to AtoZee Visas! We're excited to have you on board and look forward to building a successful relationship.
+  Welcome to Ad Agency 360! We're excited to have you on board and look forward to building a successful relationship.
   
   If you have any questions or need assistance, feel free to reach out.
   
@@ -28,7 +28,7 @@ export const getEmailTemplates = (clientInfo, executiveInfo) => [
     {
       id: "product_update",
       name: "Product Update",
-      subject: "Exciting Updates from AtoZee Visas",
+      subject: "Exciting Updates from Ad Agency 360",
       body: `Dear ${clientInfo.name},
   
   We’ve recently rolled out some exciting updates to our services based on user feedback!
@@ -49,7 +49,7 @@ export const getEmailTemplates = (clientInfo, executiveInfo) => [
       subject: "We’d Love Your Feedback",
       body: `Hello ${clientInfo.name},
   
-  At AtoZee Visas, your opinion means a lot to us. We’d appreciate it if you could take a minute to share your experience with our service.
+  At Ad Agency 360, your opinion means a lot to us. We’d appreciate it if you could take a minute to share your experience with our service.
   
   Your feedback helps us improve and serve you better.
   
