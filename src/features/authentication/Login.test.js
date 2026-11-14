@@ -15,14 +15,18 @@ beforeEach(() => {
 });
 
 describe("the one /login page", () => {
-  test("asks only for company code, email and password - no role choice - and keeps forgot-password", () => {
+  test("asks only for company code, email and password - no role choice - and no signup / forgot-password links", () => {
     render(<Login />);
     expect(screen.getByPlaceholderText("Company Code")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Email")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Password")).toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByText(/cannot sign in on this page/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Forgot Password").closest("a")).toHaveAttribute("href", "/forgot-password");
+    expect(screen.queryByText(/registering a new company/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sign up/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/forgot password/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "SIGN IN" })).toBeInTheDocument();
   });
 
   test("submits exactly (email, password, companyCode) - the role is never sent", async () => {

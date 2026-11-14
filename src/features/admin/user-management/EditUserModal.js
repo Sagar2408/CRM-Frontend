@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "./ConfirmDialog";
 import ConfirmDialog from "./ConfirmDialog";
 import Avatar from "./Avatar";
+import ResetPasswordSection from "./ResetPasswordSection";
 import { RoleBadge } from "./badges";
 import {
   apiError,
@@ -201,6 +202,7 @@ const EditUserModal = ({ user, onClose, onSaved }) => {
               </label>
             </div>
             {serverError && <p className="um-error" role="alert">{serverError}</p>}
+            <ResetPasswordSection user={user} />
             <div className="um-actions">
               <button type="button" className="um-btn um-btn-ghost" onClick={close} disabled={saving}>Cancel</button>
               <button type="submit" className="um-btn um-btn-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>

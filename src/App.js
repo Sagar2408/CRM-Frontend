@@ -6,8 +6,6 @@ import CompanyAdminSignup from "./features/authentication/CompanyAdminSignup";
 import LoginMaster from "./features/masteruser/LoginMaster";
 import SignupMaster from "./features/masteruser/SignupMaster";
 import { PrivateMasterRoute } from './context/MasterContext';
-import ForgotPassword from "./features/authentication/ForgotPassword";
-import ResetPassword from "./features/authentication/ResetPassword";
 import AdminRoutes from "./routes/AdminRoutes";
 import ExecutiveRoutes from "./routes/ExecutiveRoutes";
 import ChatBotRoutes from "./routes/ChatBotRoutes";
@@ -49,8 +47,7 @@ useEffect(() => {
       const token = localStorage.getItem("token");
       if (token) {
         // Prevent going back to public routes
-        const restrictedPaths = ["/login", "/signup", "/forgot-password",
-           "/reset-password","/process/client/login","/process/customer/login"];     
+        const restrictedPaths = ["/login", "/signup","/process/client/login","/process/customer/login"];     
          if (restrictedPaths.includes(window.location.pathname)) {
           window.history.go(1); // Push forward
         }
@@ -75,8 +72,6 @@ useEffect(() => {
         <Route key={p} path={p} element={<Navigate to="/login" replace />} />
       ))}
       <Route path="/admin/signup" element={<CompanyAdminSignup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
         {/* Public master routes - login & signup */}
         <Route path="/master/loginmaster" element={<LoginMaster />} />
         <Route path="/master/signupmaster" element={<SignupMaster />} />

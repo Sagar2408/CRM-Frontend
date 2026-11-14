@@ -1,5 +1,5 @@
+import "../../styles/signup.css"; // login/signup card layout (was only loaded by the removed ForgotPassword page)
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
 import "react-toastify/dist/ReactToastify.css";
@@ -132,19 +132,6 @@ const Login = () => {
               <button type="submit" disabled={loading}>
                 {loading ? "Logging in..." : "SIGN IN"}
               </button>
-
-              <div className="text-bottom">
-                <p className="small-text">
-                  Registering a new company?{" "}
-                  <Link to="/admin/signup">Sign up</Link>
-                </p>
-                <Link
-                  to="/forgot-password"
-                  style={{ color: "black", marginTop: "10px" }}
-                >
-                  Forgot Password
-                </Link>
-              </div>
             </form>
           </div>
         </div>

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import "../../styles/support.css";
 import TicketThread, { StatusBadge, fmtDate } from "../support/TicketThread";
-import { masterSupport, SUPPORT_CATEGORIES, SUPPORT_STATUSES } from "../../services/supportService";
+import { masterSupport, SUPPORT_CATEGORIES, SUPPORT_PRIORITIES, SUPPORT_STATUSES } from "../../services/supportService";
 import { useCompany } from "../../context/CompanyContext";
 
-const FILTERS = { companyId: "", status: "", category: "", from: "", to: "", unread: false, q: "" };
+const FILTERS = { companyId: "", status: "", category: "", priority: "", assignedTo: "", from: "", to: "", unread: false, q: "" };
 
 const SupportQueries = () => {
   const { companies } = useCompany();
@@ -68,6 +68,32 @@ const SupportQueries = () => {
     }
   };
 
+  const [assignee, setAssignee] = useState("");
+  const [note, setNote] = useState("");
+  useEffect(() => setAssignee(open?.ticket?.assignedTo || ""), [open]);
+
+  const saveMeta = async (body) => {
+    try {
+      await masterSupport.setMeta(open.ticket.id, body);
+      setOpen(await masterSupport.get(open.ticket.id));
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+  const saveNote = async (e) => {
+    e.preventDefault();
+    if (!note.trim()) return;
+    try {
+      await masterSupport.addNote(open.ticket.id, note.trim());
+      setNote("");
+      setOpen(await masterSupport.get(open.ticket.id));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const mins = (m) => (m == null ? "—" : m >= 60 ? `${(m / 60).toFixed(1)} h` : `${m} min`);
+
   const pages = Math.max(1, Math.ceil(data.total / (data.limit || 20)));
 
   return (
@@ -109,6 +135,18 @@ const SupportQueries = () => {
               <option key={c}>{c}</option>
             ))}
           </select>
+          <select value={filters.priority} onChange={(e) => setFilter("priority", e.target.value)} aria-label="Priority">
+            <option value="">All priorities</option>
+            {SUPPORT_PRIORITIES.map((p) => (
+              <option key={p}>{p}</option>
+            ))}
+          </select>
+          <input
+            placeholder="Assigned to (or 'unassigned')"
+            value={filters.assignedTo}
+            onChange={(e) => setFilter("assignedTo", e.target.value)}
+            aria-label="Assigned to"
+          />
           <label className="sp-inline">
             From <input type="date" value={filters.from} onChange={(e) => setFilter("from", e.target.value)} />
           </label>
@@ -134,6 +172,8 @@ const SupportQueries = () => {
                 <th>Admin</th>
                 <th>Email</th>
                 <th>Category</th>
+                <th>Priority</th>
+                <th>Assigned</th>
                 <th>Subject</th>
                 <th>Submitted</th>
                 <th>Status</th>
@@ -142,7 +182,7 @@ const SupportQueries = () => {
             <tbody>
               {!loading && data.tickets.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="sp-muted">
+                  <td colSpan={10} className="sp-muted">
                     No support queries match these filters.
                   </td>
                 </tr>
@@ -157,6 +197,8 @@ const SupportQueries = () => {
                   <td>{t.adminName}</td>
                   <td>{t.adminEmail}</td>
                   <td>{t.category}</td>
+                  <td>{t.priority}</td>
+                  <td>{t.assignedTo || "—"}</td>
                   <td>{t.subject}</td>
                   <td>{fmtDate(t.createdAt)}</td>
                   <td>
@@ -201,6 +243,26 @@ const SupportQueries = () => {
                 </label>
               </div>
             </div>
+            <div className="sp-detail-info" data-testid="ticket-meta">
+              <label className="sp-inline">
+                Priority
+                <select value={open.ticket.priority} onChange={(e) => saveMeta({ priority: e.target.value })}>
+                  {SUPPORT_PRIORITIES.map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="sp-inline">
+                Assigned to
+                <input value={assignee} onChange={(e) => setAssignee(e.target.value)} maxLength={150} />
+              </label>
+              <button type="button" className="sp-link" onClick={() => saveMeta({ assignedTo: assignee })}>
+                Save assignment
+              </button>
+              <span>
+                First response: <strong>{mins(open.ticket.responseMinutes)}</strong> · Resolution: <strong>{mins(open.ticket.resolutionMinutes)}</strong>
+              </span>
+            </div>
             <TicketThread
               ticket={open.ticket}
               conversation={open.conversation}
@@ -209,6 +271,13 @@ const SupportQueries = () => {
               statusOptions={[{ value: "", label: "Replied (default)" }, ...SUPPORT_STATUSES.map((s) => ({ value: s, label: s }))]}
               defaultReplyStatus=""
             />
+            <form className="sp-reply" onSubmit={saveNote}>
+              <label htmlFor="sp-note">Internal note (visible to Master admins only)</label>
+              <textarea id="sp-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={5000} rows={2} />
+              <button type="submit" className="sp-btn" disabled={!note.trim()}>
+                Add internal note
+              </button>
+            </form>
           </div>
         )}
       </div>

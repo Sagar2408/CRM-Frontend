@@ -78,10 +78,10 @@ const TicketThread = ({
 
       <div className="sp-messages">
         {conversation.map((m) => (
-          <div key={m.id} className={`sp-msg ${m.senderType === "master_admin" ? "sp-msg-master" : "sp-msg-company"}`}>
+          <div key={m.id} className={`sp-msg ${m.internal ? "sp-msg-internal" : m.senderType === "master_admin" ? "sp-msg-master" : "sp-msg-company"}`}>
             <div className="sp-msg-head">
               <strong>{m.senderName}</strong>
-              <span className="sp-role">{m.senderType === "master_admin" ? "Support" : "Company Admin"}</span>
+              <span className="sp-role">{m.internal ? "Internal note" : m.senderType === "master_admin" ? "Support" : "Company Admin"}</span>
               <span className="sp-time">{fmtDate(m.createdAt)}</span>
             </div>
             <div className="sp-msg-body">{m.body}</div>

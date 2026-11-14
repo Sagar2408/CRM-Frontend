@@ -24,6 +24,10 @@ export const setUserManagementBase = (next) => {
 export const listUsers = async (params) => (await apiService.get(base, { params })).data;
 export const getUser = async (kind, id) => (await apiService.get(`${base}/${kind}/${id}`)).data.user;
 export const updateUser = async (kind, id, body) => (await apiService.put(`${base}/${kind}/${id}`, body)).data;
+// Admin-only (POST /user-management/users/:kind/:id/reset-password); the HR employee view has no such endpoint.
+export const canResetPasswords = () => base === DEFAULT_BASE;
+export const resetUserPassword = async (kind, id, newPassword) =>
+  (await apiService.post(`${base}/${kind}/${id}/reset-password`, { newPassword })).data;
 export const setUserActive = async (kind, id, active) =>
   (await apiService.patch(`${base}/${kind}/${id}/status`, { active })).data;
 

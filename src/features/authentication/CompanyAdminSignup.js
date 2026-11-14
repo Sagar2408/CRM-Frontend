@@ -1,3 +1,4 @@
+import "../../styles/signup.css"; // login/signup card layout (was only loaded by the removed ForgotPassword page)
 import React, { useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";

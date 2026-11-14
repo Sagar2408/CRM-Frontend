@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fa';
 import { useCompany } from '../../context/CompanyContext'; 
 import '../../styles/masterdash.css';
+import CompanyProfileFields, { EMPTY_PROFILE, toBody, validateProfile } from './center/CompanyProfileFields';
 
 const AddCompanyModal = ({ onClose, onCreated }) => {
   const { addCompany } = useCompany();
@@ -20,6 +21,8 @@ const AddCompanyModal = ({ onClose, onCreated }) => {
     db_password: '',
     db_port: ''
   });
+  const [profile, setProfile] = useState(EMPTY_PROFILE);
+  const [profileErrors, setProfileErrors] = useState({});
   const [createdInfo, setCreatedInfo] = useState(null);
   const [copied, setCopied] = useState('');
 
@@ -29,8 +32,11 @@ const AddCompanyModal = ({ onClose, onCreated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const problems = validateProfile(profile);
+    setProfileErrors(problems);
+    if (Object.keys(problems).length) return;
     try {
-      const res = await addCompany(formData);
+      const res = await addCompany({ ...formData, ...toBody(profile, { forCreate: true }) });
       onCreated();
       setCreatedInfo(res);
     } catch (err) {
@@ -126,6 +132,13 @@ const AddCompanyModal = ({ onClose, onCreated }) => {
             <FaHashtag className="icon" />
             <input name="db_port" placeholder="Port" onChange={handleChange} required />
           </div>
+
+          <details style={{ gridColumn: '1 / -1' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Company profile &amp; subscription (optional)</summary>
+            <div style={{ marginTop: 12 }}>
+              <CompanyProfileFields values={profile} onChange={setProfile} errors={profileErrors} />
+            </div>
+          </details>
 
           <div className="modal-actions">
             <button type="button" className="cancel-btn" onClick={onClose}>Cancel</button>

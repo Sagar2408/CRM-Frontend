@@ -87,48 +87,6 @@ export const logoutHr = async () => {
   return await res.json();
 };
 
-/*------------------------------FORGOT PASSWORD---------------------------*/
-export const forgotPassword = async (email, companyCode) => {
-  try {
-    const response = await apiService.post(
-      "/forgot-password",
-      { email, companyCode },
-      {
-        headers: BASE_HEADERS,
-      }
-    );
-
-    return response.data;
-  } catch (error) {
-    throw new Error(
-      error.response?.data?.error || "Failed to send reset link!"
-    );
-  }
-};
-
-/*------------------------------RESET PASSWORD---------------------------*/
-export const resetPassword = async (token, newPassword, companyCode) => {
-  try {
-    const response = await apiService.post(
-      "/reset-password",
-      {
-        token,
-        newPassword,
-        companyCode,
-      },
-      {
-        headers: BASE_HEADERS,
-      }
-    );
-
-    return response.data;
-  } catch (error) {
-    throw new Error(
-      error.response?.data?.error || "Failed to reset password!"
-    );
-  }
-};
-
 /*------------------------------LOGOUT---------------------------*/
 export const logoutUser = async (executiveName) => {
   try {

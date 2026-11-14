@@ -220,48 +220,6 @@ const handleLogoutManager = async () => {
   };
 
   // -----------------------
-  // FORGOT PASSWORD
-  // -----------------------
-  const forgotPassword = async (email, companyCode) => {
-    if (!email || !companyCode) {
-      toast.error("Please enter your email and company code!");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = await authService.forgotPassword(email, companyCode);
-      toast.success(data.message);
-      navigate("/login");
-    } catch (error) {
-      toast.error(error.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // -----------------------
-  // RESET PASSWORD
-  // -----------------------
-  const resetPassword = async (token, newPassword, companyCode) => {
-    if (!newPassword || !companyCode) {
-      toast.error("Please enter a new password and company code!");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = await authService.resetPassword(token, newPassword, companyCode);
-      toast.success(data.message);
-      navigate("/login");
-    } catch (error) {
-      toast.error(error.message || "Reset failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // -----------------------
   // CONTEXT RETURN
   // -----------------------
   return (
@@ -271,8 +229,6 @@ const handleLogoutManager = async () => {
         loading,
         login,
         logout,
-        forgotPassword,
-        resetPassword,
         handleLogoutManager,
         handleLogoutHr,
         isAuthenticated: !!user,

@@ -4,6 +4,7 @@ import "../../styles/adminNotification.css";
 import SidebarToggle from "./SidebarToggle";
 import { useLoading } from "../../context/LoadingContext";
 import AdminSpinner from "../spinner/AdminSpinner";
+import AnnouncementsPanel from "./AnnouncementsPanel";
 
 function AdminNotification() {
   const {
@@ -140,6 +141,9 @@ const formatCopyMessage = (userId, message, createdAt) => {
       <div className="admin-notification-wrapper">
         {isLoading && variant === "admin" && <AdminSpinner text="Loading Notification..." />}
         <h2 className="admin-notification-title">Notifications</h2>
+
+        {/* Announcements / promotions from the platform (Master Admin) */}
+        <AnnouncementsPanel />
 
         {/* Tabs */}
         <div className="admin-tab-buttons">

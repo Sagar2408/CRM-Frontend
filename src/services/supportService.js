@@ -82,12 +82,15 @@ export const masterSupport = {
       masterApi.post(`/master-support/tickets/${id}/replies`, buildForm({ message, status }, file), multipart),
       "Failed to send reply"
     ),
+  setMeta: (id, body) => unwrap(masterApi.patch(`/master-support/tickets/${id}`, body), "Failed to update ticket"),
+  addNote: (id, message) => unwrap(masterApi.post(`/master-support/tickets/${id}/notes`, { message }), "Failed to add note"),
   setStatus: (id, status) =>
     unwrap(masterApi.patch(`/master-support/tickets/${id}/status`, { status }), "Failed to update status"),
   download: (id, messageId, name) =>
     saveBlob(masterApi, `/master-support/tickets/${id}/messages/${messageId}/attachment`, name),
 };
 
+export const SUPPORT_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 export const SUPPORT_STATUSES = ["Open", "In Progress", "Replied", "Resolved"];
 export const SUPPORT_CATEGORIES = [
   "Login",
