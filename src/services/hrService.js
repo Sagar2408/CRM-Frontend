@@ -30,6 +30,8 @@ export const leaveApi = {
   // self service
   apply: async (body) => (await apiService.post("/leave/apply", body)).data,
   mine: async () => (await apiService.get("/leave/my")).data.leaves,
+  // Dry run with the same rules apply enforces (working days, holidays, overlap, balance).
+  preview: async (params) => (await apiService.get("/leave/preview", { params: clean(params) })).data,
   myBalances: async (year) => (await apiService.get("/leave/balances/me", { params: clean({ year }) })).data,
 };
 

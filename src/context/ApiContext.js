@@ -448,12 +448,10 @@ const fetchSettings = useCallback(async () => {
 
 // Update user settings
 const updateSettings = async (updatedSettings) => {
-  try {
-    const updated = await apiService.updateUserSettings(updatedSettings); 
-    setUserSettings(updated); 
-  } catch (error) {
-    console.error("Error updating user settings:", error);
-  }
+  // Errors propagate so the Profile page can show the server's message.
+  const updated = await apiService.updateUserSettings(updatedSettings);
+  setUserSettings(updated);
+  return updated;
 };
 const [meetings, setMeetings] = useState([]);
 const [meetingsLoading, setMeetingsLoading] = useState(false);

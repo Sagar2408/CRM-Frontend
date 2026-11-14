@@ -1,721 +1,374 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useApi } from "../../context/ApiContext";
+import { leaveApi } from "../../services/hrService";
+import "../../styles/settingsWorkspace.css";
 
+const EXCEPTION_MIN = 10;
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const fmt = (d) => {
+  if (!d) return "—";
+  const [y, m, day] = String(d).slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+};
+const errMsg = (e, fallback) => e?.response?.data?.message || e?.message || fallback;
 
-import React, { useState, useEffect } from 'react';
-import { Calendar, FileText, User, Clock, CheckCircle, AlertCircle, X, History, Plus } from 'lucide-react';
-import { useApi } from '../../context/ApiContext';
-import moment from 'moment';
-import '../../styles/setting.css';
-import { leaveApi } from '../../services/hrService';
+const EMPTY = {
+  leaveTypeId: "",
+  startDate: "",
+  endDate: "",
+  reason: "",
+  emergencyContactName: "",
+  emergencyPhone: "",
+  workHandoverTo: "",
+  handoverNotes: "",
+  exceptionRequested: false,
+  exceptionReason: "",
+};
 
-const EmployeeLeave = () => {
-  const { uploadFileAPI, createLeaveApplication, fetchLeaveApplicationsAPI, getHrProfile } = useApi();
+/** Client-side checks only; the server re-validates every rule. Exported for tests. */
+export const validateLeaveForm = (f, preview) => {
+  const e = {};
+  if (!f.leaveTypeId) e.leaveTypeId = "Select a leave type";
+  if (!f.startDate) e.startDate = "Choose a start date";
+  if (!f.endDate) e.endDate = "Choose an end date";
+  if (f.startDate && f.endDate && f.endDate < f.startDate) e.endDate = "End date cannot be before the start date";
+  if ((f.reason || "").trim().length < 3) e.reason = "Please give a reason (at least 3 characters)";
+  if (preview?.exceedsBalance) {
+    if (!f.exceptionRequested) e.exceptionRequested = "Tick the box to request an exception";
+    if ((f.exceptionReason || "").trim().length < EXCEPTION_MIN) e.exceptionReason = `Explain why you need this extra leave (at least ${EXCEPTION_MIN} characters)`;
+  }
+  return e;
+};
 
-  const [formData, setFormData] = useState({
-    employeeId: '',
-    fullName: '',
-    role: '',
-    positionTitle: '',
-    leaveType: '',
-    startDate: '',
-    endDate: '',
-    totalDays: '',
-    reason: '',
-    emergencyContactName: '',
-    emergencyPhone: '',
-    workHandoverTo: '',
-    handoverNotes: '',
-    attachments: null,
-    appliedDate: moment().format('YYYY-MM-DD'),
-  });
-
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [submissionError, setSubmissionError] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [leaveApplications, setLeaveApplications] = useState([]);
-  const [leaveHistoryLoading, setLeaveHistoryLoading] = useState(false);
-  const [showSandwichLeavePopup, setShowSandwichLeavePopup] = useState(false);
-  const [sandwichLeaveSundays, setSandwichLeaveSundays] = useState([]);
-  const [currentView, setCurrentView] = useState('form'); // 'form' or 'history'
-
-  // Leave types are defined by HR (Leave Management > Leave types); the server
-  // validates the chosen type and the employee's allocated balance.
-  const [leaveTypes, setLeaveTypes] = useState([]);
-  useEffect(() => {
-    leaveApi
-      .types()
-      .then((types) => setLeaveTypes(types.map((t) => t.name)))
-      .catch(() => setLeaveTypes([]));
-  }, []);
-
-  const roleOptions = [
-    'Executive',
-    'Manager',
-    'HR',
-    'Admin',
-  ];
-
-  const findSundaysBetweenDates = (startDate, endDate) => {
-    const sundays = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    let current = new Date(start);
-    current.setDate(current.getDate() + 1);
-    while (current < end) {
-      if (current.getDay() === 0) {
-        sundays.push(new Date(current));
-      }
-      current.setDate(current.getDate() + 1);
-    }
-    return sundays;
-  };
-
-  const formatDateForDisplay = (date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  useEffect(() => {
-    const fetchUserDataAndLeaves = async () => {
-      try {
-        const userData = localStorage.getItem('user');
-        const executiveId = localStorage.getItem('executiveId');
-
-        if (userData) {
-          const user = JSON.parse(userData);
-          const employeeId = user.id || executiveId || user.employeeId || '';
-
-          setFormData(prev => ({
-            ...prev,
-            employeeId,
-            fullName: user.username || user.name || user.fullName || '',
-            role: user.role || '',
-            positionTitle: user.position || user.title || user.designation || '',
-          }));
-
-          if (employeeId) {
-            setLeaveHistoryLoading(true);
-            const applications = await fetchLeaveApplicationsAPI(employeeId);
-            setLeaveApplications(applications || []);
-            setLeaveHistoryLoading(false);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching user data or leave applications:', error);
-        setLeaveHistoryLoading(false);
-      }
-    };
-
-    fetchUserDataAndLeaves();
-  }, [fetchLeaveApplicationsAPI]);
-
-  const handleInputChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === 'attachments') {
-      setFormData(prev => ({ ...prev, [name]: files[0] }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-
-    if (name === 'startDate' || name === 'endDate') {
-      const startDate = new Date(name === 'startDate' ? value : formData.startDate);
-      const endDate = new Date(name === 'endDate' ? value : formData.endDate);
-
-      if (startDate && endDate && endDate >= startDate) {
-        const timeDiff = endDate.getTime() - startDate.getTime();
-        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
-        setFormData(prev => ({ ...prev, totalDays: daysDiff.toString() }));
-      }
-    }
-
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.fullName.trim()) newErrors.fullName = 'Employee name is required';
-    if (!formData.role) newErrors.role = 'Role is required';
-    if (!formData.positionTitle.trim()) newErrors.positionTitle = 'Position is required';
-    if (!formData.leaveType) newErrors.leaveType = 'Leave type is required';
-    if (!formData.startDate) newErrors.startDate = 'Start date is required';
-    if (!formData.endDate) newErrors.endDate = 'End date is required';
-    if (!formData.reason.trim()) newErrors.reason = 'Reason is required';
-    if (!formData.emergencyContactName.trim()) newErrors.emergencyContactName = 'Emergency contact is required';
-    if (!formData.emergencyPhone.trim()) newErrors.emergencyPhone = 'Emergency phone is required';
-
-    if (formData.startDate && formData.endDate) {
-      const startDate = new Date(formData.startDate);
-      const endDate = new Date(formData.endDate);
-      if (endDate < startDate) {
-        newErrors.endDate = 'End date must be after start date';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    if (formData.startDate && formData.endDate) {
-      const sundays = findSundaysBetweenDates(formData.startDate, formData.endDate);
-      if (sundays.length > 0) {
-        setSandwichLeaveSundays(sundays);
-        setShowSandwichLeavePopup(true);
-        return;
-      }
-    }
-
-    await submitLeaveApplication();
-  };
-
-  const submitLeaveApplication = async () => {
-    setUploading(true);
-    setSubmissionError('');
-
-    try {
-      let supportingDocumentPath = null;
-
-      if (formData.attachments) {
-        const uploadResponse = await uploadFileAPI(formData.attachments);
-        supportingDocumentPath = uploadResponse?.filePath || null;
-      }
-
-      const payload = {
-        employeeId: formData.employeeId,
-        fullName: formData.fullName,
-        positionTitle: formData.positionTitle,
-        leaveType: formData.leaveType,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        totalDays: parseInt(formData.totalDays, 10),
-        appliedDate: formData.appliedDate,
-        reason: formData.reason,
-        emergencyContactName: formData.emergencyContactName,
-        emergencyPhone: formData.emergencyPhone,
-        workHandoverTo: formData.workHandoverTo || null,
-        handoverNotes: formData.handoverNotes || null,
-        supportingDocumentPath,
-      };
-
-      const response = await createLeaveApplication(payload);
-      if (response && response.data) {
-      try {
-            const hrProfile = await getHrProfile();
-            if (hrProfile?.id) {
-              console.log("HR Profile fetched:", hrProfile);
-            }
-          } catch (hrError) {
-            console.warn('Failed to fetch HR profile:', hrError);
-          }
-        setIsSubmitted(true);
-        const applications = await fetchLeaveApplicationsAPI(formData.employeeId);
-        setLeaveApplications(applications || []);
-      } else {
-        throw new Error('Invalid response from server');
-      }
-    } catch (error) {
-      console.error('Error submitting leave application:', error);
-      setSubmissionError(error.response?.data?.message || error.message || 'Failed to submit leave application. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSandwichLeaveConfirm = () => {
-    setShowSandwichLeavePopup(false);
-    submitLeaveApplication();
-  };
-
-  const handleSandwichLeaveCancel = () => {
-    setShowSandwichLeavePopup(false);
-    setSandwichLeaveSundays([]);
-  };
-
-  const handleReset = () => {
-    const userData = localStorage.getItem('user');
-    const executiveId = localStorage.getItem('executiveId');
-
-    let userInfo = {
-      employeeId: '',
-      fullName: '',
-      role: '',
-      positionTitle: '',
-    };
-
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        userInfo = {
-          employeeId: user.id || executiveId || user.employeeId || '',
-          fullName: user.username || user.name || user.fullName || '',
-          role: user.role || '',
-          positionTitle: user.position || user.title || user.designation || '',
-        };
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
-    }
-
-    setFormData({
-      ...userInfo,
-      leaveType: '',
-      startDate: '',
-      endDate: '',
-      totalDays: '',
-      reason: '',
-      emergencyContactName: '',
-      emergencyPhone: '',
-      workHandoverTo: '',
-      handoverNotes: '',
-      attachments: null,
-      appliedDate: moment().format('YYYY-MM-DD'),
-    });
-    setErrors({});
-    setIsSubmitted(false);
-    setSubmissionError('');
-  };
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'approved': return '#10b981';
-      case 'rejected': return '#ef4444';
-      case 'pending': return '#f59e0b';
-      default: return '#6b7280';
-    }
-  };
-
-  const handleViewToggle = () => {
-    setCurrentView(currentView === 'form' ? 'history' : 'form');
-    if (currentView === 'history') {
-      setIsSubmitted(false); // Reset submission state when switching to form
-    }
-  };
-
-  const SandwichLeavePopup = () => (
-    <div className="el-popup-overlay">
-      <div className="el-popup-container">
-        <div className="el-popup-header">
-          <AlertCircle className="el-popup-icon" style={{ color: '#f59e0b' }} />
-          <h3 className="el-popup-title">Sandwich Leave Detected</h3>
-          <button 
-            onClick={handleSandwichLeaveCancel}
-            className="el-popup-close"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        
-        <div className="el-popup-content">
-          <p className="el-popup-message">
-            Your leave application includes the following Sunday(s), which creates a "sandwich leave" situation:
-          </p>
-          
-          <div className="el-sunday-list">
-            {sandwichLeaveSundays.map((sunday, index) => (
-              <div key={index} className="el-sunday-item">
-                📅 {formatDateForDisplay(sunday)}
-              </div>
-            ))}
-          </div>
-          
-          <div className="el-popup-warning">
-            <strong>Note:</strong> Sandwich leave means taking leave on days surrounding a weekend or holiday, 
-            which may affect your leave balance calculation. Please confirm if you want to proceed.
-          </div>
-        </div>
-        
-        <div className="el-popup-actions">
-          <button 
-            onClick={handleSandwichLeaveCancel}
-            className="el-popup-cancel-btn"
-          >
-            Cancel & Review Dates
-          </button>
-          <button 
-            onClick={handleSandwichLeaveConfirm}
-            className="el-popup-confirm-btn"
-            disabled={uploading}
-          >
-            {uploading ? 'Submitting...' : 'Proceed with Application'}
-          </button>
-        </div>
+const BalanceCards = ({ balances, year, loading, error }) => (
+  <section aria-label="Leave balances" style={{ marginBottom: 20 }}>
+    <div className="xs-page-head" style={{ marginBottom: 10 }}>
+      <div>
+        <h3 style={{ margin: 0 }}>Your leave balance — {year}</h3>
+        <p className="xs-page-sub">Allocated by HR for the calendar year. Unused leave does not carry forward.</p>
       </div>
     </div>
-  );
-
-  if (isSubmitted) {
-    return (
-      <div className="el-container">
-        <div className="el-success-card">
-          <CheckCircle className="el-success-icon" />
-          <h2 className="el-success-title">Leave Application Submitted Successfully</h2>
-          <p className="el-success-message">
-            Your leave application has been submitted and is pending approval.
-            You will receive a confirmation email shortly with your application reference number.
-          </p>
-          <div className="el-success-details">
-            <p><strong>Employee:</strong> {formData.fullName}</p>
-            <p><strong>Employee ID:</strong> {formData.employeeId}</p>
-            <p><strong>Role:</strong> {formData.role}</p>
-            <p><strong>Leave Type:</strong> {formData.leaveType}</p>
-            <p><strong>Duration:</strong> {formData.startDate} to {formData.endDate} ({formData.totalDays} days)</p>
+    {loading && <p className="xs-hint" role="status">Loading balances…</p>}
+    {error && <div className="xs-alert error" role="alert">{error}</div>}
+    {!loading && !error && balances.length === 0 && (
+      <div className="xs-alert">No leave types are available yet. Please contact HR.</div>
+    )}
+    <div className="xs-grid">
+      {balances.map((b) => (
+        <div className="xs-card" key={b.leaveTypeId} data-testid={`balance-${b.code}`}>
+          <div className="xs-card-head">
+            <h3>{b.name}</h3>
+            <span className="xs-badge">{b.requiresBalance ? b.code : `${b.code} · no balance needed`}</span>
           </div>
-          <div className="el-success-actions">
-            <button onClick={handleReset} className="el-new-application-btn">
-              Submit New Application
-            </button>
-            <button 
-              onClick={handleViewToggle} 
-              className="el-toggle-btn"
-              style={{ marginLeft: '10px' }}
-            >
-              <History size={18} />
-              View Leave History
-            </button>
-          </div>
+          {b.requiresBalance ? (
+            <div className="xs-fields" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))", marginTop: 8 }}>
+              <div className="xs-field"><span className="xs-label">Allocated</span><span className="xs-value">{b.allocated}</span></div>
+              <div className="xs-field"><span className="xs-label">Used</span><span className="xs-value">{b.used}</span></div>
+              <div className="xs-field"><span className="xs-label">Pending</span><span className="xs-value">{b.pending}</span></div>
+              <div className="xs-field"><span className="xs-label">Available</span><span className="xs-value" style={{ fontWeight: 700 }} data-testid={`available-${b.code}`}>{b.available}</span></div>
+            </div>
+          ) : (
+            <p className="xs-card-sub" style={{ marginTop: 8 }}>Used so far: {b.used} day(s). This type is not limited by a balance.</p>
+          )}
         </div>
-      </div>
-    );
-  }
+      ))}
+    </div>
+  </section>
+);
+
+const EmployeeLeave = () => {
+  const { uploadFileAPI } = useApi();
+  const year = new Date().getFullYear();
+
+  const [balances, setBalances] = useState([]);
+  const [balLoading, setBalLoading] = useState(true);
+  const [balError, setBalError] = useState("");
+  const [leaves, setLeaves] = useState([]);
+  const [histLoading, setHistLoading] = useState(true);
+  const [histError, setHistError] = useState("");
+
+  const [form, setForm] = useState(EMPTY);
+  const [file, setFile] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [preview, setPreview] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState(null);
+
+  const me = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch (_) { return {}; }
+  }, []);
+
+  const loadBalances = useCallback(async () => {
+    setBalLoading(true);
+    setBalError("");
+    try {
+      const res = await leaveApi.myBalances(year);
+      setBalances(res.balances || []);
+    } catch (e) {
+      setBalError(errMsg(e, "Could not load your leave balances."));
+    } finally {
+      setBalLoading(false);
+    }
+  }, [year]);
+
+  const loadHistory = useCallback(async () => {
+    setHistLoading(true);
+    setHistError("");
+    try {
+      setLeaves((await leaveApi.mine()) || []);
+    } catch (e) {
+      setHistError(errMsg(e, "Could not load your leave history."));
+    } finally {
+      setHistLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadBalances(); loadHistory(); }, [loadBalances, loadHistory]);
+
+  const types = useMemo(() => balances.filter((b) => b.active), [balances]);
+  const selectedType = types.find((t) => String(t.leaveTypeId) === String(form.leaveTypeId));
+
+  // Live check of the chosen dates against the server's rules (working days, holidays, weekly offs, overlap, balance).
+  useEffect(() => {
+    setPreview(null);
+    setPreviewError("");
+    if (!form.leaveTypeId || !form.startDate || !form.endDate || form.endDate < form.startDate) return undefined;
+    let alive = true;
+    setPreviewing(true);
+    const t = setTimeout(async () => {
+      try {
+        const p = await leaveApi.preview({ leaveTypeId: Number(form.leaveTypeId), startDate: form.startDate, endDate: form.endDate });
+        if (alive) setPreview(p);
+      } catch (e) {
+        if (alive) setPreviewError(errMsg(e, "Could not check these dates."));
+      } finally {
+        if (alive) setPreviewing(false);
+      }
+    }, 300);
+    return () => { alive = false; clearTimeout(t); };
+  }, [form.leaveTypeId, form.startDate, form.endDate]);
+
+  const set = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNotice(null);
+    setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
+    setErrors((er) => ({ ...er, [name]: "" }));
+  };
+
+  const blocked = !!previewError || !!preview?.overlap || !!preview?.noWorkingDays || previewing || !preview;
+
+  const submit = async (ev) => {
+    ev.preventDefault();
+    const v = validateLeaveForm(form, preview);
+    setErrors(v);
+    if (Object.keys(v).length || blocked) return;
+    setSubmitting(true);
+    setNotice(null);
+    try {
+      let supportingDocumentPath;
+      if (file) {
+        const up = await uploadFileAPI(file);
+        supportingDocumentPath = up?.filePath || undefined;
+      }
+      const body = {
+        leaveTypeId: Number(form.leaveTypeId),
+        startDate: form.startDate,
+        endDate: form.endDate,
+        reason: form.reason.trim(),
+        emergencyContactName: form.emergencyContactName.trim() || undefined,
+        emergencyPhone: form.emergencyPhone.trim() || undefined,
+        workHandoverTo: form.workHandoverTo.trim() || undefined,
+        handoverNotes: form.handoverNotes.trim() || undefined,
+        supportingDocumentPath,
+      };
+      if (preview?.exceedsBalance) {
+        body.exceptionRequested = true;
+        body.exceptionReason = form.exceptionReason.trim();
+      }
+      const res = await leaveApi.apply(body);
+      const saved = res?.data;
+      setNotice({
+        type: "ok",
+        text: saved?.exceedsBalance
+          ? "Your request was submitted and flagged as exceeding your balance. HR will review it."
+          : "Your leave request was submitted and is pending HR approval.",
+      });
+      setForm(EMPTY);
+      setFile(null);
+      setErrors({});
+      await Promise.all([loadBalances(), loadHistory()]);
+    } catch (e) {
+      setNotice({ type: "error", text: errMsg(e, "Could not submit your leave request.") });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const cancel = async (leave) => {
+    setNotice(null);
+    try {
+      await leaveApi.cancel(leave.id, "Cancelled by employee");
+      setNotice({ type: "ok", text: "Leave request cancelled." });
+      await Promise.all([loadBalances(), loadHistory()]);
+    } catch (e) {
+      setNotice({ type: "error", text: errMsg(e, "Could not cancel this request.") });
+    }
+  };
 
   return (
-    <div className="el-container">
-      {showSandwichLeavePopup && <SandwichLeavePopup />}
-      
-      <div className="el-header">
-        <div className="el-header-content">
-          <User className="el-header-icon" />
-          <div>
-            <h1 className="el-title">Employee Leave Application</h1>
-            <p className="el-subtitle">
-              {currentView === 'form' 
-                ? 'Submit your leave request or view your leave history' 
-                : 'View your leave application history'
-              }
-            </p>
-          </div>
-        </div>
-        <div className="el-header-buttons">
-          <button
-            onClick={handleViewToggle}
-            className="el-toggle-btn"
-          >
-            {currentView === 'form' ? (
-              <>
-                <History size={18} />
-                View Leave History
-              </>
-            ) : (
-              <>
-                <Plus size={18} />
-                New Application
-              </>
-            )}
-          </button>
+    <div>
+      <div className="xs-page-head">
+        <div>
+          <h2 className="xs-page-title">Ask for Leave</h2>
+          <p className="xs-page-sub">
+            {me?.username ? `Applying as ${me.username}${me.role ? ` (${me.role})` : ""}. ` : ""}
+            HR reviews every request. Sundays and company holidays are not counted.
+          </p>
         </div>
       </div>
 
-      {currentView === 'form' ? (
-        <div className="el-form">
-          {submissionError && (
-            <div className="el-error-banner">
-              <AlertCircle size={20} style={{ color: '#ef4444' }} />
-              <span>{submissionError}</span>
+      {notice && <div className={`xs-alert ${notice.type}`} role={notice.type === "error" ? "alert" : "status"} style={{ marginBottom: 16 }}>{notice.text}</div>}
+
+      <BalanceCards balances={balances} year={year} loading={balLoading} error={balError} />
+
+      <div className="xs-grid two">
+        <form className="xs-card" onSubmit={submit} noValidate aria-label="Leave application">
+          <h3>New leave request</h3>
+          <p className="xs-card-sub">Step 1 – choose type and dates. Step 2 – review the summary. Step 3 – give a reason and submit.</p>
+
+          <div className="xs-fields">
+            <div className="xs-field" style={{ gridColumn: "1 / -1" }}>
+              <label htmlFor="lv-type">Leave type *</label>
+              <select id="lv-type" name="leaveTypeId" className="xs-select" value={form.leaveTypeId} onChange={set}>
+                <option value="">Select leave type</option>
+                {types.map((t) => (
+                  <option key={t.leaveTypeId} value={t.leaveTypeId}>
+                    {t.name}{t.requiresBalance ? ` — ${t.available} available` : ""}
+                  </option>
+                ))}
+              </select>
+              {errors.leaveTypeId && <span className="xs-error">{errors.leaveTypeId}</span>}
+            </div>
+            <div className="xs-field">
+              <label htmlFor="lv-start">From *</label>
+              <input id="lv-start" type="date" name="startDate" className="xs-input" value={form.startDate} onChange={set} />
+              {errors.startDate && <span className="xs-error">{errors.startDate}</span>}
+            </div>
+            <div className="xs-field">
+              <label htmlFor="lv-end">To *</label>
+              <input id="lv-end" type="date" name="endDate" className="xs-input" value={form.endDate} min={form.startDate || undefined} onChange={set} />
+              {errors.endDate && <span className="xs-error">{errors.endDate}</span>}
+            </div>
+          </div>
+          <p className="xs-hint" style={{ marginTop: 6 }}>Leave is applied for full days. {form.startDate && form.startDate < today() ? "You are applying for a past date." : ""}</p>
+
+          {previewing && <p className="xs-hint" role="status">Checking your dates…</p>}
+          {previewError && <div className="xs-alert error" role="alert" style={{ marginTop: 10 }}>{previewError}</div>}
+          {preview && (
+            <div className="xs-alert" style={{ marginTop: 12 }} data-testid="leave-summary" aria-live="polite">
+              <strong>{preview.workingDays} working day(s)</strong> will be counted
+              {" "}({preview.totalDays} calendar day(s) from {fmt(form.startDate)} to {fmt(form.endDate)}).
+              {preview.weeklyOffs.length > 0 && <div>Weekly off (not counted): {preview.weeklyOffs.map(fmt).join(", ")}</div>}
+              {preview.holidays.length > 0 && <div>Holidays (not counted): {preview.holidays.map((h) => `${fmt(h.date)} ${h.name}`).join(", ")}</div>}
+              {preview.requiresBalance && preview.years.map((y) => (
+                <div key={y.year}>{y.year}: {y.requested} day(s) requested, {Math.max(y.available ?? 0, 0)} available</div>
+              ))}
+            </div>
+          )}
+          {preview?.overlap && (
+            <div className="xs-alert error" role="alert" style={{ marginTop: 10 }}>
+              You already have a {preview.overlap.status.toLowerCase()} leave from {fmt(preview.overlap.startDate)} to {fmt(preview.overlap.endDate)} that overlaps these dates.
+            </div>
+          )}
+          {preview?.noWorkingDays && (
+            <div className="xs-alert error" role="alert" style={{ marginTop: 10 }}>These dates contain no working days (only weekly offs / holidays).</div>
+          )}
+          {preview?.exceedsBalance && !preview.overlap && !preview.noWorkingDays && (
+            <div className="xs-alert warn" style={{ marginTop: 10 }} data-testid="exceeds-warning">
+              <strong>This request exceeds your available {selectedType?.name || "leave"} balance by {preview.shortfall} day(s).</strong>
+              <div>You can still submit it as an exception request. It will be flagged for HR, who will decide whether to approve or reject it.</div>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0" }}>
+                <input type="checkbox" name="exceptionRequested" checked={form.exceptionRequested} onChange={set} />
+                I want to request an exception beyond my balance
+              </label>
+              {errors.exceptionRequested && <span className="xs-error">{errors.exceptionRequested}</span>}
+              <label htmlFor="lv-exc" className="xs-label">Explanation for HR *</label>
+              <textarea id="lv-exc" name="exceptionReason" className="xs-textarea" value={form.exceptionReason} onChange={set} maxLength={1000} disabled={!form.exceptionRequested} />
+              {errors.exceptionReason && <span className="xs-error">{errors.exceptionReason}</span>}
             </div>
           )}
 
-          <div className="el-section">
-            <h3 className="el-section-title">
-              <User size={20} className="el-section-icon" />
-              Employee Information
-            </h3>
-            <div className="el-grid">
-              <div className="el-form-group">
-                <label className="el-label">Employee ID</label>
-                <input
-                  type="text"
-                  name="employeeId"
-                  value={formData.employeeId}
-                  onChange={handleInputChange}
-                  className="el-input el-input-readonly"
-                  placeholder="Auto-populated from login"
-                  readOnly
-                />
-                <span className="el-info-text">Auto-populated from your login session</span>
-              </div>
-              <div className="el-form-group">
-                <label className="el-label">Full Name *</label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  className={`el-input el-input-readonly ${errors.fullName ? 'el-input-error' : ''}`}
-                  placeholder="Auto-populated from login"
-                  readOnly
-                />
-                <span className="el-info-text">Auto-populated from your login session</span>
-                {errors.fullName && <span className="el-error-text">{errors.fullName}</span>}
-              </div>
-              <div className="el-form-group">
-                <label className="el-label">Role *</label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  className={`el-select el-select-readonly ${errors.role ? 'el-input-error' : ''}`}
-                  disabled
-                >
-                  <option value="">Select Role</option>
-                  {roleOptions.map(roleOption => (
-                    <option key={roleOption} value={roleOption}>{roleOption}</option>
-                  ))}
-                </select>
-                <span className="el-info-text">Auto-populated from your login session</span>
-                {errors.role && <span className="el-error-text">{errors.role}</span>}
-              </div>
-              <div className="el-form-group">
-                <label className="el-label">Position/Title *</label>
-                <input
-                  type="text"
-                  name="positionTitle"
-                  value={formData.positionTitle}
-                  onChange={handleInputChange}
-                  className={`el-input ${errors.positionTitle ? 'el-input-error' : ''}`}
-                  placeholder="Enter position/title"
-                />
-                {errors.positionTitle && <span className="el-error-text">{errors.positionTitle}</span>}
-              </div>
-            </div>
+          <div className="xs-field" style={{ marginTop: 14 }}>
+            <label htmlFor="lv-reason">Reason *</label>
+            <textarea id="lv-reason" name="reason" className="xs-textarea" value={form.reason} onChange={set} maxLength={1000} />
+            {errors.reason && <span className="xs-error">{errors.reason}</span>}
           </div>
 
-          <div className="el-section">
-            <h3 className="el-section-title">
-              <Calendar size={20} className="el-section-icon" />
-              Leave Details
-            </h3>
-            <div className="el-grid">
-              <div className="el-form-group">
-                <label className="el-label">Leave Type *</label>
-                <select
-                  name="leaveType"
-                  value={formData.leaveType}
-                  onChange={handleInputChange}
-                  className={`el-select ${errors.leaveType ? 'el-input-error' : ''}`}
-                >
-                  <option value="">Select Leave Type</option>
-                  {leaveTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-                {errors.leaveType && <span className="el-error-text">{errors.leaveType}</span>}
-              </div>
-              <div className="el-form-group">
-                <label className="el-label">Start Date *</label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  className={`el-input ${errors.startDate ? 'el-input-error' : ''}`}
-                  min={new Date().toISOString().split('T')[0]}
-                />
-                {errors.startDate && <span className="el-error-text">{errors.startDate}</span>}
-              </div>
-              <div className="el-form-group">
-                <label className="el-label">End Date *</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  className={`el-input ${errors.endDate ? 'el-input-error' : ''}`}
-                  min={formData.startDate || new Date().toISOString().split('T')[0]}
-                />
-                {errors.endDate && <span className="el-error-text">{errors.endDate}</span>}
-              </div>
-              <div className="el-form-group">
-                <label className="el-label">Total Days</label>
-                <input
-                  type="text"
-                  name="totalDays"
-                  value={formData.totalDays}
-                  readOnly
-                  className="el-input el-input-readonly"
-                  placeholder="Auto-calculated"
-                />
-              </div>
+          <details style={{ marginTop: 14 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 600 }}>Optional: contact, handover and document</summary>
+            <div className="xs-fields" style={{ marginTop: 12 }}>
+              <div className="xs-field"><label htmlFor="lv-ecn">Emergency contact</label><input id="lv-ecn" name="emergencyContactName" className="xs-input" value={form.emergencyContactName} onChange={set} maxLength={255} /></div>
+              <div className="xs-field"><label htmlFor="lv-ep">Emergency phone</label><input id="lv-ep" name="emergencyPhone" type="tel" className="xs-input" value={form.emergencyPhone} onChange={set} maxLength={50} /></div>
+              <div className="xs-field"><label htmlFor="lv-wh">Work handover to</label><input id="lv-wh" name="workHandoverTo" className="xs-input" value={form.workHandoverTo} onChange={set} maxLength={255} /></div>
+              <div className="xs-field"><label htmlFor="lv-doc">Supporting document</label><input id="lv-doc" type="file" className="xs-input" accept=".pdf,.doc,.docx,.jpg,.png" onChange={(e) => setFile(e.target.files?.[0] || null)} /></div>
+              <div className="xs-field" style={{ gridColumn: "1 / -1" }}><label htmlFor="lv-hn">Handover notes</label><textarea id="lv-hn" name="handoverNotes" className="xs-textarea" value={form.handoverNotes} onChange={set} maxLength={2000} /></div>
             </div>
-          </div>
+          </details>
 
-          <div className="el-section">
-            <h3 className="el-section-title">
-              <FileText size={20} className="el-section-icon" />
-              Additional Information
-            </h3>
-            <div className="el-form-group">
-              <label className="el-label">Reason for Leave *</label>
-              <textarea
-                name="reason"
-                value={formData.reason}
-                onChange={handleInputChange}
-                className={`el-textarea ${errors.reason ? 'el-input-error' : ''}`}
-                placeholder="Please provide detailed reason for leave"
-                rows="4"
-              />
-              {errors.reason && <span className="el-error-text">{errors.reason}</span>}
-            </div>
-
-            <div className="el-grid">
-              <div className="el-form-group">
-                <label className="el-label">Emergency Contact Name *</label>
-                <input
-                  type="text"
-                  name="emergencyContactName"
-                  value={formData.emergencyContactName}
-                  onChange={handleInputChange}
-                  className={`el-input ${errors.emergencyContactName ? 'el-input-error' : ''}`}
-                  placeholder="Contact person during leave"
-                />
-                {errors.emergencyContactName && <span className="el-error-text">{errors.emergencyContactName}</span>}
-              </div>
-              <div className="el-form-group">
-                <label className="el-label">Emergency Phone *</label>
-                <input
-                  type="tel"
-                  name="emergencyPhone"
-                  value={formData.emergencyPhone}
-                  onChange={handleInputChange}
-                  className={`el-input ${errors.emergencyPhone ? 'el-input-error' : ''}`}
-                  placeholder="Phone number"
-                />
-                {errors.emergencyPhone && <span className="el-error-text">{errors.emergencyPhone}</span>}
-              </div>
-            </div>
-
-            <div className="el-grid">
-              <div className="el-form-group">
-                <label className="el-label">Work Handover To</label>
-                <input
-                  type="text"
-                  name="workHandoverTo"
-                  value={formData.workHandoverTo}
-                  onChange={handleInputChange}
-                  className="el-input"
-                  placeholder="Name of person handling responsibilities"
-                />
-              </div>
-              <div className="el-form-group">
-                <label className="el-label">Supporting Documents</label>
-                <input
-                  type="file"
-                  name="attachments"
-                  onChange={handleInputChange}
-                  className="el-file-input"
-                  accept=".pdf,.doc,.docx,.jpg,.png"
-                />
-              </div>
-            </div>
-
-            <div className="el-form-group">
-              <label className="el-label">Handover Notes</label>
-              <textarea
-                name="handoverNotes"
-                value={formData.handoverNotes}
-                onChange={handleInputChange}
-                className="el-textarea"
-                placeholder="Important notes for work handover and coverage"
-                rows="3"
-              />
-            </div>
-          </div>
-
-          <div className="el-action-buttons">
-            <button type="button" onClick={handleReset} className="el-reset-btn" disabled={uploading}>
-              Reset Form
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              className="el-submit-btn"
-              disabled={uploading}
-            >
-              <Clock size={18} className="el-btn-icon" />
-              {uploading ? 'Submitting...' : 'Submit Leave Application'}
+          <div className="xs-actions">
+            <button type="button" className="xs-btn" onClick={() => { setForm(EMPTY); setErrors({}); setFile(null); setNotice(null); }} disabled={submitting}>Clear</button>
+            <button type="submit" className="xs-btn primary" disabled={submitting || blocked}>
+              {submitting ? "Submitting…" : preview?.exceedsBalance ? "Submit exception request" : "Submit request"}
             </button>
           </div>
-        </div>
-      ) : (
-        <div className="el-section">
-          <h3 className="el-section-title">
-            <Calendar size={20} className="el-section-icon" />
-            Your Leave Application History
-          </h3>
-          {leaveHistoryLoading ? (
-            <div className="el-loading">Loading your leave applications...</div>
-          ) : leaveApplications.length === 0 ? (
-            <div className="el-no-data">
-              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                <Calendar size={48} style={{ color: '#9ca3af', marginBottom: '16px' }} />
-                <h3 style={{ color: '#6b7280', marginBottom: '8px' }}>No leave applications found</h3>
-                <p style={{ color: '#9ca3af', marginBottom: '20px' }}>
-                  You haven't submitted any leave applications yet.
-                </p>
-                <button 
-                  onClick={handleViewToggle}
-                  className="el-submit-btn"
-                >
-                  <Plus size={18} className="el-btn-icon" />
-                  Submit Your First Application
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="el-table-container">
-              <table className="el-table">
+        </form>
+
+        <section className="xs-card" aria-label="Leave history">
+          <h3>My leave history</h3>
+          <p className="xs-card-sub">Status updates appear here once HR responds.</p>
+          {histLoading && <p className="xs-hint" role="status">Loading history…</p>}
+          {histError && <div className="xs-alert error" role="alert">{histError}</div>}
+          {!histLoading && !histError && leaves.length === 0 && <p className="xs-hint">You have not applied for leave yet.</p>}
+          {leaves.length > 0 && (
+            <div className="xs-table-wrap">
+              <table className="xs-table">
                 <thead>
-                  <tr>
-                    <th className="el-table-header">Leave Type</th>
-                    <th className="el-table-header">Start Date</th>
-                    <th className="el-table-header">End Date</th>
-                    <th className="el-table-header">Total Days</th>
-                    <th className="el-table-header">Status</th>
-                    <th className="el-table-header">Applied Date</th>
-                    <th className="el-table-header">Reason</th>
-                    <th className="el-table-header">HR Leave Response</th>
-                  </tr>
+                  <tr><th>Type</th><th>Dates</th><th className="num">Days</th><th>Status</th><th>Details</th><th /></tr>
                 </thead>
                 <tbody>
-                  {leaveApplications.map((application) => (
-                    <tr key={application.id} className="el-table-row">
-                      <td className="el-table-cell">{application.leaveType}</td>
-                      <td className="el-table-cell">{application.startDate}</td>
-                      <td className="el-table-cell">{application.endDate}</td>
-                      <td className="el-table-cell">{application.totalDays}</td>
-                      <td className="el-table-cell" style={{ color: getStatusColor(application.status) }}>
-                        {application.status}
+                  {leaves.map((l) => (
+                    <tr key={l.id} data-testid={`leave-row-${l.id}`}>
+                      <td>{l.leaveType}</td>
+                      <td>{fmt(l.startDate)} – {fmt(l.endDate)}<div className="xs-hint">Applied {fmt(l.appliedDate)}</div></td>
+                      <td className="num">{l.workingDays ?? l.totalDays}</td>
+                      <td>
+                        <span className={`xs-badge ${l.status}`}>{l.status}</span>
+                        {l.exceedsBalance && <div><span className="xs-badge flag">Exceeds balance by {l.balanceShortfall}</span></div>}
                       </td>
-                      <td className="el-table-cell">{application.appliedDate}</td>
-                      <td className="el-table-cell">{application.reason}</td>
-                      <td className="el-table-cell">{application.hrComment}</td>
+                      <td>
+                        <div>{l.reason}</div>
+                        {l.exceedsBalance && l.exceptionReason && <div className="xs-hint">Exception: {l.exceptionReason}</div>}
+                        {l.hrComment && <div className="xs-hint">HR: {l.hrComment}</div>}
+                        {l.cancelReason && <div className="xs-hint">Cancelled: {l.cancelReason}</div>}
+                      </td>
+                      <td>
+                        {(l.status === "Pending" || (l.status === "Approved" && l.startDate >= today())) && (
+                          <button type="button" className="xs-btn" onClick={() => cancel(l)}>Cancel</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
-      )}
+        </section>
+      </div>
     </div>
   );
 };

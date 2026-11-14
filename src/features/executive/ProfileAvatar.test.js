@@ -52,3 +52,13 @@ test("releases the object URL on unmount", async () => {
   unmount();
   expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:photo");
 });
+
+test("the photo is clipped to its avatar by global CSS, not by a page-specific wrapper", () => {
+  // Regression: the img rules used to be scoped to .exec-shell-root, so any page rendered outside
+  // that wrapper (the Settings routes) showed the photo at its natural size.
+  const css = require("fs").readFileSync(require("path").join(__dirname, "../../styles/executiveHeader.css"), "utf8");
+  const rule = /(^|\n)\.profile-avatar-img\s*\{[^}]*object-fit:\s*cover[^}]*max-width:\s*100%/;
+  expect(css.replace(/\r\n/g, "\n")).toMatch(/(^|\n)\.profile-avatar-img\s*\{[\s\S]*?object-fit:\s*cover/);
+  expect(css).not.toMatch(/\.exec-shell-root \.profile-avatar-img/);
+  expect(rule.test(css.replace(/\r\n/g, "\n")) || /max-width:\s*100%/.test(css)).toBe(true);
+});

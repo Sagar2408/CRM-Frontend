@@ -114,7 +114,12 @@ const Requests = ({ types }) => {
                 <tr key={l.id}>
                   <td><button type="button" className="hr-link" onClick={() => openDetail(l)}>{l.fullName}</button></td>
                   <td>{typeLabel(l.employeeType)}</td>
-                  <td>{l.leaveType}</td>
+                  <td>
+                    {l.leaveType}
+                    {l.exceedsBalance && (
+                      <div><span className="hr-pill Pending" title={l.exceptionReason || ""}>Exceeds balance by {l.balanceShortfall ?? "?"} day(s)</span></div>
+                    )}
+                  </td>
                   <td>{fmtDate(l.startDate)}</td>
                   <td>{fmtDate(l.endDate)}</td>
                   <td className="num">{l.workingDays ?? l.totalDays}</td>
@@ -164,7 +169,22 @@ const Requests = ({ types }) => {
             <br />
             {fmtDate(detail.leave.startDate)} to {fmtDate(detail.leave.endDate)} · {detail.leave.workingDays} working day(s)
           </p>
-          <p>{detail.leave.reason}</p>
+          <p><strong>Reason:</strong> {detail.leave.reason}</p>
+          {detail.leave.exceedsBalance && (
+            <div className="hr-error" role="note" data-testid="exception-flag">
+              <strong>Exceeds leave balance by {detail.leave.balanceShortfall} day(s) — exception requested.</strong>
+              <br />
+              Employee's explanation: {detail.leave.exceptionReason}
+              <br />
+              Approving this request grants the exception; rejecting it declines it.
+            </div>
+          )}
+          <p>
+            <strong>Total days:</strong> {detail.leave.totalDays} · <strong>Applied:</strong> {fmtDate(detail.leave.appliedDate)}
+            {detail.leave.emergencyContactName && <><br /><strong>Emergency contact:</strong> {detail.leave.emergencyContactName} {detail.leave.emergencyPhone}</>}
+            {detail.leave.workHandoverTo && <><br /><strong>Work handover to:</strong> {detail.leave.workHandoverTo}</>}
+            {detail.leave.handoverNotes && <><br /><strong>Handover notes:</strong> {detail.leave.handoverNotes}</>}
+          </p>
           <h3>History</h3>
           <ul className="hr-list">
             {detail.events.map((e) => (

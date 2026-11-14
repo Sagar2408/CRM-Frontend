@@ -166,6 +166,23 @@ describe("LeaveManagement", () => {
     await waitFor(() => expect(svc.leaveApi.decide).toHaveBeenCalledWith(1, "Approved", "ok"));
   });
 
+  test("an over-balance exception request is flagged in the list and shows every submitted field in the detail", async () => {
+    const req = leaveReq({ exceedsBalance: true, balanceShortfall: 2, exceptionReason: "Surgery, no leave left", emergencyContactName: "Sam", emergencyPhone: "9999", workHandoverTo: "Eve", handoverNotes: "Leads covered", totalDays: 5 });
+    svc.leaveApi.requests.mockResolvedValue({ requests: [req], total: 1, counts: { Pending: 1 } });
+    svc.leaveApi.request.mockResolvedValue({ leave: req, events: [] });
+    render(<LeaveManagement />);
+    expect(await screen.findByText(/Exceeds balance by 2 day/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument(); // HR keeps approve / reject
+    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText(req.fullName));
+    const flag = await screen.findByTestId("exception-flag");
+    expect(flag).toHaveTextContent(/Surgery, no leave left/);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(/Emergency contact:\s*Sam 9999/);
+    expect(dialog).toHaveTextContent(/Work handover to:\s*Eve/);
+    expect(dialog).toHaveTextContent(/Handover notes:\s*Leads covered/);
+  });
+
   test("HR's OWN request offers no approve/reject", async () => {
     svc.leaveApi.requests.mockResolvedValue({ requests: [leaveReq({ id: 5, isOwn: true, fullName: "Hal HR" })], total: 1, counts: {} });
     render(<LeaveManagement />);
