@@ -1,5 +1,6 @@
 import "../../styles/signup.css"; // login/signup card layout (was only loaded by the removed ForgotPassword page)
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
 import "react-toastify/dist/ReactToastify.css";
@@ -133,6 +134,10 @@ const Login = () => {
                 {loading ? "Logging in..." : "SIGN IN"}
               </button>
             </form>
+            <p className="small-text" style={{ marginTop: 14 }}>
+              Company admin?{" "}
+              <Link to="/admin/signup" style={{ color: "black" }}>First-time registration</Link>
+            </p>
           </div>
         </div>
       </div>

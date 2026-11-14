@@ -3,12 +3,12 @@ import React, { useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { signupCompanyAdmin } from "../../services/companyAdminAuth";
+import { registerCompanyAdmin } from "../../services/companyAdminAuth";
 
 const CompanyAdminSignup = () => {
   const navigate = useNavigate();
   const [companyCode, setCompanyCode] = useState("");
-  const [adminSignupToken, setAdminSignupToken] = useState("");
+  const [invitationToken, setInvitationToken] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,17 +22,21 @@ const CompanyAdminSignup = () => {
         toast.error("Passwords do not match");
         return;
       }
+      if (password.length < 8) {
+        toast.error("Password must be at least 8 characters");
+        return;
+      }
 
       setLoading(true);
       try {
-        await signupCompanyAdmin({
-          companyCode,
-          adminSignupToken,
-          email,
+        await registerCompanyAdmin({
+          companyCode: companyCode.trim(),
+          invitationToken: invitationToken.trim(),
+          email: email.trim(),
           password,
           confirmPassword,
         });
-        toast.success("Admin account created! Redirecting to login...");
+        toast.success("Your admin account is ready! Redirecting to login...");
         setTimeout(() => navigate("/login"), 2000);
       } catch (error) {
         toast.error(error.message || "Signup failed");
@@ -40,7 +44,7 @@ const CompanyAdminSignup = () => {
         setLoading(false);
       }
     },
-    [companyCode, adminSignupToken, email, password, confirmPassword, navigate]
+    [companyCode, invitationToken, email, password, confirmPassword, navigate]
   );
 
   return (
@@ -50,7 +54,7 @@ const CompanyAdminSignup = () => {
 
         <div className="right-half" style={{ width: "100%" }}>
           <div className="login-form">
-            <div className="create">Create Your Company Admin Account</div>
+            <div className="create">Company Admin First-Time Registration</div>
             <p className="small-text">
               Already have an account?{" "}
               <Link to="/login" style={{ color: "black" }}>
@@ -58,8 +62,8 @@ const CompanyAdminSignup = () => {
               </Link>
             </p>
             <p style={{ paddingTop: "4px", fontSize: "0.85em", color: "#666" }}>
-              Use the Company Code and Admin Registration Token your Master Admin / Sales
-              contact gave you. This can only be done once per company.
+              Use the Company Code, your invited email address and the one-time Invitation Token
+              your Master Admin gave you, then choose your own password. Nobody else ever sees or sets it.
             </p>
             <form onSubmit={handleSubmit}>
               <input
@@ -71,22 +75,24 @@ const CompanyAdminSignup = () => {
               />
               <input
                 type="text"
-                placeholder="Admin Registration Token"
+                placeholder="Invitation Token"
                 required
-                value={adminSignupToken}
-                onChange={(e) => setAdminSignupToken(e.target.value)}
+                autoComplete="off"
+                value={invitationToken}
+                onChange={(e) => setInvitationToken(e.target.value)}
               />
               <input
                 type="email"
-                placeholder="Admin Email"
+                placeholder="Registered Admin Email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
               <input
                 type="password"
-                placeholder="Password"
+                placeholder="New Password (min 8 characters)"
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -94,11 +100,12 @@ const CompanyAdminSignup = () => {
                 type="password"
                 placeholder="Confirm Password"
                 required
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
               <button type="submit" disabled={loading}>
-                {loading ? "Creating..." : "Create Admin Account"}
+                {loading ? "Registering..." : "Register Admin Account"}
               </button>
             </form>
           </div>

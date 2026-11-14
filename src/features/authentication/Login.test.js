@@ -25,7 +25,9 @@ describe("the one /login page", () => {
     expect(screen.queryByText(/registering a new company/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/sign up/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/forgot password/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    // The only link is the company-admin first-time registration entry (invitation token flow).
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: /first-time registration/i })).toHaveAttribute("href", "/admin/signup");
     expect(screen.getByRole("button", { name: "SIGN IN" })).toBeInTheDocument();
   });
 

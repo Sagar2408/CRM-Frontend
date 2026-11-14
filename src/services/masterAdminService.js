@@ -32,8 +32,16 @@ export const masterAdmin = {
   renew: async (id, months) => (await masterApi.post(`${base}/companies/${id}/renew`, { months })).data,
   expiryReminder: async (id) => (await masterApi.post(`${base}/companies/${id}/expiry-reminder`)).data,
   admins: async (id) => (await masterApi.get(`${base}/companies/${id}/admins`)).data,
-  resetAdminPassword: async (id, adminId, newPassword) =>
-    (await masterApi.post(`${base}/companies/${id}/admins/${adminId}/reset-password`, { newPassword })).data,
+  // Staged onboarding
+  createDraft: async (body) => (await masterApi.post(`${base}/companies/draft`, body)).data,
+  updateCode: async (id, code) => (await masterApi.put(`${base}/companies/${id}/code`, { code })).data,
+  database: async (id) => (await masterApi.get(`${base}/companies/${id}/database`)).data.database,
+  saveDatabase: async (id, body) => (await masterApi.put(`${base}/companies/${id}/database`, body)).data,
+  testDatabase: async (id) => (await masterApi.post(`${base}/companies/${id}/database/test`)).data,
+  invitation: async (id) => (await masterApi.get(`${base}/companies/${id}/admin-invitation`)).data,
+  generateInvitation: async (id, body) => (await masterApi.post(`${base}/companies/${id}/admin-invitation`, body)).data,
+  revokeInvitation: async (id) => (await masterApi.post(`${base}/companies/${id}/admin-invitation/revoke`)).data,
+  activate: async (id) => (await masterApi.post(`${base}/companies/${id}/activate`)).data,
   activity: async (id) => (await masterApi.get(`${base}/companies/${id}/activity`)).data.activity,
   features: async (id) => (await masterApi.get(`${base}/companies/${id}/features`)).data.modules,
   updateFeatures: async (id, features) => (await masterApi.put(`${base}/companies/${id}/features`, { features })).data.modules,
@@ -60,6 +68,16 @@ export const SUBSCRIPTION_LABELS = {
   suspended: "Suspended",
   not_configured: "Not configured",
 };
+export const STAGE_LABELS = {
+  draft: "Draft",
+  database_pending: "Database pending",
+  database_connected: "Database connected",
+  admin_invitation_pending: "Admin invitation pending",
+  admin_registered: "Admin registered",
+  active: "Active",
+  suspended: "Suspended",
+};
+export const BILLING_CYCLES = [["", "Not set"], ["monthly", "Monthly"], ["quarterly", "Quarterly"], ["half_yearly", "Half-yearly"], ["yearly", "Yearly"], ["one_time", "One-time"]];
 export const PROMOTION_CATEGORIES = ["Promotion", "Offer", "Announcement", "Product Update", "Maintenance"];
 export const PROMOTION_STATUSES = ["Draft", "Scheduled", "Published", "Expired", "Cancelled"];
 

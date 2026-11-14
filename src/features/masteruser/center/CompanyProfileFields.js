@@ -15,7 +15,9 @@ export const PROFILE_FIELDS = [
   ["country", "Country"],
   ["state", "State"],
   ["city", "City"],
-  ["logoUrl", "Logo URL", "url"],
+  ["logoUrl", "Company logo (image URL)", "url"],
+  ["registrationNumber", "Registration number"],
+  ["taxId", "Tax / GST ID"],
 ];
 export const SUBSCRIPTION_FIELDS = [
   ["plan", "Subscription plan"],

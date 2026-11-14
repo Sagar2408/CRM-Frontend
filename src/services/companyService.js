@@ -24,15 +24,6 @@ companyApi.interceptors.request.use(
 );
 
 
-export const createCompany = async (data) => {
-  try {
-    const response = await companyApi.post("/company/create-company", data);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { error: "Company creation failed" };
-  }
-};
-
 
 export const getCompaniesForMaster = async () => {
   try {
@@ -74,13 +65,3 @@ export const resumeCompanyById = async (companyId) => {
   }
 };
 
-export const regenerateAdminSignupToken = async (companyId) => {
-  try {
-    const response = await companyApi.post(
-      `/company/companies/${companyId}/regenerate-admin-token`
-    );
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { error: "Failed to regenerate admin token" };
-  }
-};

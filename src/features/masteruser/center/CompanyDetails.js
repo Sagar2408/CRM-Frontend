@@ -1,195 +1,15 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { masterAdmin, errorMessage, fmtDate, fmtDateTime, toInputDate, SUBSCRIPTION_LABELS } from "../../../services/masterAdminService";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { masterAdmin, errorMessage, fmtDate, fmtDateTime, SUBSCRIPTION_LABELS, STAGE_LABELS } from "../../../services/masterAdminService";
 import { masterSupport } from "../../../services/supportService";
-import CompanyProfileFields, { EMPTY_PROFILE, toBody, validateProfile } from "./CompanyProfileFields";
+import OverviewTab from "./setup/OverviewTab";
+import SubscriptionTab from "./setup/SubscriptionTab";
+import AdminTab from "./setup/AdminTab";
+import DatabaseTab from "./setup/DatabaseTab";
+import { Msg, useReportDirty, confirmAction } from "./setup/common";
 import "../../../styles/masterCenter.css";
 
-export const TABS = ["Overview", "Subscription", "Admin Users", "Activity", "Promotions", "Support Tickets", "Features", "Internal Notes"];
-
-const formFrom = (c) => ({
-  ...EMPTY_PROFILE,
-  ...Object.fromEntries(Object.keys(EMPTY_PROFILE).map((k) => [k, k === "isTrial" ? !!c.isTrial : ["subscriptionStart", "expiryDate", "trialEndsAt"].includes(k) ? toInputDate(c[k]) : c[k] ?? ""])),
-});
-
-const Msg = ({ msg }) => (msg ? <p className={msg.type === "error" ? "mc-error" : "mc-ok"} role={msg.type === "error" ? "alert" : "status"}>{msg.text}</p> : null);
-
-// ---------------------------------------------------------------- tabs
-const Overview = ({ company, reload }) => {
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState(() => formFrom(company));
-  const [errors, setErrors] = useState({});
-  const [msg, setMsg] = useState(null);
-
-  const save = async () => {
-    const problems = validateProfile(form);
-    setErrors(problems);
-    if (Object.keys(problems).length) return;
-    const { plan, subscriptionStart, expiryDate, userLimit, storageLimitMb, isTrial, trialEndsAt, ...profile } = toBody(form);
-    try {
-      await masterAdmin.updateCompany(company.id, profile);
-      setEditing(false);
-      setMsg({ type: "ok", text: "Company updated." });
-      reload();
-    } catch (e) {
-      setMsg({ type: "error", text: errorMessage(e, "Could not update the company.") });
-    }
-  };
-  const setStatus = async (status) => {
-    try {
-      await masterAdmin.updateCompany(company.id, { status });
-      setMsg({ type: "ok", text: status === "active" ? "Company activated." : "Company suspended." });
-      reload();
-    } catch (e) {
-      setMsg({ type: "error", text: errorMessage(e, "Could not change the status.") });
-    }
-  };
-
-  const rows = [
-    ["Legal name", company.legalName], ["Display name", company.displayName], ["Company code", company.code], ["Industry", company.industry],
-    ["Website", company.website], ["Contact person", company.contactPerson], ["Contact email", company.contactEmail], ["Contact phone", company.contactPhone],
-    ["Account manager", company.accountManager], ["Location", [company.city, company.state, company.country].filter(Boolean).join(", ")],
-    ["Address", company.address], ["Description", company.description], ["Registered", fmtDate(company.createdAt)],
-    ["Admin account", company.adminClaimedAt ? `Registered ${fmtDate(company.adminClaimedAt)}` : "Not registered yet"],
-  ];
-  return (
-    <div className="mc-card">
-      <Msg msg={msg} />
-      {editing ? (
-        <>
-          <CompanyProfileFields values={form} onChange={setForm} errors={errors} withSubscription={false} />
-          <div className="mc-actions">
-            <button type="button" className="mc-btn" onClick={() => { setEditing(false); setForm(formFrom(company)); setErrors({}); }}>Cancel</button>
-            <button type="button" className="mc-btn primary" onClick={save}>Save changes</button>
-          </div>
-        </>
-      ) : (
-        <>
-          <dl className="mc-dl">{rows.map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v || "—"}</dd></div>))}</dl>
-          <div className="mc-actions">
-            <button type="button" className="mc-btn" onClick={() => setEditing(true)}>Edit company</button>
-            {company.status === "active"
-              ? <button type="button" className="mc-btn danger" onClick={() => setStatus("paused")}>Suspend company</button>
-              : <button type="button" className="mc-btn primary" onClick={() => setStatus("active")}>Activate company</button>}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-const Subscription = ({ company, reload }) => {
-  const [form, setForm] = useState(() => formFrom(company));
-  const [errors, setErrors] = useState({});
-  const [msg, setMsg] = useState(null);
-  const save = async () => {
-    const problems = validateProfile(form);
-    setErrors(problems);
-    if (Object.keys(problems).length) return;
-    const b = toBody(form);
-    try {
-      await masterAdmin.updateSubscription(company.id, { plan: b.plan, subscriptionStart: b.subscriptionStart, expiryDate: b.expiryDate, userLimit: b.userLimit, storageLimitMb: b.storageLimitMb, isTrial: b.isTrial, trialEndsAt: b.trialEndsAt });
-      setMsg({ type: "ok", text: "Subscription updated. Tenant data and database connection are unchanged." });
-      reload();
-    } catch (e) {
-      setMsg({ type: "error", text: errorMessage(e, "Could not update the subscription.") });
-    }
-  };
-  const renew = async (months) => {
-    try {
-      await masterAdmin.renew(company.id, months);
-      setMsg({ type: "ok", text: `Renewed for ${months} month(s).` });
-      reload();
-    } catch (e) {
-      setMsg({ type: "error", text: errorMessage(e, "Could not renew.") });
-    }
-  };
-  const remind = async () => {
-    try {
-      const r = await masterAdmin.expiryReminder(company.id);
-      setMsg({ type: "ok", text: r.message });
-    } catch (e) {
-      setMsg({ type: "error", text: errorMessage(e, "Could not send the reminder.") });
-    }
-  };
-  return (
-    <div className="mc-card">
-      <p>Status: <span className={`mc-badge ${company.subscriptionStatus}`}>{SUBSCRIPTION_LABELS[company.subscriptionStatus]}</span> · Expires {fmtDate(company.expiryDate)}</p>
-      <Msg msg={msg} />
-      <div className="mc-form" style={{ margin: "12px 0" }}>
-        {[["plan", "Subscription plan", "text"], ["subscriptionStart", "Subscription start", "date"], ["expiryDate", "Subscription expiry", "date"], ["userLimit", "Employee / user limit", "number"], ["storageLimitMb", "Storage limit (MB)", "number"]].map(([k, l, t]) => (
-          <div className="mc-field" key={k}>
-            <label htmlFor={`sub-${k}`}>{l}</label>
-            <input id={`sub-${k}`} type={t} className="mc-input" value={form[k] ?? ""} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
-            {errors[k] && <span className="mc-error">{errors[k]}</span>}
-          </div>
-        ))}
-        <div className="mc-field">
-          <label htmlFor="sub-trial">Trial</label>
-          <label className="mc-switch-row" style={{ border: 0, padding: 0 }}><input id="sub-trial" type="checkbox" checked={!!form.isTrial} onChange={(e) => setForm({ ...form, isTrial: e.target.checked })} /> Trial account</label>
-        </div>
-        {form.isTrial && (
-          <div className="mc-field">
-            <label htmlFor="sub-trialends">Trial ends</label>
-            <input id="sub-trialends" type="date" className="mc-input" value={form.trialEndsAt || ""} onChange={(e) => setForm({ ...form, trialEndsAt: e.target.value })} />
-          </div>
-        )}
-      </div>
-      <div className="mc-actions" style={{ justifyContent: "flex-start" }}>
-        <button type="button" className="mc-btn primary" onClick={save}>Save subscription</button>
-        {[1, 3, 6, 12].map((m) => <button key={m} type="button" className="mc-btn" onClick={() => renew(m)}>Renew +{m} mo</button>)}
-        <button type="button" className="mc-btn" onClick={remind}>Send expiry reminder</button>
-      </div>
-    </div>
-  );
-};
-
-const AdminUsers = ({ company }) => {
-  const [admins, setAdmins] = useState(null);
-  const [pw, setPw] = useState({});
-  const [msg, setMsg] = useState(null);
-  useEffect(() => {
-    masterAdmin.admins(company.id).then((r) => setAdmins(r.admins)).catch((e) => setMsg({ type: "error", text: errorMessage(e, "Could not load admins.") }));
-  }, [company.id]);
-  const reset = async (id) => {
-    if ((pw[id] || "").length < 8) return setMsg({ type: "error", text: "Password must be at least 8 characters." });
-    try {
-      await masterAdmin.resetAdminPassword(company.id, id, pw[id]);
-      setPw({ ...pw, [id]: "" });
-      setMsg({ type: "ok", text: "Admin password updated. Share it securely." });
-    } catch (e) {
-      setMsg({ type: "error", text: errorMessage(e, "Could not reset the password.") });
-    }
-  };
-  return (
-    <div className="mc-card">
-      <Msg msg={msg} />
-      {admins === null && !msg && <div className="mc-skel" aria-busy="true" />}
-      {admins && admins.length === 0 && <p className="mc-empty">No admin has registered yet. Generate an admin token from the Companies list.</p>}
-      {admins && admins.length > 0 && (
-        <div className="mc-table-wrap">
-          <table className="mc-table">
-            <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Access</th><th>Reset password</th></tr></thead>
-            <tbody>
-              {admins.map((a) => (
-                <tr key={a.id}>
-                  <td>{[a.firstname, a.lastname].filter(Boolean).join(" ") || "—"}</td>
-                  <td>{a.username}</td>
-                  <td>{a.email}</td>
-                  <td>{a.can_login ? "Enabled" : "Disabled"}</td>
-                  <td>
-                    <input className="mc-input" type="password" autoComplete="new-password" aria-label={`New password for ${a.username}`} value={pw[a.id] || ""} onChange={(e) => setPw({ ...pw, [a.id]: e.target.value })} />{" "}
-                    <button type="button" className="mc-btn" onClick={() => reset(a.id)}>Reset</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-};
+export const TABS = ["Overview", "Subscription", "Admin Users", "Activity", "Promotions", "Support Tickets", "Features", "Internal Notes", "Database Configuration"];
 
 const Activity = ({ company }) => {
   const [rows, setRows] = useState(null);
@@ -263,8 +83,9 @@ export const Features = ({ company }) => {
   );
 };
 
-const Notes = ({ company, reload }) => {
+const Notes = ({ company, reload, setDirty }) => {
   const [text, setText] = useState(company.internalNotes || "");
+  useReportDirty(text !== (company.internalNotes || ""), setDirty);
   const [msg, setMsg] = useState(null);
   const save = async () => {
     try {
@@ -286,13 +107,22 @@ const Notes = ({ company, reload }) => {
 };
 
 // ---------------------------------------------------------------- page
+// One workspace for both setting up a NEW company (route /master/companies/new) and managing an
+// existing one (/master/companies/:id). A new company only exists after "Save draft"; until then
+// only the Overview tab is available.
 const CompanyDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const isNew = !id;
   const [company, setCompany] = useState(null);
   const [tab, setTab] = useState("Overview");
   const [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
 
   const load = useCallback(async () => {
+    if (!id) return;
     try {
       setCompany(await masterAdmin.company(id));
       setError("");
@@ -302,36 +132,64 @@ const CompanyDetails = () => {
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
-  if (error) return <div className="mc-card"><p className="mc-error" role="alert">{error}</p><Link className="mc-link" to="/master/companies">← Back to companies</Link></div>;
-  if (!company) return <div className="mc-card"><div className="mc-skel" aria-busy="true" /></div>;
+  // Warn before closing / reloading the browser tab with unsaved edits.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
+  const leaveOk = () => !dirtyRef.current || confirmAction("You have unsaved changes. Discard them?");
+  const goTab = (t) => {
+    if (t === tab || !leaveOk()) return;
+    setDirty(false);
+    setTab(t);
+  };
+  const onCreated = (newId) => navigate(`/master/companies/${newId}`, { replace: true });
+
+  if (error) return <div className="mc-card"><p className="mc-error" role="alert">{error}</p><Link className="mc-link" to="/master/companies">← Back to companies</Link></div>;
+  if (!isNew && !company) return <div className="mc-card"><div className="mc-skel" aria-busy="true" /></div>;
+
+  const shared = { company: isNew ? null : company, reload: load, setDirty };
   const body = {
-    Overview: <Overview key={company.updatedAt} company={company} reload={load} />,
-    Subscription: <Subscription key={company.updatedAt} company={company} reload={load} />,
-    "Admin Users": <AdminUsers company={company} />,
+    Overview: <OverviewTab key={isNew ? "new" : company.updatedAt} {...shared} goTab={goTab} onCreated={onCreated} />,
+    Subscription: <SubscriptionTab key={company?.updatedAt} {...shared} />,
+    "Admin Users": <AdminTab {...shared} />,
     Activity: <Activity company={company} />,
     Promotions: <CompanyPromotions company={company} />,
     "Support Tickets": <Tickets company={company} />,
     Features: <Features company={company} />,
-    "Internal Notes": <Notes key={company.updatedAt} company={company} reload={load} />,
+    "Internal Notes": <Notes key={company?.updatedAt} {...shared} />,
+    "Database Configuration": <DatabaseTab {...shared} />,
   }[tab];
 
+  const stage = company?.setup?.stage;
   return (
     <div>
       <div className="mc-head">
         <div>
-          <Link className="mc-link" to="/master/companies">← Companies</Link>
-          <h1 className="mc-title">{company.displayName || company.name}</h1>
+          <Link className="mc-link" to="/master/companies" onClick={(e) => { if (!leaveOk()) e.preventDefault(); }}>← Companies</Link>
+          <h1 className="mc-title">{isNew ? "New company" : company.displayName || company.name}</h1>
           <p className="mc-sub">
-            {company.code} · <span className={`mc-badge ${company.subscriptionStatus}`}>{SUBSCRIPTION_LABELS[company.subscriptionStatus]}</span>
-            {company.status !== "active" && <> · <span className="mc-badge suspended">{company.status}</span></>}
+            {isNew ? "Enter the company details, then save the draft to continue setup." : (
+              <>
+                {company.code} · <span className={`mc-badge stage-${stage}`}>{STAGE_LABELS[stage] || stage}</span>
+                {company.provisioning !== "draft" && <> · <span className={`mc-badge ${company.subscriptionStatus}`}>{SUBSCRIPTION_LABELS[company.subscriptionStatus]}</span></>}
+              </>
+            )}
+            {dirty && <span className="mc-unsaved" role="status"> · Unsaved changes</span>}
           </p>
         </div>
       </div>
-      <div className="mc-tabs" role="tablist">
-        {TABS.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} className={`mc-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>{t}</button>
-        ))}
+      <div className="mc-tabs" role="tablist" aria-label="Company sections">
+        {TABS.map((t) => {
+          const locked = isNew && t !== "Overview";
+          return (
+            <button key={t} type="button" role="tab" aria-selected={tab === t} aria-disabled={locked || undefined} disabled={locked}
+              title={locked ? "Save the draft first" : undefined} className={`mc-tab${tab === t ? " active" : ""}`} onClick={() => goTab(t)}>{t}</button>
+          );
+        })}
       </div>
       {body}
     </div>

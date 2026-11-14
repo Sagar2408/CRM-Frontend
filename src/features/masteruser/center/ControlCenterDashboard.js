@@ -59,7 +59,7 @@ const ControlCenterDashboard = () => {
           <p className="mc-sub">Overview of every company on the platform.</p>
         </div>
         <div className="mc-quick" aria-label="Quick actions">
-          <button type="button" className="mc-btn primary" onClick={() => navigate("/master/companies?add=1")}>+ Add company</button>
+          <button type="button" className="mc-btn primary" onClick={() => navigate("/master/companies/new")}>+ Add company</button>
           <button type="button" className="mc-btn" onClick={() => navigate("/master/promotions?new=1")}>New promotion</button>
           <button type="button" className="mc-btn" onClick={() => navigate("/master/support")}>Support queue</button>
         </div>

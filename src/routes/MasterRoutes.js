@@ -14,6 +14,7 @@ const MasterRoutes = () => (
       <Route index element={<Navigate to="dashboard" replace />} />
       <Route path="dashboard" element={<ControlCenterDashboard />} />
       <Route path="companies" element={<CompaniesPage />} />
+      <Route path="companies/new" element={<CompanyDetails />} />
       <Route path="companies/:id" element={<CompanyDetails />} />
       <Route path="promotions" element={<PromotionsPage />} />
       <Route path="support" element={<SupportQueries />} />

@@ -1,23 +1,19 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { masterAdmin, errorMessage, fmtDate, SUBSCRIPTION_LABELS } from "../../../services/masterAdminService";
-import { useCompany } from "../../../context/CompanyContext";
-import AddCompanyModal from "../AddCompanyModal";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { masterAdmin, errorMessage, fmtDate, SUBSCRIPTION_LABELS, STAGE_LABELS } from "../../../services/masterAdminService";
 import "../../../styles/masterCenter.css";
 
 const FILTERS = [["", "All"], ["active", "Active"], ["expiring_soon", "Expiring soon"], ["expired", "Expired"], ["trial", "Trial"], ["suspended", "Suspended"]];
 
 const CompaniesPage = () => {
-  const [params, setParams] = useSearchParams();
-  const { regenerateAdminToken } = useCompany();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [subscription, setSubscription] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ companies: [], total: 0, limit: 20 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showAdd, setShowAdd] = useState(params.get("add") === "1");
-  const [token, setToken] = useState(null);
   const limit = 20;
 
   const load = useCallback(async () => {
@@ -37,7 +33,12 @@ const CompaniesPage = () => {
     return () => clearTimeout(t);
   }, [load, q]);
 
+  useEffect(() => {
+    if (params.get("add") === "1") navigate("/master/companies/new", { replace: true });
+  }, [params, navigate]);
+
   const toggle = async (c) => {
+    if (c.status === "active" && !window.confirm(`Suspend ${c.name}? Its users will lose access immediately.`)) return;
     try {
       await masterAdmin.updateCompany(c.id, { status: c.status === "active" ? "paused" : "active" });
       load();
@@ -46,20 +47,7 @@ const CompaniesPage = () => {
     }
   };
 
-  const genToken = async (c) => {
-    try {
-      const res = await regenerateAdminToken(c.id);
-      setToken({ name: c.name, value: res.adminSignupToken, expiresAt: res.adminSignupTokenExpiresAt });
-    } catch (e) {
-      setError(e?.message || e?.error || "Could not generate a token.");
-    }
-  };
-
   const pages = Math.max(1, Math.ceil(data.total / limit));
-  const closeAdd = () => {
-    setShowAdd(false);
-    if (params.get("add")) setParams({});
-  };
 
   return (
     <div>
@@ -68,7 +56,7 @@ const CompaniesPage = () => {
           <h1 className="mc-title">Companies</h1>
           <p className="mc-sub">Create, review and manage every tenant company.</p>
         </div>
-        <button type="button" className="mc-btn primary" onClick={() => setShowAdd(true)}>+ Add company</button>
+        <button type="button" className="mc-btn primary" onClick={() => navigate("/master/companies/new")}>+ Add company</button>
       </div>
 
       <div className="mc-card">
@@ -83,11 +71,11 @@ const CompaniesPage = () => {
         <div className="mc-table-wrap">
           <table className="mc-table">
             <thead>
-              <tr><th>Company</th><th>Code</th><th>Plan</th><th>Subscription</th><th>Expiry</th><th>Admin</th><th>Registered</th><th>Active</th></tr>
+              <tr><th>Company</th><th>Code</th><th>Plan</th><th>Setup</th><th>Subscription</th><th>Expiry</th><th>Admin</th><th>Registered</th><th>Action</th></tr>
             </thead>
             <tbody>
               {!loading && data.companies.length === 0 && (
-                <tr><td colSpan={8} className="mc-empty">No companies match these filters.</td></tr>
+                <tr><td colSpan={9} className="mc-empty">No companies match these filters.</td></tr>
               )}
               {data.companies.map((c) => (
                 <tr key={c.id} data-testid={`company-row-${c.code}`}>
@@ -97,16 +85,19 @@ const CompaniesPage = () => {
                   </td>
                   <td>{c.code}</td>
                   <td>{c.plan || "—"}</td>
+                  <td><span className={`mc-badge stage-${c.setup?.stage || "active"}`}>{STAGE_LABELS[c.setup?.stage || "active"]}</span></td>
                   <td><span className={`mc-badge ${c.subscriptionStatus}`}>{SUBSCRIPTION_LABELS[c.subscriptionStatus]}</span></td>
                   <td>{fmtDate(c.expiryDate)}</td>
-                  <td>
-                    {c.adminClaimedAt ? "Registered" : <button type="button" className="mc-link" onClick={() => genToken(c)}>Generate token</button>}
-                  </td>
+                  <td>{c.adminClaimedAt ? "Registered" : "Not registered"}</td>
                   <td>{fmtDate(c.createdAt)}</td>
                   <td>
-                    <button type="button" className={`mc-btn${c.status === "active" ? "" : " danger"}`} onClick={() => toggle(c)} aria-label={`${c.status === "active" ? "Suspend" : "Activate"} ${c.name}`}>
-                      {c.status === "active" ? "Suspend" : "Activate"}
-                    </button>
+                    {c.provisioning === "draft" ? (
+                      <Link className="mc-btn" to={`/master/companies/${c.id}`}>Continue setup</Link>
+                    ) : (
+                      <button type="button" className={`mc-btn${c.status === "active" ? "" : " danger"}`} onClick={() => toggle(c)} aria-label={`${c.status === "active" ? "Suspend" : "Activate"} ${c.name}`}>
+                        {c.status === "active" ? "Suspend" : "Activate"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -120,19 +111,6 @@ const CompaniesPage = () => {
         </div>
       </div>
 
-      {showAdd && <AddCompanyModal onClose={closeAdd} onCreated={load} />}
-
-      {token && (
-        <div className="mc-modal-backdrop" role="dialog" aria-modal="true" aria-label="Admin registration token">
-          <div className="mc-modal">
-            <h3>New Admin registration token</h3>
-            <p className="mc-muted">For "{token.name}". Shown only once; replaces any previous unused token.</p>
-            <input className="mc-input" style={{ width: "100%" }} readOnly value={token.value} />
-            {token.expiresAt && <p className="mc-muted">Expires {new Date(token.expiresAt).toLocaleString()}</p>}
-            <div className="mc-actions"><button type="button" className="mc-btn primary" onClick={() => setToken(null)}>Done</button></div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

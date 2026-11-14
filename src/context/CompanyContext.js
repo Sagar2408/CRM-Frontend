@@ -1,11 +1,9 @@
 import React, { createContext, useContext, useEffect, useState,useCallback } from "react";
 import {
-  createCompany,
   getCompaniesForMaster,
   pauseCompanyById,
   resumeCompanyById,
   setCompanyExpiry,
-  regenerateAdminSignupToken,
 } from "../services/companyService";
 
 // 1. Create Context
@@ -41,24 +39,6 @@ export const CompanyProvider = ({ children }) => {
   }, [fetchCompanies]);
 
 
-  // -------------------------
-  // Add a new company
-  // -------------------------
-  const addCompany = async (companyData) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await createCompany(companyData);
-      setCompanies((prev) => [...prev, res.company]);
-      return res;
-    } catch (err) {
-      setError(err?.error || "Failed to create company");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
  // -------------------------
   // Set Expiry Date for a Company
   // -------------------------
@@ -99,18 +79,6 @@ export const CompanyProvider = ({ children }) => {
   };
 
   // -------------------------
-  // Regenerate a company's one-time Admin signup token
-  // -------------------------
-  const regenerateAdminToken = async (companyId) => {
-    try {
-      const res = await regenerateAdminSignupToken(companyId);
-      await fetchCompanies();
-      return res;
-    } catch (err) {
-      throw err;
-    }
-  };
-  // -------------------------
   // Provider Return
   // -------------------------
   return (
@@ -120,11 +88,9 @@ export const CompanyProvider = ({ children }) => {
         loading,
         error,
         fetchCompanies,
-        addCompany,
         updateCompanyExpiry,
         pauseCompany,
         resumeCompany,
-        regenerateAdminToken,
       }}
     >
       {children}
