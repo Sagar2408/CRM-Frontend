@@ -112,7 +112,7 @@ useEffect(() => {
   }
 />
 <Route path="/process/*" element={<ProcessPrivateRoute><ProcessRoutes /></ProcessPrivateRoute>} /> 
-<Route path="/processperson/*" element={<ProcessDashboardRoutes />} />      
+<Route path="/processperson/*" element={<ProcessPrivateRoute><ProcessDashboardRoutes /></ProcessPrivateRoute>} />      
 <Route path="/customer/*" element={ <CustomerPrivateRoute>
             <ClientCustomerRoutes />
           </CustomerPrivateRoute>} />

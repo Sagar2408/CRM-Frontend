@@ -104,19 +104,42 @@ const signup = async (fullName, email, password, userType, companyCode) => {
 // ---------------------------------------
 // Logout Handler
 // ---------------------------------------
+  // Order matters: the work session must be closed while the access token is still
+  // valid (logout revokes it), then the server-side session is revoked, and only then
+  // is local state cleared. Every step is bounded: a failed call never leaves the
+  // user stuck on a protected page - the local session always ends and we always
+  // land on /login.
   const logout = async () => {
+    let stored = {};
     try {
-      const userType = user?.type || "customer";
+      stored = JSON.parse(localStorage.getItem("user") || "{}") || {};
+    } catch (_) {
+      stored = {};
+    }
+    const userType = user?.type || stored.type || localStorage.getItem("userType") || "customer";
+    const userId = user?.id || stored.id;
+    try {
+      if (userType === "processperson" && userId) {
+        try {
+          await stopWork(userId);
+        } catch (error) {
+          console.error("Could not close the work session:", error.message);
+        }
+      }
       await logoutUser(userType);
-      await stopWork(user?.id)
-       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error.message);
     } finally {
       setUser(null);
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-       localStorage.removeItem("workStartTime");
+      ["user", "token", "userType", "workStartTime", "breakStartTime", "pausedBreakSeconds"].forEach((k) =>
+        localStorage.removeItem(k)
+      );
+      try {
+        sessionStorage.removeItem("navStack");
+      } catch (_) {
+        /* ignore */
+      }
+      navigate("/login", { replace: true });
     }
   };
 

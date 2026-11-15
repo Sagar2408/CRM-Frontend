@@ -8,6 +8,7 @@ import useCopyNotification from "../../hooks/useCopyNotification";
 import "react-time-picker/dist/TimePicker.css";
 import "react-clock/dist/Clock.css";
 import SendEmailProcess from '../process-client/SendEmailProcess';
+import RejectionKindPicker from '../process-client/RejectionKindPicker';
 
 function convertTo24HrFormat(timeStr) {
   const dateObj = new Date(`1970-01-01 ${timeStr}`);
@@ -55,6 +56,7 @@ const client = useMemo(() => location.state?.client || {}, [location.state?.clie
   const [followUpType, setFollowUpType] = useState("");
   const [interactionRating, setInteractionRating] = useState("");
   const [reasonDesc, setReasonDesc] = useState("");
+  const [rejectionKind, setRejectionKind] = useState("");
   const [interactionDate, setInteractionDate] = useState(todayStr);
   const [timeOnly, setTimeOnly] = useState(currentTime12Hour);
   const [ampm, setAmPm] = useState(ampmValue);
@@ -440,10 +442,12 @@ useEffect(() => {
       }
       
       else if (followUpType === "rejected") {
-      
+      if (!rejectionKind) {
+        return Swal.fire({ icon: "warning", title: "Select a reason type", text: "Choose whether the client withdrew or the application was rejected internally." });
+      }
       const payload={
-      //  follow_up_id: clientInfo.followUpId || clientInfo.id, 
-        connect_via: capitalize(contactMethod), 
+        rejection_kind: rejectionKind,
+        connect_via: capitalize(contactMethod),
         follow_up_type: followUpType, 
         interaction_rating: capitalize(interactionRating), 
         comments: reasonDesc, 
@@ -1292,6 +1296,8 @@ console.log(clientInfo,"id");
                   </button>
                 )}
                  {followUpType === "rejected" && (
+                  <>
+                  <RejectionKindPicker value={rejectionKind} onChange={setRejectionKind} />
                   <button
                     onClick={handleFollowUpAction}
                     className="crm-button flw-close-btn"
@@ -1307,6 +1313,7 @@ console.log(clientInfo,"id");
                   >
                    Rejected Leads
                   </button>
+                  </>
                 )}
 
                 {followUpType === "meeting" && (

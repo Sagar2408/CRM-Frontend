@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Swal from "sweetalert2";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faChevronDown,
+  faChevronLeft,
+  faChevronRight,
+  faSearch,
   faCalendarAlt,
   faClock as farClockRegular,
   faEnvelope,
@@ -16,8 +18,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { useProcessService } from "../../context/ProcessServiceContext";
 import ProcessMeetingItem from "./ProcessMeetingItem";
+import RejectionKindPicker from "./RejectionKindPicker";
+import "../../styles/processModern.css";
 import LoadingSpinner from "../spinner/LoadingSpinner";
-import { isSameDay } from "../../utils/helpers";
 import {  useNavigate } from "react-router-dom";
 import "../../styles/schedule.css";
 
@@ -26,8 +29,6 @@ const ProcessScheduleMeeting = () => {
     getProcessPersonMeetings,
     getProcessFollowup,
     processCreateFollowUp,
-    fetchCustomers,
-    setCustomers,
     createMeetingApi,
     createFinalStage,
     createRejected
@@ -38,9 +39,12 @@ const ProcessScheduleMeeting = () => {
 
   
 
-  const [meetings, setMeetings] = useState([]);
+  const [allMeetings, setAllMeetings] = useState([]);
   const [activeFilter, setActiveFilter] = useState("today");
+  const [anchor, setAnchor] = useState(() => new Date());
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rejectionKind, setRejectionKind] = useState("");
 
   const [selectedMeetingForFollowUp, setSelectedMeetingForFollowUp] = useState(null);
   const [selectedMeetingForHistory, setSelectedMeetingForHistory] = useState(null);
@@ -55,88 +59,85 @@ const ProcessScheduleMeeting = () => {
   const [docName, setDocName] = useState("");
 
 
- const loadMeetingCustomers = useCallback(async () => {
-   try {
-      
-     const data = await fetchCustomers();
-     if (Array.isArray(data)) {
-       const mappedClients = data.filter((client) => client.status === "rejected");
-       setCustomers(mappedClients);
-     }
-   } catch (err) {
-     console.error("❌ Error fetching clients:", err);
-   }
- }, [fetchCustomers, setCustomers]);
- 
- // useEffect with dependency
- useEffect(() => {
-   loadMeetingCustomers();
- }, [loadMeetingCustomers]);
-
   function convertTo24HrFormat(timeStr) {
   const dateObj = new Date(`1970-01-01 ${timeStr}`);
   const hours = dateObj.getHours().toString().padStart(2, "0");
   const minutes = dateObj.getMinutes().toString().padStart(2, "0");
   return `${hours}:${minutes}:00`;
 }
-const[meetingData,setMeetingData]=useState();
+// Only this Process Person's own meetings come back from the API (scoped server-side by
+// the JWT identity); one meeting per lead, and only leads currently in "meeting" status.
 const loadMeetings = useCallback(async () => {
   setLoading(true);
   try {
     const response = await getProcessPersonMeetings();
-
-    setMeetingData(response); // if you still want to store full data
-
-    const allMeetings = response.filter(
-      (m) => m?.freshLead?.CustomerStatus?.status === "meeting"
-    );
-     const uniqueMeetingsMap = new Map();
-    allMeetings.forEach((meeting) => {
-      const leadId = meeting.fresh_lead_id;
-      if (!uniqueMeetingsMap.has(leadId)) {
-        uniqueMeetingsMap.set(leadId, meeting);
-      }
-    });
-
-    const uniqueMeetings = Array.from(uniqueMeetingsMap.values());
-    const today = new Date();
-      const filtered = uniqueMeetings.filter((m) => {
-        const start = new Date(m.startTime);
-        if (activeFilter === "today") return isSameDay(start, today);
-        if (activeFilter === "week") {
-          const week = new Date(today);
-          week.setDate(week.getDate() + 7);
-          return start >= today && start < week;
-        }
-        if (activeFilter === "month") {
-          const month = new Date(today);
-          month.setDate(month.getDate() + 30);
-          return start >= today && start < month;
-        }
-        return true;
+    const list = Array.isArray(response) ? response : [];
+    const unique = new Map();
+    list
+      .filter((m) => m?.freshLead?.CustomerStatus?.status === "meeting")
+      .forEach((m) => {
+        if (!unique.has(m.fresh_lead_id)) unique.set(m.fresh_lead_id, m);
       });
-    setMeetings(filtered);
+    setAllMeetings(Array.from(unique.values()));
   } catch (err) {
     console.error("Failed to fetch process meetings", err);
   } finally {
     setLoading(false);
   }
-},[getProcessPersonMeetings,activeFilter])
+}, [getProcessPersonMeetings]);
 
-    useEffect(() => {
-    loadMeetings();
-  }, [activeFilter,loadMeetings]);
-
-  
 useEffect(() => {
-  if (meetingData && Array.isArray(meetingData)) {
-    const filtered = meetingData.filter(
-      (m) => m.freshLead?.CustomerStatus?.status === "meeting"
-    );
-    setMeetings(filtered);
+  loadMeetings();
+}, [loadMeetings]);
+
+// View window for the active tab, relative to the date being browsed.
+const range = useMemo(() => {
+  const start = new Date(anchor);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  if (activeFilter === "today") {
+    end.setDate(end.getDate() + 1);
+  } else if (activeFilter === "week") {
+    start.setDate(start.getDate() - start.getDay()); // Sunday
+    end.setTime(start.getTime());
+    end.setDate(end.getDate() + 7);
+  } else {
+    start.setDate(1);
+    end.setTime(start.getTime());
+    end.setMonth(end.getMonth() + 1);
   }
-}, [meetingData]);
-console.log(meetings);
+  return { start, end };
+}, [anchor, activeFilter]);
+
+const meetings = useMemo(() => {
+  const q = query.trim().toLowerCase();
+  return allMeetings
+    .filter((m) => {
+      const t = new Date(m.startTime);
+      if (Number.isNaN(+t) || t < range.start || t >= range.end) return false;
+      if (!q) return true;
+      return [m.clientName, m.clientEmail, m.clientPhone, m.reasonForFollowup].some((v) => String(v || "").toLowerCase().includes(q));
+    })
+    .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+}, [allMeetings, range, query]);
+
+const shift = (dir) => {
+  const next = new Date(anchor);
+  if (activeFilter === "today") next.setDate(next.getDate() + dir);
+  else if (activeFilter === "week") next.setDate(next.getDate() + 7 * dir);
+  else next.setMonth(next.getMonth() + dir);
+  setAnchor(next);
+};
+
+const rangeLabel = () => {
+  const opt = { day: "numeric", month: "short", year: "numeric" };
+  if (activeFilter === "today") return range.start.toLocaleDateString(undefined, { weekday: "long", ...opt });
+  if (activeFilter === "month") return range.start.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const last = new Date(range.end);
+  last.setDate(last.getDate() - 1);
+  return range.start.toLocaleDateString(undefined, opt) + " - " + last.toLocaleDateString(undefined, opt);
+};
+
   const handleShowHistory = async (meeting) => {
     setSelectedMeetingForHistory(meeting);
     setLoading(true);
@@ -315,8 +316,11 @@ console.log(meetings);
         }
         
         else if (followUpType === "rejected") {
-        
+        if (!rejectionKind) {
+          return Swal.fire({ icon: "warning", title: "Select a reason type", text: "Choose whether the client withdrew or the application was rejected internally." });
+        }
         const payload={
+          rejection_kind: rejectionKind,
         //  follow_up_id: clientInfo.followUpId || clientInfo.id, 
           connect_via:contactMethod, 
           follow_up_type: followUpType, 
@@ -354,28 +358,29 @@ console.log(meetings);
       {loading && <LoadingSpinner text="Loading Process Meetings..." />}
 
       <div className="task-management-wrapper">
-        <div className="content-header">
-          <div className="header-top">
-            <div className="header-left">
-              <h2 className="meetings-title">Process Person Meetings</h2>
-              <div className="date-section">
-                <p className="day-name">{new Date().toLocaleDateString(undefined, { weekday: "long" })}</p>
-                <p className="current-date">{new Date().toLocaleDateString(undefined, { day: "numeric", month: "long" })}</p>
-                <FontAwesomeIcon icon={faChevronDown} className="date-dropdown" />
-              </div>
-            </div>
-            <div className="filter-controls">
-              {["today", "week", "month"].map((key) => (
-                <button
-                  key={key}
-                  className={activeFilter === key ? "active-filter" : ""}
-                  onClick={() => setActiveFilter(key)}
-                  disabled={loading}
-                >
-                  {key.charAt(0).toUpperCase() + key.slice(1)}
-                </button>
-              ))}
-            </div>
+        <header className="pp-page__head">
+          <div>
+            <h1 className="pp-page__title">Scheduled Meetings</h1>
+            <p className="pp-page__sub">{loading ? "Loading…" : meetings.length + " meeting" + (meetings.length === 1 ? "" : "s") + " · " + rangeLabel()}</p>
+          </div>
+        </header>
+
+        <div className="pp-toolbar">
+          <div className="pp-chips" role="group" aria-label="Meeting view">
+            {["today", "week", "month"].map((key) => (
+              <button key={key} type="button" className={"pp-chip " + (activeFilter === key ? "is-active" : "")} aria-pressed={activeFilter === key} onClick={() => setActiveFilter(key)}>
+                {key.charAt(0).toUpperCase() + key.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="pp-datenav">
+            <button type="button" className="pp-btn" onClick={() => shift(-1)} aria-label="Previous"><FontAwesomeIcon icon={faChevronLeft} /></button>
+            <button type="button" className="pp-btn" onClick={() => setAnchor(new Date())}>Today</button>
+            <button type="button" className="pp-btn" onClick={() => shift(1)} aria-label="Next"><FontAwesomeIcon icon={faChevronRight} /></button>
+          </div>
+          <div className="pp-search">
+            <FontAwesomeIcon icon={faSearch} className="pp-search__icon" />
+            <input type="search" className="pp-search__input" placeholder="Search client, email, phone or reason" aria-label="Search meetings" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
         </div>
 
@@ -390,7 +395,10 @@ console.log(meetings);
               />
             ))
           ) : (
-            <li>No Process Meetings</li>
+            <li className="pp-empty">
+              <h3>{loading ? "Loading meetings…" : "No meetings in this period"}</h3>
+              {!loading && <p>Try another day, week or month, or clear the search.</p>}
+            </li>
           )}
         </ul>
       </div>
@@ -524,6 +532,7 @@ console.log(meetings);
 
               
 
+      {followUpType === "rejected" && <RejectionKindPicker value={rejectionKind} onChange={setRejectionKind} />}
       <div style={{ display: "flex", justifyContent: "flex-end", margin: "20px" }}>
   <button
     onClick={

@@ -1,88 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCoffee } from "@fortawesome/free-solid-svg-icons";
-import {  getActivityStatus,} from "../../services/executiveService";
-import { toast } from "react-toastify";
 import "../../styles/executiveTracker.css";
-import useWorkTimer from "./useLoginTimer";
-import { useBreakTimer } from "../../context/breakTimerContext";
 
-const ProcessActivity = () => {
-  const {
-    breakTimer,
-    isBreakActive,
-    processstartBreak,
-    processstopBreak,
-  } = useBreakTimer();
-
-  const timer = useWorkTimer();
-  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-
-  const [status, setStatus] = useState({
-    onBreak: false,
-    workingTime: 0,
-    breakTime: 0,
-    currentLeadId: "",
-  });
-
-  const [loading, setLoading] = useState(false);
-
-  const fetchActivityStatus = async () => {
-    try {
-      setLoading(true);
-      const data = await getActivityStatus();
-      setStatus((prev) => ({
-        ...prev,
-        onBreak: data.onBreak || false,
-        workingTime: data.workingTime || 0,
-        breakTime: data.breakTime || 0,
-        currentLeadId: data.currentLeadId || "",
-      }));
-    } catch (error) {
-      console.error("Failed to fetch activity status:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (storedUser?.role === "processperson") {
-      fetchActivityStatus();
-
-      const backendInterval = setInterval(fetchActivityStatus, 30000);
-      const uiInterval = setInterval(() => {
-        setStatus((prev) => ({
-          ...prev,
-          workingTime: prev.workingTime + 1,
-          breakTime: prev.onBreak ? prev.breakTime + 1 : prev.breakTime,
-        }));
-      }, 1000);
-
-      return () => {
-        clearInterval(backendInterval);
-        clearInterval(uiInterval);
-      };
-    }
-  }, [storedUser?.role]);
-
-  const toggle = async () => {
-    try {
-      setLoading(true);
-      if (!isBreakActive) {
-        await processstartBreak(storedUser?.id);
-        toast.success("Break started");
-      } else {
-        await processstopBreak(storedUser?.id);
-        toast.success("Break ended");
-      }
-      await fetchActivityStatus();
-    } catch (error) {
-      console.error("Failed to toggle break:", error);
-      toast.error("Failed to update break status");
-    } finally {
-      setLoading(false);
-    }
-  };
+// Process Person activity popover. Pure view over the server-backed work clock that
+// ProcessLayout owns (useProcessWorkClock): same numbers as the header, one source.
+const ProcessActivity = ({ clock }) => {
+  let storedUser = {};
+  try {
+    storedUser = JSON.parse(localStorage.getItem("user") || "{}") || {};
+  } catch (_) {
+    storedUser = {};
+  }
+  const name = storedUser.fullName || "Unknown User";
+  const { loaded, onBreak, workTimer, breakTimer, busy, toggleBreak } = clock || {};
 
   return (
     <div className="activity-tracker-container">
@@ -94,13 +25,11 @@ const ProcessActivity = () => {
         <div className="tracker-content">
           <div className="exec-info">
             <div className="exec-avatar">
-              <span className="initial">
-              {storedUser.fullName.charAt(0).toUpperCase()}
-              </span>
+              <span className="initial">{name.charAt(0).toUpperCase()}</span>
             </div>
             <div className="exec-details">
               <div className="execu-name">
-                <strong>{storedUser.fullName || "Unknown User"}</strong>
+                <strong>{name}</strong>
               </div>
               <div className="exec-id">
                 ID: <span>{storedUser.id || "N/A"}</span>
@@ -109,39 +38,28 @@ const ProcessActivity = () => {
           </div>
 
           <div className="status-badge">
-            <strong>Status:</strong> {isBreakActive ? "Break" : "Working"}
+            <strong>Status:</strong> {!loaded ? "Connecting" : onBreak ? "Break" : "Working"}
           </div>
 
           <div className="time-display">
             <div className="time-block">
               <span className="time-label">Working Time:</span>
-              <span className="time-value">{timer}</span>
+              <span className="time-value">{workTimer || "00:00:00"}</span>
             </div>
 
             <div className="daily-summary">
               <h4 className="summary-text">Today's Summary</h4>
               <ul>
-                <li>Total Break Time: {breakTimer}</li>
-                <li>Working Time So Far: {timer}</li>
+                <li>Total Break Time: {breakTimer || "00:00:00"}</li>
+                <li>Working Time So Far: {workTimer || "00:00:00"}</li>
               </ul>
-            </div>
-
-            <div className="motivation-box">
-              <blockquote>"Small consistent actions lead to big results."</blockquote>
-              <small>- Ad Agency 360 Motivation</small>
             </div>
           </div>
 
           <div className="tracker-actions">
-            <button
-              className={`tracker-btn ${status.onBreak ? "active" : ""}`}
-              onClick={toggle}
-              disabled={loading}
-            >
+            <button className={`tracker-btn ${onBreak ? "active" : ""}`} onClick={toggleBreak} disabled={busy || !loaded}>
               <FontAwesomeIcon icon={faCoffee} style={{ color: "white" }} />
-              <p style={{ color: "white" }}>
-                {isBreakActive ? "End Break" : "Take Break"}
-              </p>
+              <p style={{ color: "white" }}>{onBreak ? "End Break" : "Take Break"}</p>
             </button>
           </div>
         </div>

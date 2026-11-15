@@ -23,7 +23,7 @@ const ProcessFollowUpRoutes = () => {
     <div className="follow-app-container">
       {/* <SidebarandNavbar /> */}
       <div className="follow-main-content">
-        <h2>Client List</h2>
+        <h1 className="pp-page__title" style={{ margin: "4px 4px 12px" }}>Follow-ups</h1>
         <ProcessClientDetails selectedClient={selectedClient} onClose={() => setSelectedClient(null)} />
         <div className="followup-tabs">
           {["All Follow Ups", "Document collection", "Payment follow-up","Visa filing"].map((tab) => (

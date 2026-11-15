@@ -1,138 +1,78 @@
-import React, { useEffect, useState, useContext } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useEffect, useMemo, useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPhone, faPenToSquare } from "@fortawesome/free-solid-svg-icons";
+import { faPhone, faPenToSquare, faClockRotateLeft, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { SearchContext } from "../../context/SearchContext";
-import { useLoading } from "../../context/LoadingContext";
-import LoadingSpinner from "../spinner/LoadingSpinner";
 import { useProcessService } from "../../context/ProcessServiceContext";
+import ExecutiveHistoryModal from "../process-client/ExecutiveHistoryModal";
+import "../../styles/processModern.css";
 
+const FILTER_TYPES = {
+  "Document collection": "document collection",
+  "Payment follow-up": "payment follow-up",
+  "Visa filing": "visa filing",
+};
+
+const STALE_DAYS = 3;
+
+const fmtDate = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !Number.isNaN(+d) ? d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "-";
+};
+
+const daysSince = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !Number.isNaN(+d) ? Math.floor((Date.now() - d.getTime()) / 86400000) : null;
+};
+
+const ratingClass = (r) => ({ aggressive: "pp-badge--pending", calm: "pp-badge--under_review", neutral: "" }[(r || "").toLowerCase()] || "");
+
+// Follow-ups of the signed-in Process Person's assigned clients (status "under review").
+// The API already scopes the list to Customer.process_person_id; nothing here can
+// edit another employee's records - "Update" opens the Process Person's own follow-up form
+// and "Executive history" is read-only.
 const ProcessClientTable = ({ filter = "All Follow Ups" }) => {
-  const [activePopoverIndex, setActivePopoverIndex] = useState(null);
-  const [tableHeight, setTableHeight] = useState("500px");
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [lastFollowups, setLastFollowups] = useState([]);
-
   const navigate = useNavigate();
-  const location = useLocation();
   const { searchQuery, setActivePage } = useContext(SearchContext);
-  const { isLoading, loadingText } = useLoading();
-  const {
-    getProcessAllFollowup,
-    fetchCustomers,
-    customers,
-    setCustomers,
-    getProcessFollowup,
-  } = useProcessService();
+  const { fetchCustomers, customers } = useProcessService();
 
-  const isFollowUpOld = (followUpDate) => {
-    if (!followUpDate) return false;
-    const today = new Date();
-    const followDate = new Date(followUpDate);
-    const diffTime = Math.abs(today - followDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays >= 3;
-  };
-
-  useEffect(() => {
-    const fetchFollowups = async () => {
-      try {
-        await getProcessAllFollowup();
-      } catch (err) {
-        console.error("❌ Failed to load follow-ups:", err.message);
-      }
-    };
-
-    fetchFollowups();
-  }, [getProcessAllFollowup]);
-
-  useEffect(() => {
-    fetchCustomers()
-      .then((data) => {
-        if (data && Array.isArray(data)) {
-          const mappedClients = data.filter(
-            (client) => client.status === "under_review"
-          );
-          setCustomers(mappedClients);
-        }
-      })
-      .catch((err) => console.error("❌ Error fetching clients:", err));
-  }, [fetchCustomers, setCustomers]);
-
-  const clients = customers.filter(
-    (client) => client.status === "under_review"
-  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [popover, setPopover] = useState(null);
+  const [historyFor, setHistoryFor] = useState(null);
 
   useEffect(() => {
     setActivePage("follow-up");
   }, [setActivePage]);
 
   useEffect(() => {
-    const updateTableHeight = () => {
-      const windowHeight = window.innerHeight;
-      const tablePosition =
-        document.querySelector(".table-container")?.getBoundingClientRect()
-          .top || 0;
-      const footerHeight = 40;
-      const newHeight = Math.max(
-        300,
-        windowHeight - tablePosition - footerHeight
-      );
-      setTableHeight(`${newHeight}px`);
+    let alive = true;
+    setLoading(true);
+    fetchCustomers()
+      .catch((err) => {
+        console.error("❌ Error fetching clients:", err);
+        if (alive) setError("Could not load follow-ups. Please try again.");
+      })
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
     };
+  }, [fetchCustomers]);
 
-    updateTableHeight();
-    window.addEventListener("resize", updateTableHeight);
-    return () => window.removeEventListener("resize", updateTableHeight);
-  }, []);
-
-  const filteredClients = clients.filter((client) => {
-    const type = (client.processfollowuphistories?.[0]?.follow_up_type || "")
-      .toLowerCase()
-      .trim();
-
-    if (filter === "Document collection" && type !== "document collection")
-      return false;
-    if (filter === "Payment follow-up" && type !== "payment follow-up")
-      return false;
-    if (filter === "Visa filing" && type !== "visa filing") return false;
-
-    if (location.pathname.includes("process-follow-up") && searchQuery.trim()) {
-      const search = searchQuery.toLowerCase();
-      const name = client.freshLead?.name?.toLowerCase() || "";
-      const phone = client.freshLead?.phone?.toString() || "";
-      const email = client.freshLead?.email?.toLowerCase() || "";
-      return (
-        name.includes(search) ||
-        phone.includes(search) ||
-        email.includes(search)
-      );
-    }
-
-    return true;
-  });
-
-  const handleSelectClient = async (client) => {
-    setSelectedClient(client);
-    const freshLeadId = client.freshLead?.id || client.fresh_lead_id;
-    if (!freshLeadId) return;
-
-    try {
-      const response = await getProcessFollowup(freshLeadId);
-      const data = Array.isArray(response) ? response : response?.data || [];
-
-      // ✅ Sort by latest first and take top 2
-      const sorted = [...data]
-        .filter((item) => Number(item.fresh_lead_id) === Number(freshLeadId))
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // latest first
-
-      setLastFollowups(sorted.slice(0, 2)); // ✅ latest 2 follow-ups only
-    } catch (err) {
-      console.error("Error fetching follow-up history:", err);
-      setLastFollowups([]);
-    }
-  };
+  const rows = useMemo(() => {
+    const q = `${query} ${searchQuery || ""}`.trim().toLowerCase();
+    const wanted = FILTER_TYPES[filter];
+    return (Array.isArray(customers) ? customers : [])
+      .filter((c) => c.status === "under_review")
+      .filter((c) => {
+        const latest = c.processfollowuphistories?.[0];
+        if (wanted && (latest?.follow_up_type || "").toLowerCase().trim() !== wanted) return false;
+        if (!q) return true;
+        return [c.fullName, c.phone, c.email, c.freshLead?.name].some((v) => String(v || "").toLowerCase().includes(q));
+      });
+  }, [customers, filter, query, searchQuery]);
 
   const handleEdit = (client) => {
     const freshLeadId = client.freshLead?.id || client.fresh_lead_id;
@@ -140,392 +80,104 @@ const ProcessClientTable = ({ filter = "All Follow Ups" }) => {
       console.error("Fresh Lead ID is missing or incorrect");
       return;
     }
-    const leadData = {
-      ...client.freshLead,
-      fresh_lead_id: freshLeadId,
-      id: client.id,
-    };
-    navigate(
-      `/process/clients/details/${encodeURIComponent(
-        freshLeadId
-      )}/${freshLeadId}`,
-      {
-        state: { client: leadData, createFollowUp: false, from: "followup" },
-      }
-    );
+    navigate(`/process/clients/details/${encodeURIComponent(freshLeadId)}/${freshLeadId}`, {
+      state: { client: { ...client.freshLead, fresh_lead_id: freshLeadId, id: client.id }, createFollowUp: false, from: "followup" },
+    });
   };
 
-  const getStatusColorClass = (status) => {
-    switch ((status || "").toLowerCase()) {
-      case "follow-up":
-        return "status-followup";
-      case "converted":
-        return "status-converted";
-      case "not interested":
-        return "status-notinterested";
-      default:
-        return "status-default";
-    }
-  };
-
-  const getRatingColorClass = (rating) => {
-    switch ((rating || "").toLowerCase()) {
-      case "hot":
-        return "rating-hot";
-      case "warm":
-        return "rating-warm";
-      case "cold":
-        return "rating-cold";
-      default:
-        return "rating-default";
-    }
-  };
-
-  console.log(filteredClients, "hhh");
+  const digits = (p) => String(p || "").replace(/[^\d]/g, "");
 
   return (
-    <>
-      <div className="client-table-wrapper" style={{ position: "relative" }}>
-        {isLoading && <LoadingSpinner text={loadingText} />}
-        {selectedClient && (
-          <div
-            className="client-info"
-            style={{
-              width: "95%",
-              margin: "10px auto",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              padding: "12px",
-              borderRadius: "8px",
-              background: "#fff",
-              position: "relative",
-            }}
-          >
-            {/* Close button */}
-            <div
-              style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                cursor: "pointer",
-                fontSize: "20px",
-                color: "#555",
-                backgroundColor: "#f0f0f0",
-                width: "28px",
-                height: "28px",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "background 0.3s",
-              }}
-              onClick={() => {
-                setSelectedClient(null);
-                setLastFollowups([]);
-              }}
-              title="Close"
-            >
-              ✖
-            </div>
+    <div className="pp-page" style={{ paddingTop: 0 }}>
+      <div className="pp-toolbar">
+        <div className="pp-search">
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="pp-search__icon" />
+          <input className="pp-search__input" type="search" placeholder="Search by name, phone or email" aria-label="Search follow-ups" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+        <span className="pp-page__sub">{loading ? "Loading…" : `${rows.length} follow-up${rows.length === 1 ? "" : "s"}`}</span>
+      </div>
 
-            {/* Main content */}
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    background: "#eee",
-                    borderRadius: "50%",
-                    width: "40px",
-                    height: "40px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: "10px",
-                  }}
-                >
-                  👤
-                </div>
-                <div>
-                  <div style={{ fontWeight: "600" }}>
-                    Name: {selectedClient.fullName}
-                  </div>
-                </div>
-              </div>
-            </div>
+      {error && (
+        <div className="pp-alert pp-alert--error" role="alert">
+          {error}
+        </div>
+      )}
 
-            {/* Last Follow-Ups Section */}
-            {lastFollowups.length > 0 && (
-              <div
-                style={{
-                  marginTop: "16px",
-                  background: "#f9f9f9",
-                  borderRadius: "8px",
-                  padding: "16px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                }}
-              >
-                <h3
-                  style={{
-                    marginBottom: "16px",
-                    fontSize: "18px",
-                    fontWeight: "600",
-                    borderBottom: "2px solid #2196f3",
-                    paddingBottom: "6px",
-                    color: "#1e3a8a",
-                  }}
-                >
-                  Last Follow-Ups
-                </h3>
+      {!loading && !error && rows.length === 0 && (
+        <div className="pp-empty">
+          <h3>No follow-up clients found</h3>
+          <p>{query || searchQuery || filter !== "All Follow Ups" ? "Try clearing the search or choosing another tab." : "Clients move here after you add their first follow-up."}</p>
+        </div>
+      )}
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "16px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {lastFollowups.map((followup, index) => (
-                    <div
-                      key={followup.id}
-                      style={{
-                        flex: "1",
-                        minWidth: "250px",
-                        backgroundColor: "#e3f2fd",
-                        padding: "12px 16px",
-                        borderRadius: "6px",
-                        boxShadow: "0 1px 4px rgba(0, 0, 0, 0.08)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          marginBottom: "8px",
-                          fontWeight: "bold",
-                          color: "#0d47a1",
-                        }}
-                      >
-                        {index === 0 ? "Latest" : ""}
-                      </div>
-
-                      <div style={{ marginBottom: "6px" }}>
-                        {followup.comments || "No comment"}
-                      </div>
-
-                      <div style={{ fontSize: "13px", color: "#333" }}>
-                        {new Date(followup.createdAt).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div
-          className="table-container responsive-table-wrapper"
-          style={{ maxHeight: tableHeight }}
-        >
-          <table className="client-table">
+      {rows.length > 0 && (
+        <div className="pp-tablewrap">
+          <table className="pp-table">
             <thead>
-              <tr className="sticky-header">
-                <th>Name</th>
-                <th>Phone</th>
-                <th>Email</th>
-                <th>Add follow up</th>
-                <th>Status</th>
-                <th>Call</th>
+              <tr>
+                <th>Client</th>
+                <th>Contact</th>
+                <th>Last follow-up</th>
+                <th>Type</th>
+                <th>Interaction</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredClients.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="no-data-text">
-                    No follow-up clients found.
-                  </td>
-                </tr>
-              ) : (
-                filteredClients.map((client, index) => {
-                  const isOld = isFollowUpOld(client.follow_up_date);
-
-                  return (
-                    <tr
-                      key={index}
-                      className={isOld ? "old-followup-row" : ""}
-                      style={{
-                        cursor: "pointer",
-                        ...(isOld && {
-                          backgroundColor: "#ffebee",
-                          borderLeft: "4px solid #f44336",
-                        }),
-                      }}
-                      onClick={() => handleSelectClient(client)}
-                    >
-                      <td>
-                        <div className="client-name">
-                          <div className="client-info">
-                            <strong
-                              style={
-                                isOld
-                                  ? { color: "#c62828", fontWeight: "bold" }
-                                  : {}
-                              }
-                            >
-                              {client.fullName || "No Name"}
-                            </strong>
-                          </div>
+              {rows.map((c) => {
+                const latest = c.processfollowuphistories?.[0];
+                const age = daysSince(latest?.follow_up_date || latest?.createdAt);
+                const stale = age !== null && age >= STALE_DAYS;
+                return (
+                  <tr key={c.id} className={stale ? "pp-row--stale" : ""}>
+                    <td data-label="Client">
+                      <strong>{c.fullName || "No Name"}</strong>
+                    </td>
+                    <td data-label="Contact">
+                      <div>{c.phone || "No phone"}</div>
+                      <div className="pp-page__sub">{c.email || "N/A"}</div>
+                    </td>
+                    <td data-label="Last follow-up">
+                      {latest ? fmtDate(latest.follow_up_date || latest.createdAt) : "-"}
+                      {stale && <span className="pp-badge pp-badge--stale">{age}d ago</span>}
+                    </td>
+                    <td data-label="Type">{latest?.follow_up_type ? <span className="pp-badge">{latest.follow_up_type}</span> : "-"}</td>
+                    <td data-label="Interaction">{latest?.interaction_rating ? <span className={`pp-badge ${ratingClass(latest.interaction_rating)}`}>{latest.interaction_rating}</span> : "-"}</td>
+                    <td data-label="Actions">
+                      <div className="pp-actions">
+                        <button type="button" className="pp-btn pp-btn--primary" onClick={() => handleEdit(c)}>
+                          <FontAwesomeIcon icon={faPenToSquare} /> Update
+                        </button>
+                        <button type="button" className="pp-icon-btn" title="Executive follow-up history" aria-label={`Executive follow-up history for ${c.fullName}`} onClick={() => setHistoryFor(c)}>
+                          <FontAwesomeIcon icon={faClockRotateLeft} />
+                        </button>
+                        <div className="pp-popwrap">
+                          <button type="button" className="pp-icon-btn" aria-label={`Contact ${c.fullName}`} aria-expanded={popover === c.id} onClick={() => setPopover(popover === c.id ? null : c.id)}>
+                            <FontAwesomeIcon icon={faPhone} />
+                          </button>
+                          {popover === c.id && (
+                            <div className="pp-pop" role="menu">
+                              <button type="button" role="menuitem" onClick={() => { window.location.href = `whatsapp://send?phone=91${digits(c.phone)}`; setPopover(null); }}>
+                                <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366" }} /> WhatsApp
+                              </button>
+                              <button type="button" role="menuitem" onClick={() => { window.open(`tel:${digits(c.phone)}`); setPopover(null); }}>
+                                <FontAwesomeIcon icon={faPhone} /> Normal Call
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      </td>
-                      <td style={isOld ? { color: "#c62828" } : {}}>
-                        {client.phone?.toString() || "No Phone"}
-                      </td>
-                      <td style={isOld ? { color: "#c62828" } : {}}>
-                        {client.email || "N/A"}
-                      </td>
-                      <td>
-                        <button
-                          className={`followup-badge full-click ${
-                            isOld ? "old-followup-button" : ""
-                          }`}
-                          onClick={() => handleEdit(client)}
-                          style={
-                            isOld
-                              ? {
-                                  backgroundColor: "#f44336",
-                                  borderColor: "#d32f2f",
-                                  color: "white",
-                                }
-                              : {}
-                          }
-                        >
-                          {filter === "All Follow Ups"
-                            ? "Create"
-                            : (
-                                client.processfollowuphistories?.[0]
-                                  ?.follow_up_type || ""
-                              ).toLowerCase()}
-                          <FontAwesomeIcon
-                            icon={faPenToSquare}
-                            className="icon"
-                          />
-                        </button>
-                      </td>
-                      <td>
-                        {client.interaction_rating ? (
-                          <span
-                            className={`rating-badge ${getRatingColorClass(
-                              client.interaction_rating
-                            )} ${isOld ? "old-followup-badge" : ""}`}
-                            style={
-                              isOld
-                                ? {
-                                    backgroundColor: "#f44336",
-                                    color: "white",
-                                    border: "1px solid #d32f2f",
-                                  }
-                                : {}
-                            }
-                          >
-                            {client.interaction_rating.charAt(0).toUpperCase() +
-                              client.interaction_rating.slice(1)}
-                          </span>
-                        ) : (
-                          <span
-                            className={`status-badge ${getStatusColorClass(
-                              client.status
-                            )} ${isOld ? "old-followup-badge" : ""}`}
-                            style={
-                              isOld
-                                ? {
-                                    backgroundColor: "#f44336",
-                                    color: "white",
-                                    border: "1px solid #d32f2f",
-                                  }
-                                : {}
-                            }
-                          >
-                            {client.processfollowuphistories?.[0]
-                              ?.interaction_rating || "N/A"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="call-cell">
-                        <button
-                          className={`call-button ${
-                            isOld ? "old-followup-call" : ""
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActivePopoverIndex(
-                              activePopoverIndex === index ? null : index
-                            );
-                          }}
-                          style={
-                            isOld
-                              ? {
-                                  backgroundColor: "#f44336",
-                                  color: "white",
-                                  border: "1px solid #d32f2f",
-                                }
-                              : {}
-                          }
-                        >
-                          📞
-                        </button>
-                        {activePopoverIndex === index && (
-                          <div className="popover">
-                            <button
-                              className="popover-option"
-                              onClick={() => {
-                                const cleaned = (client.phone || "").replace(
-                                  /[^\d]/g,
-                                  ""
-                                );
-                                window.location.href = `whatsapp://send?phone=91${cleaned}`;
-                                setActivePopoverIndex(null);
-                              }}
-                            >
-                              <FontAwesomeIcon
-                                icon={faWhatsapp}
-                                style={{
-                                  color: "#25D366",
-                                  marginRight: "6px",
-                                  fontSize: "18px",
-                                }}
-                              />
-                              WhatsApp
-                            </button>
-                            <button
-                              className="popover-option"
-                              onClick={() => {
-                                const cleaned = (client.phone || "").replace(
-                                  /[^\d]/g,
-                                  ""
-                                );
-                                window.open(`tel:${cleaned}`);
-                                setActivePopoverIndex(null);
-                              }}
-                            >
-                              <FontAwesomeIcon
-                                icon={faPhone}
-                                style={{
-                                  color: "#4285F4",
-                                  marginRight: "6px",
-                                  fontSize: "16px",
-                                }}
-                              />
-                              Normal Call
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </div>
-    </>
+      )}
+
+      {historyFor && <ExecutiveHistoryModal customerId={historyFor.id} clientName={historyFor.fullName} onClose={() => setHistoryFor(null)} />}
+    </div>
   );
 };
 

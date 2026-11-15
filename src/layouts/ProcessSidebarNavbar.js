@@ -1,82 +1,95 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
-import { MessageNavIcon, MessagingSidebarItem } from "../features/Messaging/MessagingNav";
+import { MessagingSidebarItem } from "../features/Messaging/MessagingNav";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import "../styles/sidebar.css";
 import BeepNotification from "../BeepNotification";
 import ProcessActivity from "../features/executive/ProcessActivity";
+import ProcessClock from "../features/process-client/ProcessClock";
+import ProfileAvatar from "../features/executive/ProfileAvatar";
 import { useApi } from "../context/ApiContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
-import useWorkTimer from "../features/executive/useLoginTimer";
-import { useBreakTimer } from "../context/breakTimerContext";
 import { SearchContext } from "../context/SearchContext";
+import { useProcess } from "../context/ProcessAuthContext";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faBars, faHouse, faUserPlus, faUsers, faList, faClock, faCircleXmark,
-  faFile, faReceipt, faGear, faArrowLeft, faBell,
-  faRobot, faCircleUser, faRightFromBracket, faMugHot, faPersonWalking,
-  faBed, faCouch, faUmbrellaBeach, faPeace, faBookOpen, faMusic,
-  faHeadphones, faYinYang, faStopCircle,faSpinner
+  faBars, faHouse, faUsers, faList, faCircleXmark, faCircleCheck, faFile, faReceipt, faGear,
+  faArrowLeft, faBell, faClock, faChevronDown, faRightFromBracket, faMugHot,
+  faPersonWalking, faBed, faCouch, faUmbrellaBeach, faPeace, faBookOpen, faMusic, faHeadphones,
+  faYinYang, faStopCircle, faSpinner, faMagnifyingGlass, faAddressBook, faGauge, faFlagCheckered,
 } from "@fortawesome/free-solid-svg-icons";
-import { FaPlay,FaPause} from "react-icons/fa";
-import { useProcess } from "../context/ProcessAuthContext";
-// Break timer icons
-const breakIcons = [
-  faMugHot, faPersonWalking, faBed, faCouch,
-  faUmbrellaBeach, faPeace, faBookOpen, faMusic, faHeadphones, faYinYang
-];
 
-const ProcessSidebarNavbar = () => {
-  const { breakTimer, isBreakActive, resetBreakTimer,processstartBreak,processstopBreak} = useBreakTimer();
-  const {logout}=useProcess();
-  const timer = useWorkTimer();
-  const {
-     executiveLoading, 
-    fetchNotifications, unreadCount, notifications,markNotificationReadAPI
-  } = useApi();
+const breakIcons = [faMugHot, faPersonWalking, faBed, faCouch, faUmbrellaBeach, faPeace, faBookOpen, faMusic, faHeadphones, faYinYang];
+const MOBILE_QUERY = "(max-width: 991px)";
 
+const useIsMobile = () => {
+  const get = () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(MOBILE_QUERY).matches : false);
+  const [mobile, setMobile] = useState(get);
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const on = () => setMobile(mq.matches);
+    on();
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => (mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on));
+  }, []);
+  return mobile;
+};
+
+const readUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem("user")) || {};
+  } catch (_) {
+    return {};
+  }
+};
+
+/**
+ * Sidebar + header for the Process Person panel. `portal` switches the menu to the
+ * Manage Client portal (/processperson/client/*); the header is the same in both.
+ * Menu items only link to routes the Process Person already had.
+ */
+const ProcessSidebarNavbar = ({ clock, collapsed = false, onToggleCollapse = () => {}, portal = false }) => {
+  const { logout } = useProcess();
+  const { executiveLoading, fetchNotifications, unreadCount, notifications, markNotificationReadAPI } = useApi();
   const { theme } = useContext(ThemeContext);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { setSearchQuery } = useContext(SearchContext) || {};
   const navigate = useNavigate();
   const location = useLocation();
-  const { setSearchQuery } = useContext(SearchContext);
-  const [isOpen, setIsOpen] = useState(() => location.pathname.startsWith("/freshlead") || location.pathname.startsWith("/follow-up") || location.pathname.startsWith("/customer") || location.pathname.startsWith("/close-leads"));
+  const isMobile = useIsMobile();
+
+  const [, setProfileVersion] = useState(0);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [showTracker, setShowTracker] = useState(false);
   const [showUserPopover, setShowUserPopover] = useState(false);
-  const userDetails = JSON.parse(localStorage.getItem("user")) || {};
-  const { fullName,id } = userDetails;
-
-
-  const [hourDeg, setHourDeg] = useState(0);
-  const [minuteDeg, setMinuteDeg] = useState(0);
-  const [secondDeg, setSecondDeg] = useState(0);
-
   const popoverRef = useRef(null);
-  const userIconRef = useRef(null);
-  const historyStackRef = useRef([]);
+  const trackerRef = useRef(null);
 
-  const toggleSidebar = () => setIsActive(prev => !prev);
-  const toggle = async () => {
-    if (!isBreakActive) {
-      await processstartBreak(id);
-    } else {
-      await processstopBreak(id);
-      }
-    };
+  const userDetails = readUser();
+  const { fullName, email } = userDetails;
+  const name = (fullName || "").trim() || "Account";
+  const initial = (name.charAt(0) || "?").toUpperCase();
+  const home = portal ? "/processperson/client/all-clients" : "/process";
+
+  const handleHamburger = () => (isMobile ? setIsActive((p) => !p) : onToggleCollapse());
 
   const handleLogout = async () => {
     try {
-      setIsLoggingOut(true); // Start spinner
-     await processstopBreak(id);
-      await logout();
-      resetBreakTimer();
+      setIsLoggingOut(true);
+      await logout(); // stops the work session first, then revokes the session server-side
     } catch (error) {
       console.error("Logout failed:", error.message);
+      setIsLoggingOut(false);
     }
   };
 
   const handleBack = () => {
-    let stack = JSON.parse(sessionStorage.getItem("navStack")) || [];
+    let stack = [];
+    try {
+      stack = JSON.parse(sessionStorage.getItem("navStack")) || [];
+    } catch (_) {
+      stack = [];
+    }
     stack.pop();
     while (stack.length > 0) {
       const prev = stack.pop();
@@ -86,297 +99,224 @@ const ProcessSidebarNavbar = () => {
         return;
       }
     }
-    navigate("/process");
+    navigate(home);
   };
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user?.id && user?.role) {
-      fetchNotifications({ userId: user.id, userRole: user.role });
-    }
+    const u = readUser();
+    if (u?.id && u?.role) fetchNotifications({ userId: u.id, userRole: u.role });
   }, [fetchNotifications]);
-  
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      setSecondDeg(now.getSeconds() * 6);
-      setMinuteDeg(now.getMinutes() * 6 + now.getSeconds() * 0.1);
-      setHourDeg((now.getHours() % 12) * 30 + now.getMinutes() * 0.5);
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
-const handleDismissBeepNotification = () => {
-  // This function can be used to handle any additional logic when dismissing
-  console.log('BeepNotification dismissed');
-};
   useEffect(() => {
     const currentPath = location.pathname;
     if (!["/login", "/signup"].includes(currentPath)) {
-      let stack = JSON.parse(sessionStorage.getItem("navStack")) || [];
+      let stack = [];
+      try {
+        stack = JSON.parse(sessionStorage.getItem("navStack")) || [];
+      } catch (_) {
+        stack = [];
+      }
       if (stack[stack.length - 1] !== currentPath) {
         stack.push(currentPath);
         sessionStorage.setItem("navStack", JSON.stringify(stack));
       }
-      historyStackRef.current = stack;
     }
   }, [location]);
 
   useEffect(() => {
-    setIsOpen(false);
+    setIsActive(false);
+    setShowUserPopover(false);
   }, [location.pathname]);
-  const handleMarkAllAsRead = () => {
-    // Mark all notifications as read
-    const unreadNotifications = notifications.filter(n => !n.is_read);
-    unreadNotifications.forEach(notification => {
-      markNotificationReadAPI(notification.id);
-    });
-  };
-  const [selectedRole, setSelectedRole] = useState("process"); // default selection
 
-  const handleToggle = (role) => {
-    setSelectedRole(role);
-    if (role === "processperson") {
-      navigate("/processperson/client/all-clients");
-    } else if (role === "process") {
-      navigate("/process");
-    }
+  useEffect(() => {
+    const onDown = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) setShowUserPopover(false);
+      if (trackerRef.current && !trackerRef.current.contains(e.target)) setShowTracker(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  // Settings saves the profile, then announces it so the header name updates immediately.
+  useEffect(() => {
+    const bump = () => setProfileVersion((v) => v + 1);
+    window.addEventListener("pp-profile-updated", bump);
+    return () => window.removeEventListener("pp-profile-updated", bump);
+  }, []);
+
+  const handleMarkAllAsRead = () => {
+    (notifications || []).filter((n) => !n.is_read).forEach((n) => markNotificationReadAPI(n.id));
   };
-   const onToggleClick = () => {
-    if (selectedRole === "process") {
-      handleToggle("processperson");
-    } else {
-      handleToggle("process");
-    }
-  };
-  
+
+  const isRoute = (to, exact) => (exact ? location.pathname === to || location.pathname === `${to}/` : location.pathname.startsWith(to));
+
+  const navItem = (to, icon, label, { exact = false } = {}) => (
+    <li key={to}>
+      <Link to={to} className={`sidebar_nav ${isRoute(to, exact) ? "active" : ""}`} data-tip={label} aria-label={label}>
+        <FontAwesomeIcon icon={icon} />
+        <span className="sb-label">{label}</span>
+      </Link>
+    </li>
+  );
+
   return (
     <>
-    <section className="sidebar_navbar" data-theme={theme}>
-<section className={`sidebar_container ${isActive ? "active" : ""}`}>
-<button className="menuToggle" onClick={toggleSidebar}><FontAwesomeIcon icon={faBars} /></button>
-    <div className="sidebar_heading"><h1>CRM</h1></div>
-    <div><h3 className="sidebar_crm">CRM</h3></div>
-    <nav className="navbar_container">
-    <ul>
-        <li><Link to="/process" className="sidebar_nav"><FontAwesomeIcon icon={faHouse} /> Dashboard</Link></li>
-        <li  style={{ position: "relative" }}>
-          <Link to="#" className="sidebar_nav" onClick={() => setIsOpen(!isOpen)}>
-            <FontAwesomeIcon icon={faUserPlus} /> Leads
-            <span style={{ marginLeft: "auto", fontSize: "12px" }}>▼
-            </span>
-          </Link>
-          {isOpen && (
-          <ul className="submenu_nav">
-            <li>
-              <Link
-                to="/process/freshlead"
-                className="submenu_item"
-                onClick={() => setIsOpen(false)}
-              >
-                <FontAwesomeIcon icon={faUsers} /> Fresh Leads
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/process/process-follow-up/"
-                className="submenu_item"
-                onClick={() => setIsOpen(false)}
-              >
-                <FontAwesomeIcon icon={faList} /> Follow ups
-              </Link>
-            </li>
-             <li>
-              <Link
-                to="/process/rejected-leads"
-                className="submenu_item"
-                onClick={() => setIsOpen(false)}
-              >
-                <FontAwesomeIcon icon={faCircleXmark} />Rejected Leads
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/process/finalstage-leads"
-                className="submenu_item"
-                onClick={() => setIsOpen(false)}
-              >
-                <FontAwesomeIcon icon={faCircleXmark} /> Completed Stages
-              </Link>
-            </li>
-          </ul>
+      <section className="sidebar_navbar" data-theme={theme}>
+        {isMobile && isActive && <div className="exec-backdrop" onClick={() => setIsActive(false)} aria-hidden="true" />}
+        <section id="exec-sidebar" className={`sidebar_container ${isActive ? "active" : ""}`}>
+          <div className="sidebar_heading">
+            <button
+              type="button"
+              className="exec-hamburger exec-hamburger--sidebar"
+              onClick={handleHamburger}
+              aria-label={isMobile ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={isMobile ? isActive : !collapsed}
+              aria-controls="exec-sidebar"
+              data-tip={collapsed && !isMobile ? "Expand sidebar" : undefined}
+            >
+              <FontAwesomeIcon icon={faBars} />
+            </button>
+            <span className="sidebar_brand">CRM</span>
+          </div>
+          <nav className="navbar_container" aria-label="Main">
+            <ul>
+              {portal ? (
+                <>
+                  {navItem("/process", faGauge, "Process Dashboard", { exact: true })}
+                  {navItem("/processperson/client/all-clients", faAddressBook, "All Clients")}
+                </>
+              ) : (
+                <>
+                  {navItem("/process", faHouse, "Dashboard", { exact: true })}
+                  {navItem("/process/freshlead", faUsers, "Fresh Leads")}
+                  {navItem("/process/process-follow-up", faList, "Follow-ups")}
+                  {navItem("/process/rejected-leads", faCircleXmark, "Rejected Leads")}
+                  {navItem("/process/finalstage-leads", faFlagCheckered, "Final Stage")}
+                  {navItem("/process/completed-clients", faCircleCheck, "Completed Clients")}
+                  <MessagingSidebarItem variant="exec" />
+                  {navItem("/process/schedule", faFile, "Scheduled Meetings")}
+                  {navItem("/process/invoice", faReceipt, "Invoice")}
+                  {navItem("/processperson/client/all-clients", faAddressBook, "Manage Clients")}
+                  {navItem("/process/process-settings", faGear, "Settings")}
+                </>
+              )}
+            </ul>
+          </nav>
+        </section>
+
+        <header className="navbar">
+          <div className="menu_search">
+            {isMobile && (
+              <button type="button" className="exec-hamburger exec-hamburger--mobile" onClick={handleHamburger} aria-label="Open menu" aria-expanded={isActive} aria-controls="exec-sidebar">
+                <FontAwesomeIcon icon={faBars} />
+              </button>
+            )}
+            <button type="button" className="exec-iconbtn exec-back" onClick={handleBack} aria-label="Go back" title="Back">
+              <FontAwesomeIcon icon={faArrowLeft} />
+            </button>
+            {!portal && (
+              <div className="lead-search">
+                <FontAwesomeIcon icon={faMagnifyingGlass} className="lead-search__icon" />
+                <input
+                  className="lead-search__input"
+                  type="search"
+                  placeholder="Search"
+                  aria-label="Search"
+                  onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <ProcessClock clock={clock} />
+
+          <div className="navbar_icons">
+            <div className="notification-wrapper">
+              <button type="button" className="exec-iconbtn" aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"} title="Notifications" onClick={() => navigate("/process/notification")}>
+                <FontAwesomeIcon icon={faBell} />
+              </button>
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+            </div>
+
+            <div ref={trackerRef} style={{ position: "relative" }}>
+              <button type="button" className="exec-iconbtn" aria-label="Activity tracker" aria-expanded={showTracker} title="Activity tracker" onClick={() => setShowTracker((p) => !p)}>
+                <FontAwesomeIcon icon={faClock} />
+              </button>
+              {showTracker && (
+                <div className="activity-tracker-wrapper">
+                  <ProcessActivity clock={clock} />
+                </div>
+              )}
+            </div>
+
+            <span className="exec-divider" aria-hidden="true" />
+
+            <div className="user-icon-wrapper" ref={popoverRef}>
+              <button type="button" className="exec-profile" aria-haspopup="menu" aria-expanded={showUserPopover} onClick={() => setShowUserPopover((p) => !p)}>
+                <ProfileAvatar className="exec-profile__avatar" url={null} initial={initial} alt="" />
+                <span className="exec-profile__text">
+                  <span className="exec-profile__name">{name}</span>
+                  <span className="exec-profile__role">Process Person</span>
+                </span>
+                <FontAwesomeIcon icon={faChevronDown} className="exec-profile__caret" />
+              </button>
+
+              {showUserPopover && (
+                <div className="user_popover" role="menu">
+                  {executiveLoading ? (
+                    <p>Loading user details...</p>
+                  ) : (
+                    <>
+                      <div className="user_details">
+                        <ProfileAvatar className="user_avatar" url={null} initial={initial} alt="" />
+                        <div className="user_identity">
+                          <p className="user_name">{name}</p>
+                          {email && <p className="user_email">{email}</p>}
+                          <p className="user_role">Process Person</p>
+                        </div>
+                      </div>
+                      <Link to="/process/process-settings" className="exec-menu-link" role="menuitem" onClick={() => setShowUserPopover(false)}>
+                        <FontAwesomeIcon icon={faGear} /> Settings
+                      </Link>
+                      <button className="logout_btns" role="menuitem" onClick={handleLogout} disabled={isLoggingOut} aria-label={isLoggingOut ? "Logging out, please wait" : "Logout"}>
+                        <FontAwesomeIcon icon={isLoggingOut ? faSpinner : faRightFromBracket} className={isLoggingOut ? "logout-spinner" : ""} />
+                        <span className="logout-text">{isLoggingOut ? "Logging out" : "Logout"}</span>
+                        {isLoggingOut && <span className="loading-dots"></span>}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {clock?.onBreak && (
+          <div className="blur-screen">
+            <div className="floating-icons">
+              {breakIcons.map((icon, index) => (
+                <FontAwesomeIcon key={index} icon={icon} className="floating-icon" />
+              ))}
+            </div>
+            <div className="break-message">
+              <FontAwesomeIcon icon={faMugHot} /> You are on a break
+            </div>
+            <div className="timer-display">{clock?.breakTimer}</div>
+            <button className="stop-break-btn" onClick={clock?.toggleBreak} disabled={clock?.busy}>
+              <FontAwesomeIcon icon={faStopCircle} /> Stop break
+            </button>
+          </div>
         )}
-        </li>
-        <MessagingSidebarItem variant="exec" />
-        <li><Link to="/process/schedule" className="sidebar_nav"><FontAwesomeIcon icon={faFile} /> Scheduled Meetings</Link></li>
-        <li><Link to="/process/invoice" className="sidebar_nav"><FontAwesomeIcon icon={faReceipt} /> Invoice</Link></li>
-        <li><Link to="/process/process-settings" className="sidebar_nav"><FontAwesomeIcon icon={faGear} /> Settings</Link></li>
-      </ul>
+      </section>
 
-     <div className="role-switch-wrapper">
-  <div className="switch-label">Process pages</div>
-  <div className="role-switch-container" onClick={onToggleClick}>
-    <div
-      className={`switch-slider ${
-        selectedRole === "process" ? "left" : "right"
-      }`}
-    ></div>
-  </div>
-</div>
-
-    </nav>
-  </section>
-
-  <section className="navbar">
-    <div className="menu_search">
-      <button className="menu_toggle" onClick={toggleSidebar}><FontAwesomeIcon icon={faBars} /></button>
-      <div className="search_bar">
-      <FontAwesomeIcon icon={faArrowLeft} onClick={handleBack} style={{fontSize:"20px",cursor:"pointer",
-      }} />
-            <input
-                className="search-input-exec"
-                placeholder="Search"
-                onChange={(e) => setSearchQuery(e.target.value)} // ✅ Search handler
-              />    </div>
-    </div>
-
-    <div className="compact-timer">
-      <div className="timer-item">
-        <button className="timer-btn-small"><FaPause /></button>
-        <span className="timer-label-small">Work:</span>
-        <span className="timer-box-small">{timer}</span>
-      </div>
-
-      <div className="analog-clock">
-      <div className="hand hour" style={{ transform: `rotate(${hourDeg}deg)` }}></div>
-      <div className="hand minute" style={{ transform: `rotate(${minuteDeg}deg)` }}></div>
-<div className="hand second" style={{ transform: `rotate(${secondDeg}deg)` }}></div>
-
-      <div className="center-dot"></div>
-      </div>
-
-      <div className="timer-item">
-        <button className="timer-btn-small" onClick={toggle}>
-        {isBreakActive ? <FaPause />: <FaPlay />}
-        </button>
-        <span className="timer-label-small">Break:</span>
-        <span className="timer-box-small">{breakTimer}</span>
-      </div>
-        </div>
-
-    <div className="navbar_icons">
-      <div className="navbar_divider"></div>
-      <div className="notification-wrapper">
-  <FontAwesomeIcon
-    className="navbar_icon"
-    icon={faBell}
-    style={{ cursor: "pointer" }}
-    title="Notifications"
-    tabIndex="0"
-    onClick={() => navigate("/process/notification")}
-  />
-  {unreadCount > 0 && (
-    <span className="notification-badge">{unreadCount}</span>
-  )}
-</div>
-<FontAwesomeIcon
-  className="navbar_icon bot_icon"
-  icon={faRobot}
-  onClick={() => {
-    const token = localStorage.getItem("token");
-    if (!token) return alert("Please login again");
-    window.open(`${window.location.origin}/process/chatbot?token=${token}`, "_blank");
-  }}
-  title="Open ChatBot"
-/>
-
-      <MessageNavIcon variant="fa" />
-      <div onMouseEnter={() => setShowTracker(true)} onMouseLeave={() => setShowTracker(false)}>
-      <FontAwesomeIcon 
-        className="navbar_icon" icon={faClock} title="Toggle Activity Tracker" onClick={() => setShowTracker(prev => !prev)}  /> {showTracker &&<ProcessActivity /> }
-      </div>
-        
-      <div
-  className="user-icon-wrapper"
-  ref={popoverRef}
-  // onMouseLeave={() => setShowUserPopover(false)}
->
-  <FontAwesomeIcon
-    ref={userIconRef}
-    className="navbar_icon"
-    icon={faCircleUser}
-    onClick={() => setShowUserPopover((prev) => !prev)}
-  />
-
-
-{showUserPopover && (
-    <div className="user_popover">
-      {executiveLoading ? (
-        <p>Loading user details...</p>
-      ) : (
-        <>
-          <div className="user_details">
-            <div className="user_avatar">
-            </div>
-            <div>
-              <p className="user_name"  style={{ textTransform: "none" }}>{fullName?.toLowerCase()}</p>
-              <p className="user_role" style={{ textTransform: "none" }}>{userDetails.email?.toLowerCase()}</p>
-            </div>
-          </div>
-          <button 
-            className="logout_btn" 
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            aria-label={isLoggingOut ? 'Logging out, please wait' : 'Logout'}
-          >
-            <FontAwesomeIcon 
-              icon={isLoggingOut ? faSpinner : faRightFromBracket} 
-              className={isLoggingOut ? 'logout-spinner' : ''}
-            /> 
-            <span className="logout-text">
-              {isLoggingOut ? 'Logging out' : 'Logout'}
-            </span>
-            {isLoggingOut && <span className="loading-dots"></span>}
-            {isLoggingOut && <span className="sr-only">Please wait while we log you out</span>}
-          </button>
-        </>
-      )}
-    </div>
-  )}
-</div>
-
-
-    </div>
-
-  </section>
-
-      {isBreakActive && (
-        <div className="blur-screen">
-          <div className="floating-icons">
-            {breakIcons.map((icon, index) => (
-              <FontAwesomeIcon key={index} icon={icon} className="floating-icon" />
-            ))}
-          </div>
-          <div className="break-message">
-            <FontAwesomeIcon icon={faMugHot} /> You are on a break
-          </div>
-          <div className="timer-display">{breakTimer}</div>
-          <button className="stop-break-btn" onClick={()=>processstopBreak(id)}>
-            <FontAwesomeIcon icon={faStopCircle} /> Stop break
-          </button>
-        </div>
-      )}
-    </section>
-    <BeepNotification
-    notifications={notifications}
-    unreadCount={unreadCount}
-    onDismissPopup={handleDismissBeepNotification}
-    onMarkAllRead={handleMarkAllAsRead}
-    onViewNotification={() => navigate("/process/notification")}
-  />
-  </>
+      <BeepNotification
+        notifications={notifications}
+        unreadCount={unreadCount}
+        onDismissPopup={() => {}}
+        onMarkAllRead={handleMarkAllAsRead}
+        onViewNotification={() => navigate("/process/notification")}
+      />
+    </>
   );
 };
 

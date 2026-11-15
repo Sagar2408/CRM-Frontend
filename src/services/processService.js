@@ -546,3 +546,41 @@ export const getAllProcessPersonsFollowupApi = async (id) => {
   if (!res.ok) throw new Error(data.error || "Failed to fetch customer stages");
   return data;
 };
+
+// ---- Work / break clock (server is the source of truth) -------------------
+export const getProcessWorkStatusApi = async () => {
+  const response = await fetch(`${API_BASE_URL}/process-person-activities/status`, {
+    method: "GET",
+    headers: getHeaders(),
+    credentials: "include",
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || data.error || "Failed to load work status");
+  return data; // { state: { workSeconds, breakSeconds, onBreak, working, started, serverNow } }
+};
+
+// ---- Process Person portal views (read-only, assigned clients only) -------
+const getJson = async (path, fallback) => {
+  const res = await fetch(`${API_BASE_URL}${path}`, { method: "GET", headers: getHeaders(), credentials: "include" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || data.error || fallback);
+  return data;
+};
+
+export const getStageProgressApi = () => getJson("/processperson/stage-progress", "Failed to load client progress");
+export const getRejectedClientsApi = () => getJson("/processperson/rejected-clients", "Failed to load rejected clients");
+export const getExecutiveHistoryApi = (customerId) =>
+  getJson(`/processperson/customers/${encodeURIComponent(customerId)}/executive-history`, "Failed to load executive follow-up history");
+
+// Own profile (GET already exists above as getProcessSettings). Identity is the JWT.
+export const updateProcessSettingsApi = async (payload) => {
+  const res = await fetch(`${API_BASE_URL}/processperson/process/settings`, {
+    method: "PUT",
+    headers: getHeaders(),
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || "Failed to update settings");
+  return data;
+};
