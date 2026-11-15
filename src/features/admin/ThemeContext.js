@@ -16,7 +16,9 @@ const themes = {
 
 export const ThemeProvider = ({ children }) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const role = user?.role?.toLowerCase() || 'executive';
+  // Process Person tokens carry `type: processperson` and no role; they get their own
+  // storage key so their id can never collide with an Executive's saved theme.
+  const role = user?.type === 'processperson' ? 'processperson' : user?.role?.toLowerCase() || 'executive';
   const executiveId = localStorage.getItem('executiveId');
   const id = user?.id;
 
@@ -25,6 +27,7 @@ export const ThemeProvider = ({ children }) => {
     () => ({
       admin: `adminTheme_${executiveId || 'light'}`,
       executive: `executiveTheme_${id || 'light'}`,
+      processperson: `processTheme_${id || 'light'}`,
     }),
     [executiveId, id]
   );

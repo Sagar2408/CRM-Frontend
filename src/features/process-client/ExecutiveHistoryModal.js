@@ -17,11 +17,23 @@ const fmtStamp = (v) => {
   return Number.isNaN(+d) ? "" : d.toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
+export const STATUS_LABELS = {
+  interested: "Interested",
+  appointment: "Appointment",
+  "no response": "No response",
+  converted: "Converted",
+  "not interested": "Not interested",
+  close: "Closed",
+};
+const statusLabel = (t) => STATUS_LABELS[String(t || "").toLowerCase()] || (t ? String(t) : "-");
+const ratingClass = (r) => ({ hot: "pp-badge--pending", warm: "pp-badge--under_review", cold: "" }[String(r || "").toLowerCase()] || "");
+
 /**
  * Read-only history of what Executives did with an ASSIGNED client before it reached
- * the Process Person. Data comes from GET /processperson/customers/:id/executive-history
- * (the backend only answers for the signed-in Process Person's own clients). There is
- * deliberately no edit or delete control anywhere in this component.
+ * the Process Person, oldest first. Data comes from GET /processperson/customers/:id/executive-history
+ * (the backend only answers for the signed-in Process Person own clients) and shows the
+ * saved record exactly: the Executive who wrote it, their comment, contact method, status,
+ * rating and dates. There is deliberately no edit or delete control anywhere in this component.
  */
 const ExecutiveHistoryModal = ({ customerId, clientName, onClose, load = getExecutiveHistoryApi }) => {
   const [state, setState] = useState({ loading: true, error: "", data: null });
@@ -53,7 +65,7 @@ const ExecutiveHistoryModal = ({ customerId, clientName, onClose, load = getExec
             <h2 className="pp-modal__title">Executive follow-up history</h2>
             <p className="pp-page__sub">
               {clientName || "Client"}
-              {state.data?.executive ? ` · Executive: ${state.data.executive}` : ""}
+              {state.data?.executive ? ` · Current Executive: ${state.data.executive}` : ""}
             </p>
           </div>
           <button type="button" className="pp-btn" onClick={onClose} aria-label="Close history">
@@ -75,22 +87,22 @@ const ExecutiveHistoryModal = ({ customerId, clientName, onClose, load = getExec
             </div>
           )}
           {entries.length > 0 && (
-            <ol className="pp-timeline">
+            <ol className="pp-timeline" aria-label="Follow-ups, oldest first">
               {entries.map((e, i) => (
                 <li key={`${e.source}-${i}`} className="pp-timeline__item">
                   <div className="pp-timeline__head">
-                    <strong>{e.executive || "Executive"}</strong>
-                    <span className={`pp-badge ${e.status === "Current" ? "pp-badge--under_review" : ""}`}>{e.status || "Previous"}</span>
-                    {e.outcome && <span className="pp-badge">{e.outcome}</span>}
+                    <strong>{e.executive || "Executive not recorded"}</strong>
+                    <span className="pp-badge">{statusLabel(e.type)}</span>
+                    {e.rating && <span className={`pp-badge ${ratingClass(e.rating)}`}>{e.rating}</span>}
+                    {e.isCurrent && <span className="pp-badge pp-badge--under_review">Latest</span>}
                   </div>
                   <dl className="pp-timeline__meta">
-                    <div><dt>Contact</dt><dd>{e.via || "-"}</dd></div>
-                    <div><dt>Type</dt><dd>{e.type || "-"}</dd></div>
+                    <div><dt>Contact method</dt><dd>{e.via || "-"}</dd></div>
                     <div><dt>Follow-up date</dt><dd>{fmtDate(e.followUpDate)} {fmtTime(e.followUpTime)}</dd></div>
-                    {e.nextFollowUpDate && <div><dt>Next follow-up</dt><dd>{fmtDate(e.nextFollowUpDate)} {fmtTime(e.followUpTime)}</dd></div>}
+                    {e.nextFollowUpDate && <div><dt>Next reminder</dt><dd>{fmtDate(e.nextFollowUpDate)} {fmtTime(e.followUpTime)}</dd></div>}
                     {e.recordedAt && <div><dt>Recorded</dt><dd>{fmtStamp(e.recordedAt)}</dd></div>}
                   </dl>
-                  {e.comments && <p className="pp-timeline__comment">{e.comments}</p>}
+                  <p className="pp-timeline__comment">{e.comments || "No comment recorded."}</p>
                 </li>
               ))}
             </ol>

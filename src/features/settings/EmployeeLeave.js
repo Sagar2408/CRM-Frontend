@@ -79,7 +79,9 @@ const BalanceCards = ({ balances, year, loading, error }) => (
   </section>
 );
 
-const EmployeeLeave = () => {
+// `allowAttachment` is off for Process Person: the shared upload endpoint is restricted to
+// Admin / Manager / HR, so offering a file picker there would only fail on submit.
+const EmployeeLeave = ({ allowAttachment = true }) => {
   const { uploadFileAPI } = useApi();
   const year = new Date().getFullYear();
 
@@ -315,7 +317,7 @@ const EmployeeLeave = () => {
               <div className="xs-field"><label htmlFor="lv-ecn">Emergency contact</label><input id="lv-ecn" name="emergencyContactName" className="xs-input" value={form.emergencyContactName} onChange={set} maxLength={255} /></div>
               <div className="xs-field"><label htmlFor="lv-ep">Emergency phone</label><input id="lv-ep" name="emergencyPhone" type="tel" className="xs-input" value={form.emergencyPhone} onChange={set} maxLength={50} /></div>
               <div className="xs-field"><label htmlFor="lv-wh">Work handover to</label><input id="lv-wh" name="workHandoverTo" className="xs-input" value={form.workHandoverTo} onChange={set} maxLength={255} /></div>
-              <div className="xs-field"><label htmlFor="lv-doc">Supporting document</label><input id="lv-doc" type="file" className="xs-input" accept=".pdf,.doc,.docx,.jpg,.png" onChange={(e) => setFile(e.target.files?.[0] || null)} /></div>
+              {allowAttachment && <div className="xs-field"><label htmlFor="lv-doc">Supporting document</label><input id="lv-doc" type="file" className="xs-input" accept=".pdf,.doc,.docx,.jpg,.png" onChange={(e) => setFile(e.target.files?.[0] || null)} /></div>}
               <div className="xs-field" style={{ gridColumn: "1 / -1" }}><label htmlFor="lv-hn">Handover notes</label><textarea id="lv-hn" name="handoverNotes" className="xs-textarea" value={form.handoverNotes} onChange={set} maxLength={2000} /></div>
             </div>
           </details>

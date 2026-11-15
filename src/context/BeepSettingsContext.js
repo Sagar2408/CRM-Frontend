@@ -18,6 +18,8 @@ const LEGACY_KEY = "beepSoundSettings";
 const currentUserId = () => {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
+    // Process Person ids come from a different table than Executive ids: keep them apart.
+    if (user?.type === "processperson" && user?.id != null) return `pp${user.id}`;
     return user?.id ?? localStorage.getItem("executiveId") ?? null;
   } catch (_) {
     return localStorage.getItem("executiveId");
@@ -73,5 +75,9 @@ export const BeepSettingsProvider = ({ children }) => {
     saveBeepSettings(clean);
   }, []);
 
-  return <BeepSettingsContext.Provider value={{ settings, setSettings }}>{children}</BeepSettingsContext.Provider>;
+  // The provider mounts before sign-in; panels call this once the user is known so the
+  // saved preferences of THAT user (not the defaults) drive notification sounds.
+  const reload = useCallback(() => setLocal(loadBeepSettings()), []);
+
+  return <BeepSettingsContext.Provider value={{ settings, setSettings, reload }}>{children}</BeepSettingsContext.Provider>;
 };

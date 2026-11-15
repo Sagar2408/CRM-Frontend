@@ -584,3 +584,17 @@ export const updateProcessSettingsApi = async (payload) => {
   if (!res.ok) throw new Error(data.message || "Failed to update settings");
   return data;
 };
+
+// This Process Person's own follow-ups for one assigned client, newest first. The server
+// answers 404 when there are none yet, which is an empty history here, not an error.
+export const getProcessFollowUpTimelineApi = async (freshLeadId) => {
+  const res = await fetch(`${API_BASE_URL}/process-history/process-followup/${encodeURIComponent(freshLeadId)}`, {
+    method: "GET",
+    headers: getHeaders(),
+    credentials: "include",
+  });
+  if (res.status === 404) return [];
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || data.error || "Failed to load follow-up history");
+  return Array.isArray(data.data) ? data.data : [];
+};

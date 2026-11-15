@@ -1,4 +1,5 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
+import { BeepSettingsContext } from "../context/BeepSettingsContext";
 import { Outlet } from "react-router-dom";
 import { useLoading } from "../context/LoadingContext";
 import LoadingSpinner from "../features/spinner/LoadingSpinner";
@@ -30,6 +31,11 @@ const ProcessLayout = ({ portal = false }) => {
   } catch (_) {
     userId = undefined;
   }
+  const beep = useContext(BeepSettingsContext);
+  // Load this person's saved sound preferences (the provider mounted before sign-in).
+  useEffect(() => {
+    if (userId != null) beep?.reload?.();
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
   const clock = useProcessWorkClock(userId); // one clock for the whole panel
 
   const toggle = useCallback(() => {

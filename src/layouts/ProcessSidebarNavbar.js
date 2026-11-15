@@ -12,7 +12,7 @@ import { SearchContext } from "../context/SearchContext";
 import { useProcess } from "../context/ProcessAuthContext";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faBars, faHouse, faUsers, faList, faCircleXmark, faCircleCheck, faFile, faReceipt, faGear,
+  faBars, faHouse, faUsers, faList, faCircleXmark, faCircleCheck, faFile, faRobot, faGear,
   faArrowLeft, faBell, faClock, faChevronDown, faRightFromBracket, faMugHot,
   faPersonWalking, faBed, faCouch, faUmbrellaBeach, faPeace, faBookOpen, faMusic, faHeadphones,
   faYinYang, faStopCircle, faSpinner, faMagnifyingGlass, faAddressBook, faGauge, faFlagCheckered,
@@ -195,7 +195,7 @@ const ProcessSidebarNavbar = ({ clock, collapsed = false, onToggleCollapse = () 
                   {navItem("/process/completed-clients", faCircleCheck, "Completed Clients")}
                   <MessagingSidebarItem variant="exec" />
                   {navItem("/process/schedule", faFile, "Scheduled Meetings")}
-                  {navItem("/process/invoice", faReceipt, "Invoice")}
+                  {navItem("/process/elsa", faRobot, "ELSA AI")}
                   {navItem("/processperson/client/all-clients", faAddressBook, "Manage Clients")}
                   {navItem("/process/process-settings", faGear, "Settings")}
                 </>

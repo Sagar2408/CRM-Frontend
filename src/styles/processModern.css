@@ -549,3 +549,20 @@
     width: 100%;
   }
 }
+
+/* ---- Completed Clients card (5th dashboard card) ----------------------
+   Cards 0-3 get a pastel in the light theme from executive.css; the fifth card
+   had none and rendered plain white. Same family of pastels, dark text for contrast. */
+[data-theme="light"] .pp-shell .report-card-4 {
+  background: #d4bfff; /* pastel violet */
+  color: #1e1237;
+  box-shadow: 0 4px 10px rgba(124, 77, 255, 0.18);
+}
+[data-theme="light"] .pp-shell .report-card-4:hover {
+  background-color: #c6aaff;
+}
+[data-theme="light"] .pp-shell .report-card-4 h4,
+[data-theme="light"] .pp-shell .report-card-4 .card-value1,
+[data-theme="light"] .pp-shell .report-card-4 .card-icon {
+  color: #1e1237;
+}

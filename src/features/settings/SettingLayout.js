@@ -15,12 +15,14 @@ export const settingsMenuItems = [
   { path: "leave", label: "Ask for Leave", hint: "Apply, balances & history", icon: "📝" },
 ];
 
-const SettingsLayout = () => {
+// `permissionKey` is the page-access key checked for Executives. Process Person has no
+// page-access rows (their identity is a different table), so their routes pass null and
+// rely on ProcessPrivateRoute + the server instead.
+const SettingsLayout = ({ permissionKey = "settings" }) => {
   const { theme } = useContext(ThemeContext);
   const { isLoading, loadingText } = useLoading();
 
-  return (
-    <RequirePermission requiredKey="settings">
+  const workspace = (
       <div className="xs-workspace" data-theme={theme}>
         <header className="xs-header">
           <h1 className="xs-title">Settings</h1>
@@ -48,8 +50,9 @@ const SettingsLayout = () => {
           <Outlet />
         </main>
       </div>
-    </RequirePermission>
   );
+
+  return permissionKey ? <RequirePermission requiredKey={permissionKey}>{workspace}</RequirePermission> : workspace;
 };
 
 export default SettingsLayout;

@@ -19,19 +19,26 @@ describe("ExecutiveHistoryModal (read-only)", () => {
   const data = {
     executive: "Alex Exec",
     entries: [
-      { source: "latest", executive: "Alex Exec", status: "Current", outcome: "Hot", via: "Call", type: "Interested", comments: "Wants UK visa", followUpDate: "2026-05-02", followUpTime: "10:00:00", nextFollowUpDate: "2026-05-02", recordedAt: "2026-04-20T10:00:00Z" },
-      { source: "history", executive: "Alex Exec", status: "Previous", outcome: "Warm", via: "Email", type: "Interested", comments: "Sent brochure", followUpDate: "2026-04-10", followUpTime: "09:30:00", recordedAt: "2026-04-10T09:30:00Z" },
+      { source: "history", executive: "Sam Former", via: "Email", type: "interested", rating: "Warm", comments: "Sent brochure", followUpDate: "2026-04-10", followUpTime: "09:30:00", recordedAt: "2026-04-10T09:30:00Z", isCurrent: false },
+      { source: "latest", executive: "Alex Exec", via: "Call", type: "converted", rating: "Hot", comments: "Payment received, passport copy pending", followUpDate: "2026-05-02", followUpTime: "10:00:00", nextFollowUpDate: "2026-05-02", recordedAt: "2026-04-20T10:00:00Z", isCurrent: true },
     ],
   };
 
-  test("shows every Executive entry with name, comments, outcome and dates - and no edit/delete controls", async () => {
+  test("shows the real saved comments, executive, method, status, rating and dates oldest first - and no edit/delete controls", async () => {
     render(<ExecutiveHistoryModal customerId={1} clientName="Asha" onClose={() => {}} load={() => Promise.resolve(data)} />);
-    await waitFor(() => expect(screen.getByText("Wants UK visa")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Payment received, passport copy pending")).toBeInTheDocument());
     expect(screen.getByText("Sent brochure")).toBeInTheDocument();
-    expect(screen.getAllByText("Alex Exec").length).toBeGreaterThan(1);
+    // per-entry author (a former Executive stays credited), not just the current one
+    expect(screen.getByText("Sam Former")).toBeInTheDocument();
+    expect(screen.getByText("Alex Exec", { selector: "strong" })).toBeInTheDocument();
     expect(screen.getByText("Hot")).toBeInTheDocument();
-    expect(screen.getByText("Current")).toBeInTheDocument();
-    expect(screen.getByText("Next follow-up")).toBeInTheDocument();
+    expect(screen.getByText("Warm")).toBeInTheDocument();
+    expect(screen.getByText("Converted")).toBeInTheDocument(); // the status label is separate from the comment
+    expect(screen.getByText("Latest")).toBeInTheDocument();
+    expect(screen.getByText("Next reminder")).toBeInTheDocument();
+    expect(screen.getAllByText("Contact method")).toHaveLength(2);
+    const comments = [...document.querySelectorAll(".pp-timeline__comment")].map((n) => n.textContent);
+    expect(comments).toEqual(["Sent brochure", "Payment received, passport copy pending"]); // chronological
     const buttons = screen.getAllByRole("button").map((b) => (b.getAttribute("aria-label") || b.textContent).toLowerCase());
     expect(buttons.filter((t) => /edit|delete|remove|save/.test(t))).toEqual([]);
     expect(document.querySelector("textarea, input")).toBeNull();

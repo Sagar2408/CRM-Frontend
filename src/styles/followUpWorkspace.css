@@ -859,3 +859,54 @@
 .fue__reminder .fue__field {
   margin: 0;
 }
+
+/* ---- Process Person follow-ups (extra controls and rating chips) ---- */
+.fuw__filters input[type="search"] {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--fuw-border);
+  background: var(--fuw-card);
+  color: var(--fuw-text);
+  font-size: 13.5px;
+  text-transform: none;
+  letter-spacing: 0;
+  min-width: 0;
+  width: 190px;
+  max-width: 100%;
+}
+
+.fuw__chip--agressive {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.fuw__chip--calm {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.fuw__chip--neutral {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+@media (max-width: 720px) {
+  .fuw {
+    padding: 12px;
+  }
+  .fuw__filters {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .fuw__filters label {
+    flex: 1 1 140px;
+  }
+  .fuw__filters input[type="search"],
+  .fuw__filters select {
+    width: 100%;
+  }
+  .fuw__tabs {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+}
