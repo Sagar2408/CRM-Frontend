@@ -12,7 +12,9 @@ jest.mock("react-router-dom", () => ({
 }));
 let mockPerms = { permissions: null, loading: false };
 jest.mock("../hooks/usePermissions", () => ({ usePermissions: () => mockPerms }));
-jest.mock("../features/Messaging/MessagingNav", () => ({ MessagingSidebarItem: () => <li data-testid="messaging-item">Messaging</li> }));
+jest.mock("../features/Messaging/MessagingNav", () => ({
+  MessagingSidebarItem: ({ active }) => <li data-testid="messaging-item" data-active={String(!!active)}>Messaging</li>,
+}));
 
 import { AccessGate, PermissionedSidebar } from "./PermissionedSidebar";
 
@@ -26,7 +28,9 @@ const BACKEND_KEYS = [
 describe("navConfig", () => {
   test.each(Object.keys(NAV))("%s: every entry is tied to an EXISTING permission key (no second permission system)", (role) => {
     for (const item of [...NAV[role].general, ...NAV[role].external]) {
-      expect(BACKEND_KEYS).toContain(item.perm);
+      // ELSA AI is the one deliberate exception: like the Executive panel it has no key (`always`).
+      if (item.always) expect(item.id).toBe("elsa");
+      else expect(BACKEND_KEYS).toContain(item.perm);
     }
   });
 
@@ -39,12 +43,14 @@ describe("navConfig", () => {
   });
 
   test.each(Object.keys(NAV))("%s: a user with no permission record, or all flags false, sees nothing", (role) => {
+    const pages = (perms) => { const n = resolveNav(NAV[role], perms); return [...n.general, ...n.external].filter((i) => !i.always); };
     expect(resolveNav(NAV[role], null).total).toBe(0);
     expect(resolveNav(NAV[role], {}).total).toBe(0);
     const allFalse = Object.fromEntries(BACKEND_KEYS.map((k) => [k, false]));
     expect(resolveNav(NAV[role], allFalse).total).toBe(0);
     // only an exact boolean true counts (a truthy string/1 does not grant a page)
     expect(resolveNav(NAV[role], { dashboard: "true", settings: 1 }).total).toBe(0);
+    for (const perms of [null, {}, allFalse, { dashboard: "true", settings: 1 }]) expect(pages(perms)).toEqual([]);
   });
 
   test("HR: each enabled key reveals exactly its own page, split into GENERAL and EXTERNAL", () => {
@@ -104,6 +110,13 @@ describe("<PermissionedSidebar />", () => {
     mockPerms = { permissions: { settings: true }, loading: false };
     render(<PermissionedSidebar config={NAV.manager} />);
     expect(screen.getByTestId("nav-general")).toBeInTheDocument();
+    // Manager always lists ELSA AI under External (no Page Access key), so check HR for the hidden case.
+  });
+
+  test("hides the External heading for HR when no external page is enabled", () => {
+    mockPerms = { permissions: { settings: true }, loading: false };
+    render(<PermissionedSidebar config={NAV.hr} />);
+    expect(screen.getByTestId("nav-general")).toBeInTheDocument();
     expect(screen.queryByTestId("nav-external")).not.toBeInTheDocument();
   });
 
@@ -151,5 +164,30 @@ describe("<AccessGate />", () => {
     render(<AccessGate config={NAV.hr}><div>x</div></AccessGate>);
     expect(screen.getByText(/Loading permissions/)).toBeInTheDocument();
     expect(screen.queryByText("x")).not.toBeInTheDocument();
+  });
+});
+
+describe("Manager sidebar: Messaging", () => {
+  beforeEach(() => {
+    mockPerms = { permissions: { messaging: true, dashboard: true }, loading: false };
+  });
+  test("Messaging lives under External and points at /manager/messaging", () => {
+    const item = NAV.manager.external.find((i) => i.id === "messaging");
+    expect(item).toMatchObject({ to: "messaging", perm: "messaging", messaging: true });
+    expect(itemPath(NAV.manager, item)).toBe("/manager/messaging");
+  });
+  test("it is highlighted on the Messaging route (and sub-paths) and not elsewhere", () => {
+    mockPath = "/manager/messaging";
+    const { unmount } = render(<PermissionedSidebar config={NAV.manager} />);
+    expect(screen.getByTestId("messaging-item")).toHaveAttribute("data-active", "true");
+    unmount();
+    mockPath = "/manager";
+    render(<PermissionedSidebar config={NAV.manager} />);
+    expect(screen.getByTestId("messaging-item")).toHaveAttribute("data-active", "false");
+  });
+  test("without the messaging permission the item is not offered", () => {
+    mockPerms = { permissions: { dashboard: true }, loading: false };
+    render(<PermissionedSidebar config={NAV.manager} />);
+    expect(screen.queryByTestId("messaging-item")).not.toBeInTheDocument();
   });
 });

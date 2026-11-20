@@ -47,7 +47,6 @@ const AssignTask = () => {
   const { theme } = useContext(ThemeContext);
   const { createSingleLeadAPI } = useApi();
 
-  const isSidebarExpanded = localStorage.getItem("adminSidebarExpanded") === "true";
 
   useEffect(() => {
     showLoader("Loading assign task...", "admin");
@@ -83,14 +82,10 @@ const AssignTask = () => {
   };
 
   return (
-    <div
-      className={`assign-task-container ${isSidebarExpanded ? "sidebar-expanded" : "sidebar-collapsed"}`}
-      data-theme={theme}
-      style={{ minHeight: "100vh", padding: "20px", boxSizing: "border-box" }}
-    >
+    <div className="at-shell" data-theme={theme}>
       {isLoading && variant === "admin" && <AdminSpinner text="Loading assign task..." />}
       <SidebarToggle />
-      <div className="assign-task-content" style={{ width: "100%", alignItems: "flex-start" }}>
+      <div className="at-shell-inner">
         <LeadImportDashboard onAddSingle={() => setShowSingle(true)} />
       </div>
 

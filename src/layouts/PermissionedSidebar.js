@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import {
   ActivitySquare, CalendarCheck, CalendarDays, CalendarOff, ClipboardList, FolderOpen, Gauge, HelpCircle,
-  LifeBuoy, MessageSquare, PieChart, Settings, UserCheck, UserCircle, UserCog, UserPlus, Users, Wallet,
+  LifeBuoy, ListChecks, MessageSquare, PieChart, Settings, Sparkles, UserCheck, UserCircle, UserCog, UserPlus, Users, Wallet,
 } from "lucide-react";
 import { MessagingSidebarItem } from "../features/Messaging/MessagingNav";
 import { usePermissions } from "../hooks/usePermissions";
@@ -12,7 +12,7 @@ import "../styles/hr.css";
 
 const ICONS = {
   ActivitySquare, CalendarCheck, CalendarDays, CalendarOff, ClipboardList, FolderOpen, Gauge, HelpCircle,
-  LifeBuoy, MessageSquare, PieChart, Settings, UserCheck, UserCircle, UserCog, UserPlus, Users, Wallet,
+  LifeBuoy, ListChecks, MessageSquare, PieChart, Settings, Sparkles, UserCheck, UserCircle, UserCog, UserPlus, Users, Wallet,
 };
 
 /** Sidebar shared by the HR and Manager panels. Shows only pages the Admin enabled. */
@@ -58,7 +58,7 @@ export const PermissionedSidebar = ({ config }) => {
   };
 
   const renderItem = (item) => {
-    if (item.messaging) return <MessagingSidebarItem key={item.id} />;
+    if (item.messaging) return <MessagingSidebarItem key={item.id} active={isActive(item)} />;
     const Icon = ICONS[item.icon] || Gauge;
     return (
       <li key={item.id} className={isActive(item) ? "active" : ""}>

@@ -13,6 +13,7 @@ import TaskManagement from "../features/LeadAssign/TaskManagement";
 import UserManagement from "../features/admin/user-management/UserManagement";
 import ExecutiveAssignments from "../features/admin/ExecutiveAssignments";
 import Messages from "../features/Messaging/Messages";
+import ElsaAI from "../features/chatbot/ElsaAI";
 import FullReport from "../features/admin/FullReport";
 import Hierarchy from "../features/admin/Hierarchy";
 import Verify from "../features/verification/Verify";
@@ -34,6 +35,9 @@ const AdminRoutes = () => {
         {/* [EOD DISABLED] see DISABLED_FEATURES.md
         <Route path="eod-report" element={<Eod />} /> */}
         <Route path="messaging" element={<Messages/>}/>
+        {/* ELSA AI: the same workspace as the Executive / Manager / Process panels (Admin chats are stored under their own agent type). */}
+        <Route path="elsa" element={<ElsaAI />} />
+        <Route path="chat" element={<Navigate to="/admin/elsa" replace />} />
         <Route path="executive-attendance" element={<AttendanceTable />} />
         <Route path="full-report" element={<FullReport />} />
         <Route path="heirarchy" element={<Hierarchy/>}/>

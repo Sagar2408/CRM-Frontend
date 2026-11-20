@@ -16,7 +16,12 @@ import { emitSubscriptionExpired } from "../utils/authEvents";
 // 2. Auth Provider
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  // Gates the first render only (reading the saved session). It must NOT be tied to
+  // `loading`: login/logout flip that on every attempt, and gating the whole tree on
+  // it unmounted the Login page and the subscription-expired modal mid-request, so
+  // the page just blinked and the modal event had no listener.
+  const [initializing, setInitializing] = useState(true);
   const navigate = useNavigate();
   const { forceLightTheme } = useContext(ThemeContext);
 
@@ -29,7 +34,7 @@ export const AuthProvider = ({ children }) => {
       setUser(JSON.parse(userData));
     }
 
-    setLoading(false);
+    setInitializing(false);
   }, []);
 
   // -----------------------
@@ -234,7 +239,7 @@ const handleLogoutManager = async () => {
         isAuthenticated: !!user,
       }}
     >
-      {!loading && children}
+      {!initializing && children}
     </AuthContext.Provider>
   );
 };

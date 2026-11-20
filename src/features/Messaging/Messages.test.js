@@ -301,3 +301,59 @@ describe("Messages page", () => {
     expect(acquireSocket).not.toHaveBeenCalled();
   });
 });
+
+describe("Messages page as a Manager", () => {
+  const MGR_EMPLOYEES = [
+    { key: "user:2", kind: "user", id: 2, name: "Eve Executive", role: "Executive", hasPhoto: false, online: true, lastSeen: null },
+    { key: "hr:1", kind: "hr", id: 1, name: "Hana HR", role: "HR", hasPhoto: false, online: false, lastSeen: null },
+  ];
+  const CONV_EVE = { id: "44444444-4444-4444-8444-444444444444", type: "direct", name: "Eve Executive", otherKey: "user:2", memberCount: 2, starred: false, unread: 1, lastMessage: { id: 9, senderKey: "user:2", senderName: "Eve Executive", kind: "text", body: "done", createdAt: new Date().toISOString() }, lastActivity: new Date().toISOString() };
+
+  beforeEach(() => {
+    // the Manager is manager:7 - the SAME numeric id as an Executive user:7 must not be treated as "me"
+    localStorage.setItem("user", JSON.stringify({ id: 7, role: "Manager" }));
+    useMessagingAccess.mockReturnValue({ allowed: true, loading: false, isAdmin: false, path: "/manager/messaging" });
+    messagingApi.directory.mockResolvedValue({ employees: MGR_EMPLOYEES });
+    messagingApi.conversations.mockResolvedValue({ conversations: [CONV_EVE] });
+    messagingApi.messages.mockResolvedValue({
+      messages: [
+        { id: 8, conversationId: CONV_EVE.id, senderKey: "manager:7", senderName: "Me", kind: "text", body: "status?", createdAt: new Date().toISOString(), status: "sent" },
+        { id: 9, conversationId: CONV_EVE.id, senderKey: "user:7", senderName: "Other Seven", kind: "text", body: "not mine", createdAt: new Date().toISOString() },
+        { id: 10, conversationId: CONV_EVE.id, senderKey: "user:2", senderName: "Eve Executive", kind: "text", body: "done", createdAt: new Date().toISOString() },
+      ],
+      hasMore: false,
+      receipts: [{ memberKey: "user:2", lastReadId: 8, lastDeliveredId: 10 }],
+    });
+  });
+
+  test("lists the company's people, unread badge, no group-create (Admin only), and own bubbles use the manager key", async () => {
+    render(<Messages />);
+    const eve = (await screen.findByText("Eve Executive")).closest("button");
+    expect(within(eve).getByLabelText("1 unread")).toBeInTheDocument();
+    expect(screen.getByText("Hana HR")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /new group|create group/i })).not.toBeInTheDocument();
+    fireEvent.click(eve);
+    await screen.findByText("status?");
+    expect(screen.getByText("status?").closest(".msg-row")).toHaveClass("mine"); // manager:7 is me
+    expect(screen.getByText("not mine").closest(".msg-row")).toHaveClass("theirs"); // user:7 is somebody else, not me
+    expect(screen.getByLabelText("Read")).toBeInTheDocument();
+  });
+
+  test("a Manager sends over the socket and the reply arrives live", async () => {
+    render(<Messages />);
+    fireEvent.click((await screen.findByText("Eve Executive")).closest("button"));
+    await screen.findByText("status?");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "please update the sheet" } });
+    fireEvent.click(screen.getByLabelText("Send message"));
+    await waitFor(() => expect(socket.emitted.some(([e, p]) => e === "msg:send" && p.body === "please update the sheet")).toBe(true));
+    act(() => socket.fire("msg:new", { message: { id: 11, conversationId: CONV_EVE.id, senderKey: "user:2", senderName: "Eve Executive", kind: "text", body: "will do", createdAt: new Date().toISOString() } }));
+    expect((await screen.findAllByText("will do")).length).toBeGreaterThan(0);
+  });
+
+  test("when Messaging is disabled for the Manager they see the unavailable state, not the chat", async () => {
+    useMessagingAccess.mockReturnValue({ allowed: false, loading: false, isAdmin: false, path: "/manager/messaging" });
+    render(<Messages />);
+    expect(await screen.findByText("Messaging unavailable")).toBeInTheDocument();
+    expect(messagingApi.directory).not.toHaveBeenCalled();
+  });
+});

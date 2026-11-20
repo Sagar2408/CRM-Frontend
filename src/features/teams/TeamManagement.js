@@ -28,9 +28,8 @@ const Card = ({ label, value, sub, testId }) => (
  * user_management key - the server enforces the same rule; this only hides the
  * controls that would be refused.
  */
-const TeamManagement = ({ canManage = true }) => {
+const TeamManagement = ({ canManage = true, canAssignManager = true }) => {
   const { theme } = useContext(ThemeContext) || {};
-  const isSidebarExpanded = localStorage.getItem("adminSidebarExpanded") === "true";
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -80,9 +79,9 @@ const TeamManagement = ({ canManage = true }) => {
   const cards = data?.cards;
 
   return (
-    <div className={`assign-task-container ${isSidebarExpanded ? "sidebar-expanded" : "sidebar-collapsed"}`} data-theme={theme}>
+    <div className="tm-shell" data-theme={theme}>
       <SidebarToggle />
-      <div className="assign-task-content" style={{ width: "100%", alignItems: "flex-start" }}>
+      <div className="tm-shell-inner">
         <div className="tm-page">
           <div className="tm-header">
             <div>
@@ -157,6 +156,14 @@ const TeamManagement = ({ canManage = true }) => {
                   <span className={`tm-pill ${t.status}`}>{STATUS_LABEL[t.status]}</span>
                 </div>
                 <div className="tm-muted">{t.goal.metricLabel} · target {t.goal.target}</div>
+                <div className="tm-team-people">
+                  <span data-testid={`manager-${t.id}`}><strong>Manager:</strong> {t.managerName || "Not assigned"}</span>
+                  <span className="tm-chips" aria-label="Executives">
+                    {(t.executives || []).slice(0, 4).map((x) => <em key={x.key} className="tm-chip">{x.name}</em>)}
+                    {(t.executives || []).length > 4 && <em className="tm-chip">+{t.executives.length - 4} more</em>}
+                    {(t.executives || []).length === 0 && <em className="tm-muted">No Executives</em>}
+                  </span>
+                </div>
                 {t.goal && t.description && <div className="tm-desc">{t.description}</div>}
                 <div className="tm-goal-line">
                   <span>
@@ -183,6 +190,7 @@ const TeamManagement = ({ canManage = true }) => {
         <TeamFormModal
           team={form.team}
           employees={employees}
+          canAssignManager={canAssignManager && canManage}
           onClose={() => setForm(null)}
           onSaved={(team) => {
             const editing = !!form.team;
@@ -198,7 +206,15 @@ const TeamManagement = ({ canManage = true }) => {
           range={range}
           onClose={() => setOpenId(null)}
           onChanged={load}
-          onEdit={(team) => setForm({ team })}
+          onEdit={async (team) => {
+            try {
+              setEmployees((await teamApi.employees()).employees);
+              setForm({ team });
+            } catch (e) {
+              setError(teamErrorMessage(e, "Could not load employees."));
+            }
+          }}
+          canAssignManager={canAssignManager && canManage}
           readOnly={!canManage}
         />
       )}

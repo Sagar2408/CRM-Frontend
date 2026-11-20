@@ -76,7 +76,7 @@ test("ELSA AI is a sidebar item and is no longer a header icon", () => {
 test("every sidebar link has a label and a tooltip text; the invoice link is gone", () => {
   renderBar();
   const sidebar = document.getElementById("exec-sidebar");
-  for (const name of ["Dashboard", "Fresh Leads", "Follow-ups", "Converted Leads", "Closed Leads", "ELSA AI", "Scheduled Meetings", "Settings"]) {
+  for (const name of ["Dashboard", "Fresh Leads", "Follow-ups", "Converted Leads", "Closed Leads", "My Tasks", "ELSA AI", "Scheduled Meetings", "Settings"]) {
     const link = within(sidebar).getByRole("link", { name });
     expect(link).toHaveAttribute("data-tip", name);
     expect(link.querySelector(".sb-label")).toHaveTextContent(name);

@@ -23,3 +23,19 @@ describe("Admin sidebar", () => {
     expect(screen.getByText("Lead Assign").closest("a")).toHaveAttribute("href", "/admin/leadassign");
   });
 });
+
+describe("Admin sidebar: ELSA AI", () => {
+  test("ELSA AI is a menu item that opens /admin/elsa, with an icon, next to Messaging", () => {
+    render(<AdminSidebar />);
+    const link = screen.getByText("ELSA AI").closest("a");
+    expect(link).toHaveAttribute("href", "/admin/elsa");
+    expect(link).toHaveAttribute("data-tooltip", "ELSA AI");
+    expect(link.querySelector("svg")).not.toBeNull();
+  });
+  test("the existing Admin menu is untouched", () => {
+    render(<AdminSidebar />);
+    for (const [label, href] of [["Hierarchy", "/admin/heirarchy"], ["Full Report", "/admin/full-report"], ["Team Management", "/admin/team-management"], ["Settings", "/admin/settings"]]) {
+      expect(screen.getByText(label).closest("a")).toHaveAttribute("href", href);
+    }
+  });
+});

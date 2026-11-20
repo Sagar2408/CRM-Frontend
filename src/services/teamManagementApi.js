@@ -11,7 +11,7 @@ export const teamApi = {
   compare: async (teamIds, range) => (await apiService.get(`${base}/compare`, { params: { teamIds: teamIds.join(","), ...clean(range) } })).data,
   create: async (body) => (await apiService.post(`${base}/teams`, body)).data,
   update: async (id, body) => (await apiService.put(`${base}/teams/${id}`, body)).data,
-  addMembers: async (id, memberKeys) => (await apiService.post(`${base}/teams/${id}/members`, { memberKeys })).data,
+  addMembers: async (id, memberKeys, opts = {}) => (await apiService.post(`${base}/teams/${id}/members`, { memberKeys, ...(opts.reassign ? { reassign: true } : {}) })).data,
   removeMember: async (id, memberKey) => (await apiService.delete(`${base}/teams/${id}/members/${encodeURIComponent(memberKey)}`)).data,
   archive: async (id) => (await apiService.post(`${base}/teams/${id}/archive`)).data,
   restore: async (id) => (await apiService.post(`${base}/teams/${id}/restore`)).data,

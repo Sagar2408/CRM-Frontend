@@ -1,9 +1,8 @@
 import React from "react";
 import Messages from "../features/Messaging/Messages";
 import RequireMessaging from "../features/Messaging/RequireMessaging";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import AssignTask from "../features/admin/AssignTask";
-import ExecutiveDetails from "../features/admin/ExecutiveDetails";
 import ManagerSettings from "../features/manager/ManagerSettings";
 import SupportTickets from "../features/admin/SupportTickets";
 import AdminNotification from "../features/admin/AdminNotification"
@@ -14,7 +13,8 @@ import ManagerLayout from "../layouts/ManagerLayout";
 import Monitoring from "../features/admin/Monitoring";
 import TaskManagement from "../features/LeadAssign/TaskManagement";
 import ExecutiveCredentialsForm from "../features/admin/ExecutiveCredentialsForm";
-import CRMTeamsInterface from "../features/manager/Team";
+import ManagerTaskManagement from "../features/manager/TaskManagement";
+import ElsaAI from "../features/chatbot/ElsaAI";
 import MyLeave from "../features/hr/MyLeave";
 const ManagerRoutes = () => {
   return (
@@ -24,10 +24,8 @@ const ManagerRoutes = () => {
             <RequirePermission requiredKey="assign_task">
                 <AssignTask />
             </RequirePermission>} />
-        <Route path="executive-details" element={
-            <RequirePermission requiredKey="executive_details">
-            <ExecutiveDetails />
-            </RequirePermission>} />
+        {/* Executive Details was replaced by team management; the old URL lands on Task Management. */}
+        <Route path="executive-details" element={<Navigate to="/manager/teams" replace />} />
         <Route path="settings" element={
             <RequirePermission requiredKey="settings">
             <ManagerSettings />
@@ -58,7 +56,9 @@ const ManagerRoutes = () => {
         */}
         <Route path="messaging" element={<RequireMessaging><Messages /></RequireMessaging>} />
         <Route path="executive-attendance" element={<RequirePermission requiredKey="executive_details"><AttendanceTable /></RequirePermission>} />
-        <Route path="teams" element={<RequirePermission requiredKey="executive_details"><CRMTeamsInterface /></RequirePermission>} />
+        <Route path="teams" element={<RequirePermission requiredKey="executive_details"><ManagerTaskManagement /></RequirePermission>} />
+        <Route path="elsa" element={<ElsaAI />} />
+        <Route path="chat" element={<Navigate to="/manager/elsa" replace />} />
 
       </Route>
     </Routes>

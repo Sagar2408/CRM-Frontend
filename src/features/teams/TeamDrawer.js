@@ -11,7 +11,7 @@ const Tile = ({ label, value, testId }) => (
 );
 
 /** Detailed team dashboard (right-hand drawer). */
-const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged, readOnly = false }) => {
+const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged, readOnly = false, canAssignManager = false }) => {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState(null); // {type:'archive'|'remove', member?}
@@ -89,6 +89,9 @@ const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged, readOnly = fals
 
         {t && (
           <>
+            <p className="tm-manager-line" data-testid="team-manager">
+              <strong>Manager:</strong> {t.managerName || <span className="tm-muted">Not assigned</span>}
+            </p>
             {t.description && <p>{t.description}</p>}
             <div className="tm-goal-box">
               <div className="tm-goal-line">
@@ -225,7 +228,7 @@ const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged, readOnly = fals
       )}
       {adding && (
         <Modal title="Add members" onClose={() => setAdding(false)}>
-          <EmployeePicker employees={employees} selected={picked} excludeKeys={current.map((m) => m.key)} onToggle={(k) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]))} />
+          <EmployeePicker employees={employees} selected={picked} allowMove={canAssignManager} excludeKeys={current.map((m) => m.key)} onToggle={(k) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]))} />
           <div className="tm-actions">
             <button type="button" className="tm-btn" onClick={() => setAdding(false)}>
               Cancel
@@ -236,7 +239,7 @@ const TeamDrawer = ({ teamId, range, onClose, onEdit, onChanged, readOnly = fals
               disabled={!picked.length || busy}
               onClick={() =>
                 run(async () => {
-                  await teamApi.addMembers(t.id, picked);
+                  await teamApi.addMembers(t.id, picked, { reassign: canAssignManager });
                   setAdding(false);
                 })
               }

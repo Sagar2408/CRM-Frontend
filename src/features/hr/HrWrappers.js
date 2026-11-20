@@ -28,5 +28,5 @@ export const EmployeeManagement = () => (
  */
 export const HrTeamManagement = () => {
   const { permissions } = usePermissions();
-  return <TeamManagement canManage={permissions?.user_management === true} />;
+  return <TeamManagement canManage={permissions?.user_management === true} canAssignManager={false} />;
 };

@@ -32,26 +32,38 @@ export const ConfirmDialog = ({ title, message, confirmLabel, busy, onConfirm, o
 );
 
 /** Role-agnostic employee picker: any mix of Admin/Executive/Manager/HR/Process Person. */
-export const EmployeePicker = ({ employees, selected, onToggle, excludeKeys = [] }) => {
+export const EmployeePicker = ({ employees, selected, onToggle, excludeKeys = [], allowMove = false }) => {
   const [q, setQ] = useState("");
+  const [role, setRole] = useState("");
+  const roles = useMemo(() => [...new Set(employees.map((e) => e.role))].sort(), [employees]);
   const list = useMemo(
-    () => employees.filter((e) => !excludeKeys.includes(e.key)).filter((e) => `${e.name} ${e.role}`.toLowerCase().includes(q.toLowerCase())),
-    [employees, excludeKeys, q]
+    () =>
+      employees
+        .filter((e) => !excludeKeys.includes(e.key))
+        .filter((e) => !role || e.role === role)
+        .filter((e) => `${e.name} ${e.role}`.toLowerCase().includes(q.toLowerCase())),
+    [employees, excludeKeys, q, role]
   );
   return (
     <>
-      <input className="tm-input" placeholder="Search employees…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search employees" />
+      <div className="tm-row">
+        <input className="tm-input" placeholder="Search employees…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search employees" />
+        <select className="tm-input" value={role} onChange={(e) => setRole(e.target.value)} aria-label="Filter by role">
+          <option value="">All roles</option>
+          {roles.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+      </div>
       <div className="tm-picker">
         {list.length === 0 && <div className="tm-empty-small">No employees found.</div>}
         {list.map((e) => {
-          const blocked = !e.active || !!e.currentTeam;
+          const blocked = !e.active || (!!e.currentTeam && !allowMove);
           return (
             <label key={e.key} className={`tm-picker-row ${blocked ? "blocked" : ""}`}>
               <input type="checkbox" disabled={blocked} checked={selected.includes(e.key)} onChange={() => onToggle(e.key)} />
               <span className="tm-picker-name">{e.name}</span>
               <span className="tm-role">{e.role}</span>
               {!e.active && <span className="tm-note">Deactivated</span>}
-              {e.active && e.currentTeam && <span className="tm-note">In {e.currentTeam.name}</span>}
+              {e.active && e.currentTeam && <span className="tm-note">{allowMove ? `Move from ${e.currentTeam.name}` : `In ${e.currentTeam.name}`}</span>}
             </label>
           );
         })}
@@ -63,7 +75,7 @@ export const EmployeePicker = ({ employees, selected, onToggle, excludeKeys = []
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** Create (with members) or edit (details only; members are managed in the drawer). */
-export const TeamFormModal = ({ team, employees, onClose, onSaved }) => {
+export const TeamFormModal = ({ team, employees, onClose, onSaved, canAssignManager = false }) => {
   const editing = !!team;
   const [form, setForm] = useState({
     name: team?.name || "",
@@ -73,7 +85,9 @@ export const TeamFormModal = ({ team, employees, onClose, onSaved }) => {
     targetValue: team?.targetValue || "",
     startDate: team?.startDate || today(),
     endDate: team?.endDate || "",
+    managerId: team?.managerId ? String(team.managerId) : "",
   });
+  const managers = useMemo(() => employees.filter((e) => e.kind === "manager" && (e.active || String(e.id) === String(team?.managerId))), [employees, team]);
   const [members, setMembers] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -104,8 +118,13 @@ export const TeamFormModal = ({ team, employees, onClose, onSaved }) => {
       startDate: form.startDate,
       endDate: form.endDate || null,
     };
+    if (canAssignManager) {
+      // editing: "" clears the manager (null); creating: omit when none chosen
+      if (editing) body.managerId = form.managerId ? Number(form.managerId) : null;
+      else if (form.managerId) body.managerId = Number(form.managerId);
+    }
     try {
-      const res = editing ? await teamApi.update(team.id, body) : await teamApi.create({ ...body, endDate: form.endDate || undefined, memberKeys: members });
+      const res = editing ? await teamApi.update(team.id, body) : await teamApi.create({ ...body, endDate: form.endDate || undefined, memberKeys: members, ...(canAssignManager ? { reassign: true } : {}) });
       onSaved(res.team);
     } catch (err) {
       setError(teamErrorMessage(err, "Could not save the team."));
@@ -120,6 +139,18 @@ export const TeamFormModal = ({ team, employees, onClose, onSaved }) => {
         <input id="tm-name" className="tm-input" maxLength={100} value={form.name} onChange={set("name")} autoFocus />
         <label className="tm-label" htmlFor="tm-desc">Description</label>
         <textarea id="tm-desc" className="tm-input" rows={2} maxLength={500} value={form.description} onChange={set("description")} />
+        {canAssignManager && (
+          <>
+            <label className="tm-label" htmlFor="tm-manager">Manager</label>
+            <select id="tm-manager" className="tm-input" value={form.managerId} onChange={set("managerId")}>
+              <option value="">No manager</option>
+              {managers.map((m) => (
+                <option key={m.key} value={m.id}>{m.name}{m.active ? "" : " (deactivated)"}</option>
+              ))}
+            </select>
+            <p className="tm-muted">The Manager sees the Executives of this team in their dashboard and Task Management, and can assign them tasks.</p>
+          </>
+        )}
         <label className="tm-label" htmlFor="tm-goal">Team goal</label>
         <input id="tm-goal" className="tm-input" maxLength={200} value={form.goal} onChange={set("goal")} placeholder="e.g. Convert 40 leads this quarter" />
         <div className="tm-row">
@@ -152,7 +183,7 @@ export const TeamFormModal = ({ team, employees, onClose, onSaved }) => {
           <>
             <label className="tm-label">Team members ({members.length} selected)</label>
             <p className="tm-muted">Any mix of roles is allowed. An employee can be in one active team at a time.</p>
-            <EmployeePicker employees={employees} selected={members} onToggle={(k) => setMembers((m) => (m.includes(k) ? m.filter((x) => x !== k) : [...m, k]))} />
+            <EmployeePicker employees={employees} selected={members} allowMove={canAssignManager} onToggle={(k) => setMembers((m) => (m.includes(k) ? m.filter((x) => x !== k) : [...m, k]))} />
           </>
         )}
         {error && (

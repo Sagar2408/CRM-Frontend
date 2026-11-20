@@ -44,8 +44,7 @@ export const NAV = {
     general: [
       { id: "overview", label: "Overview", to: "", icon: "Gauge", perm: "dashboard" },
       { id: "monitoring", label: "Monitoring", to: "monitoring", icon: "ActivitySquare", perm: "monitoring" },
-      { id: "executive-details", label: "Executive Details", to: "executive-details", icon: "UserCircle", perm: "executive_details" },
-      { id: "teams", label: "Team Management", to: "teams", icon: "Users", perm: "executive_details" },
+      { id: "teams", label: "Task Management", to: "teams", icon: "ListChecks", perm: "executive_details" },
       { id: "attendance", label: "Attendance", to: "executive-attendance", icon: "CalendarDays", perm: "executive_details" },
       { id: "leave", label: "My Leave", to: "my-leave", icon: "CalendarOff", perm: "account_updates" },
       { id: "support", label: "Help & Support", to: "help-support", icon: "LifeBuoy", perm: "weekly_summary" },
@@ -56,6 +55,9 @@ export const NAV = {
       { id: "assign", label: "Lead Assign", to: "leadassign", icon: "UserCheck", perm: "task_management" },
       { id: "create", label: "Create Executive", to: "executiveform", icon: "UserPlus", perm: "user_management" },
       { id: "messaging", label: "Messaging", to: "messaging", icon: "MessageSquare", perm: "messaging", messaging: true },
+      // ELSA AI has no Page Access key (the Executive panel does not gate it either), so it
+      // is always listed: `always` entries never count as "an enabled page".
+      { id: "elsa", label: "ELSA AI", to: "elsa", icon: "Sparkles", always: true },
     ],
   },
 };
@@ -68,15 +70,17 @@ export const itemPath = (cfg, item) => (item.to ? `${cfg.base}/${item.to}` : cfg
  * exactly `true`. Nothing is shown to a user without a record.
  */
 export function resolveNav(cfg, permissions) {
-  const allowed = (item) => !!permissions && permissions[item.perm] === true;
+  const allowed = (item) => item.always === true || (!!permissions && permissions[item.perm] === true);
   const general = cfg.general.filter(allowed);
   const external = cfg.external.filter(allowed);
-  return { general, external, total: general.length + external.length };
+  // `always` entries are shown but do not count as a page the Admin enabled.
+  const keyed = (list) => list.filter((i) => !i.always).length;
+  return { general, external, total: keyed(general) + keyed(external) };
 }
 
 /** The first page the user may open (used to leave a forbidden landing page). */
 export function firstAllowedPath(cfg, permissions) {
   const { general, external } = resolveNav(cfg, permissions);
-  const first = general[0] || external[0];
+  const first = general.find((i) => !i.always) || external.find((i) => !i.always);
   return first ? itemPath(cfg, first) : null;
 }

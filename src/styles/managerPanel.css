@@ -1,0 +1,35 @@
+/* Manager panel (dashboard + Task Management). Namespaced "mgr-"; builds on the shared hr-* cards. */
+.mgr-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e5e7eb; color: #374151; white-space: nowrap; }
+.mgr-pill.low { background: #e0f2fe; color: #075985; }
+.mgr-pill.medium { background: #fef3c7; color: #92400e; }
+.mgr-pill.high { background: #ffedd5; color: #9a3412; }
+.mgr-pill.urgent { background: #fee2e2; color: #991b1b; }
+.mgr-pill.todo { background: #e5e7eb; color: #374151; }
+.mgr-pill.in_progress { background: #dbeafe; color: #1e40af; }
+.mgr-pill.completed { background: #d1fae5; color: #065f46; }
+.mgr-pill.overdue { background: #fee2e2; color: #991b1b; }
+.mgr-pill.online { background: #d1fae5; color: #065f46; }
+.mgr-pill.break { background: #fef3c7; color: #92400e; }
+.mgr-progress { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.mgr-progress .hr-bar { flex: 1; }
+.mgr-progress span:last-child { font-size: 12px; opacity: .75; min-width: 34px; text-align: right; }
+.mgr-task-title { font-weight: 600; }
+.mgr-task-desc { font-size: 12px; opacity: .65; margin-top: 2px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mgr-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.mgr-funnel { display: flex; flex-direction: column; gap: 10px; }
+.mgr-funnel-row { display: grid; grid-template-columns: 110px 1fr 44px; gap: 10px; align-items: center; font-size: 13px; }
+.mgr-funnel-row strong { text-align: right; }
+.mgr-cards { display: none; }
+.mgr-card-task { border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.mgr-card-task header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.mgr-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.mgr-range { width: 100%; }
+@media (max-width: 760px) {
+  .mgr-table-desktop { display: none; }
+  .mgr-cards { display: flex; flex-direction: column; gap: 10px; }
+  .mgr-funnel-row { grid-template-columns: 90px 1fr 36px; }
+  .hr-toolbar select, .hr-toolbar input { flex: 1 1 140px; }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .mgr-task-desc { max-width: 200px; }
+}

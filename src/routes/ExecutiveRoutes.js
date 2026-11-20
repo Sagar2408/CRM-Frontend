@@ -15,6 +15,7 @@ import SettingRoutes from "./SettingRoutes";
 import NotificationRoutes from "./NotificationRoutes";
 import ChatBotRoutes from "./ChatBotRoutes";
 import ElsaAI from "../features/chatbot/ElsaAI";
+import MyTasks from "../features/executive/MyTasks";
 import RequirePermission from "../features/admin-settings/RequirePermission";
 
 const ExecutiveRoutes = ({onTextUpdate}) => {
@@ -42,6 +43,7 @@ const ExecutiveRoutes = ({onTextUpdate}) => {
             </RequirePermission>} />
           <Route path="chat/*" element={<ChatBotRoutes />} />
           <Route path="elsa" element={<ElsaAI />} />
+          <Route path="tasks" element={<MyTasks />} />
           <Route path="messaging" element={<RequireMessaging><Messages /></RequireMessaging>} />
 
         </Route>

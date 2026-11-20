@@ -42,9 +42,8 @@ const InsufficientBalanceModal = () => {
         <FaExclamationTriangle className="insufficient-balance-icon" />
         <h2 className="insufficient-balance-title">Insufficient Balance</h2>
         <p className="insufficient-balance-message">
-          Your company's subscription/payment period has expired. Please
-          contact your company administrator to renew the payment and
-          restore access.
+          Your subscription has ended. Please recharge your account with
+          sufficient balance to continue using the CRM.
         </p>
 
         {(info.companyName || expiryDate) && (

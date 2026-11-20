@@ -22,11 +22,12 @@ jest.mock("../leadImport/LeadImportDashboard", () => ({ onAddSingle }) => (
 describe("Upload Leads page", () => {
   beforeEach(() => mockCreate.mockReset());
 
-  test("hosts the import dashboard inside the existing layout wrapper (sidebar-aware)", () => {
+  test("hosts the import dashboard in a shell that adds no second sidebar offset", () => {
     const { container } = render(<AssignTask />);
     expect(screen.getByText("import-dashboard")).toBeInTheDocument();
     expect(screen.getByTestId("sidebar-toggle")).toBeInTheDocument();
-    expect(container.querySelector(".assign-task-container .assign-task-content")).toBeTruthy();
+    expect(container.querySelector(".at-shell .at-shell-inner")).toBeTruthy();
+    expect(container.querySelector(".assign-task-container, .assign-task-content")).toBeNull(); // those classes add a second sidebar margin
   });
 
   test("single-lead creation still works through the same API (in a modal)", async () => {

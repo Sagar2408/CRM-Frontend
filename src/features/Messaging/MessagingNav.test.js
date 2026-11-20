@@ -105,3 +105,25 @@ describe("navbar message icon / sidebar item", () => {
     expect(screen.getByText(/Messaging/).closest("a")).toHaveAttribute("href", "/process/messaging");
   });
 });
+
+describe("sidebar item active state", () => {
+  test("Manager: aside variant links to /manager/messaging and marks the active route", () => {
+    setUser({ id: 3, role: "Manager" });
+    usePermissionContext.mockReturnValue({ permissions: { messaging: true }, loading: false });
+    const { container, rerender } = render(<MessagingSidebarItem active={false} />);
+    expect(screen.getByText("Messaging").closest("a")).toHaveAttribute("href", "/manager/messaging");
+    expect(container.querySelector("li")).not.toHaveClass("active");
+    rerender(<MessagingSidebarItem active />);
+    expect(container.querySelector("li")).toHaveClass("active");
+    expect(screen.getByText("Messaging").closest("a")).toHaveAttribute("aria-current", "page");
+  });
+  test("Executive: exec variant gets the active class on its link", () => {
+    setUser({ id: 2, role: "Executive" });
+    usePermissionContext.mockReturnValue({ permissions: { messaging: true }, loading: false });
+    const { rerender } = render(<MessagingSidebarItem variant="exec" active={false} />);
+    expect(screen.getByLabelText("Messaging")).not.toHaveClass("active");
+    expect(screen.getByLabelText("Messaging")).toHaveAttribute("href", "/executive/messaging");
+    rerender(<MessagingSidebarItem variant="exec" active />);
+    expect(screen.getByLabelText("Messaging")).toHaveClass("active");
+  });
+});

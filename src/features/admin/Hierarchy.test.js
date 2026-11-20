@@ -4,6 +4,12 @@ import { render, screen, fireEvent, within, waitFor } from "@testing-library/rea
 const mockApi = {};
 jest.mock("../../context/ApiContext", () => ({ useApi: () => mockApi }));
 jest.mock("./SidebarToggle", () => () => null);
+jest.mock("../../services/orgHierarchyApi", () => ({
+  orgApi: { assignable: jest.fn(), assign: jest.fn(), remove: jest.fn() },
+  orgErrorMessage: (e, f) => e?.response?.data?.message || e?.message || f,
+  ASSIGNABLE_ROLES: ["Executive", "Manager", "ProcessPerson"],
+  apiKeyOf: (n) => ({ Executive: "user", Manager: "manager", ProcessPerson: "processperson" }[n.role] ? `${{ Executive: "user", Manager: "manager", ProcessPerson: "processperson" }[n.role]}:${n.id}` : null),
+}));
 jest.mock("./ThemeContext", () => {
   const React = require("react");
   return { ThemeContext: React.createContext({ theme: "light" }) };
@@ -140,4 +146,40 @@ test("loading, error and empty states", async () => {
   mockApi.fetchOrganizationHierarchyAPI = jest.fn().mockResolvedValue(mockApi.organizationHierarchy);
   render(<Hierarchy />);
   expect(screen.getByText("No employees found.")).toBeInTheDocument();
+});
+
+// ---- Admin assignment inside the page
+import { orgApi } from "../../services/orgHierarchyApi";
+
+describe("assignment controls in the details panel", () => {
+  beforeEach(() => {
+    orgApi.assignable.mockReset().mockResolvedValue({
+      managers: [{ key: "manager:1", id: 1, name: "Mia", active: true }],
+      employees: [{ key: "user:90", kind: "user", id: 90, name: "Loner", username: "loner", role: "Executive", active: true, managerId: null, managerName: null }],
+    });
+    orgApi.assign.mockReset().mockResolvedValue({ assigned: ["user:90"], unchanged: [] });
+  });
+
+  test("selecting a Manager offers Assign employees; saving reloads the chart from the server and confirms", async () => {
+    render(<Hierarchy />);
+    fireEvent.click(screen.getByLabelText("Mia, Manager"));
+    fireEvent.click(screen.getByRole("button", { name: "Assign employees" }));
+    const dlg = await screen.findByRole("dialog");
+    fireEvent.click(await within(dlg).findByLabelText(/Loner/));
+    mockApi.fetchOrganizationHierarchyAPI.mockClear();
+    fireEvent.click(within(dlg).getByRole("button", { name: "Assign 1 employee" }));
+    await waitFor(() => expect(orgApi.assign).toHaveBeenCalledWith(1, ["user:90"], { reassign: false }));
+    expect(await screen.findByRole("status")).toHaveTextContent("1 employee now report to Mia.");
+    await waitFor(() => expect(mockApi.fetchOrganizationHierarchyAPI).toHaveBeenCalled());
+  });
+
+  test("HR and Admin cards have no assignment controls; an unassigned Executive can be assigned to a manager", () => {
+    render(<Hierarchy />);
+    fireEvent.click(screen.getByLabelText("Hana, HR"));
+    expect(screen.queryByTestId("oh-assign")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Boss, Admin"));
+    expect(screen.queryByTestId("oh-assign")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Loner, Executive"));
+    expect(screen.getByRole("button", { name: "Assign to a manager" })).toBeInTheDocument();
+  });
 });

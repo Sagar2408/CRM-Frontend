@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useApi } from "../../context/ApiContext";
 import SidebarToggle from "./SidebarToggle";
+import HierarchyAssign from "./HierarchyAssign";
 import { ThemeContext } from "./ThemeContext";
 
 // Role -> display data. Levels shown on cards come from the API (computed from
@@ -113,6 +114,7 @@ const Hierarchy = () => {
   const nodeMap = useMemo(() => flatten([...roots, ...unassigned]), [roots, unassigned]);
 
   const [loadError, setLoadError] = useState(false);
+  const [notice, setNotice] = useState("");
   const [expanded, setExpanded] = useState(new Set());
   const [selectedKey, setSelectedKey] = useState(null);
   const [view, setView] = useState({ scale: 1, x: 0, y: 0 });
@@ -206,6 +208,14 @@ const Hierarchy = () => {
   const expandAll = () => setExpanded(new Set([...nodeMap.keys()]));
   const collapseAll = () => setExpanded(new Set(roots.map((r) => r.key)));
   const select = useCallback((node) => setSelectedKey(node.key), []);
+  // After an Admin assignment: show the result and reload the chart from the database.
+  const onAssignmentChanged = useCallback(
+    async (message) => {
+      setNotice(message);
+      await fetchOrganizationHierarchyAPI();
+    },
+    [fetchOrganizationHierarchyAPI]
+  );
 
   const selected = selectedKey ? nodeMap.get(selectedKey) : null;
   const total = data?.summary?.total || 0;
@@ -235,6 +245,10 @@ const Hierarchy = () => {
           <button type="button" onClick={collapseAll}>Collapse all</button>
         </div>
       </header>
+
+      {notice && (
+        <div className="oh-notice" role="status" onClick={() => setNotice("")}>{notice}</div>
+      )}
 
       {hierarchyLoading && !data ? (
         <div className="oh-state" role="status">Loading organization hierarchy…</div>
@@ -343,6 +357,9 @@ const Hierarchy = () => {
                     <><dt>Total in branch</dt><dd>{selected.totalReports}</dd></>
                   )}
                 </dl>
+              )}
+              {selected && (
+                <HierarchyAssign node={selected} onChanged={onAssignmentChanged} />
               )}
             </section>
           </aside>

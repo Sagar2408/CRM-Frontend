@@ -34,8 +34,9 @@
 
 .li-dashboard {
   width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
+  min-width: 0;
   color: var(--li-text);
   box-sizing: border-box;
   position: relative;
@@ -408,4 +409,37 @@
   .li-stats {
     grid-template-columns: 1fr;
   }
+}
+
+/* Upload Leads page shell. <main.admin-main-content> already reserves the sidebar width; the page used the
+   assign-task-container/-content classes, which add ANOTHER sidebar margin (+250px/60px/80px) and a
+   centred 1280px column, leaving a large blank gap. Content now starts right after the sidebar and uses
+   the full remaining width with equal left/right padding. */
+.at-shell {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background-color: var(--bg-color);
+}
+.at-shell-inner {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 24px 40px;
+  min-width: 0;
+}
+.li-cards > *, .li-stats > *, .li-header > * { min-width: 0; }
+.li-panel { min-width: 0; max-width: 100%; }
+.li-table-wrap { max-width: 100%; }
+@media (max-width: 1100px) {
+  .li-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .at-shell-inner { padding: 16px 18px 32px; }
+}
+@media (max-width: 768px) {
+  .at-shell-inner { padding: 14px 14px 28px; }
+  .li-header-actions { width: 100%; }
+  .li-header-actions > * { flex: 1 1 auto; }
+}
+@media (max-width: 480px) {
+  .at-shell-inner { padding: 12px 12px 24px; }
 }

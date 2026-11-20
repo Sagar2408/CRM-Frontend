@@ -37,19 +37,19 @@ export const MessageNavIcon = ({ variant = "react" }) => {
 };
 
 /** Sidebar entry. variant "aside" = admin-style sidebars, "exec" = executive/process sidebars. */
-export const MessagingSidebarItem = ({ variant = "aside" }) => {
+export const MessagingSidebarItem = ({ variant = "aside", active = false }) => {
   const { allowed, path } = useMessagingAccess();
   const unread = useMessagingUnread(allowed);
   if (!allowed || !path) return null;
   return (
-    <li>
+    <li className={variant === "exec" ? undefined : active ? "active" : ""}>
       {variant === "exec" ? (
-        <Link to={path} className="sidebar_nav" data-tip="Messaging" aria-label="Messaging" style={{ position: "relative" }}>
+        <Link to={path} className={`sidebar_nav ${active ? "active" : ""}`} data-tip="Messaging" aria-label="Messaging" aria-current={active ? "page" : undefined} style={{ position: "relative" }}>
           <FontAwesomeIcon icon={faComments} /> <span className="sb-label">Messaging</span>
           <Dot count={unread} />
         </Link>
       ) : (
-        <Link to={path} className="admin-aside-link" data-tooltip="Messaging" style={{ position: "relative" }}>
+        <Link to={path} className="admin-aside-link" data-tooltip="Messaging" aria-current={active ? "page" : undefined} style={{ position: "relative" }}>
           <MessageSquare className="admin-aside-icon" />
           <span className="sidebar-label">Messaging</span>
           <Dot count={unread} />

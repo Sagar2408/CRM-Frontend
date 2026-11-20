@@ -160,8 +160,9 @@ describe("Create / edit team", () => {
     const dialog = await open();
     expect(within(dialog).getByLabelText(/Ivan Inactive/)).toBeDisabled();
     expect(within(dialog).getByText("Deactivated")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText(/Cy Busy/)).toBeDisabled();
-    expect(within(dialog).getByText("In Ops Beta")).toBeInTheDocument();
+    // The Admin may move an already-assigned employee (server closes the old membership, history kept)
+    expect(within(dialog).getByLabelText(/Cy Busy/)).not.toBeDisabled();
+    expect(within(dialog).getByText("Move from Ops Beta")).toBeInTheDocument();
 
     teamApi.create.mockResolvedValue({ team: team({ id: 9, name: "New Squad" }) });
     fireEvent.change(within(dialog).getByLabelText("Team name *"), { target: { value: "New Squad" } });
@@ -249,7 +250,7 @@ describe("Team details drawer", () => {
     expect(within(dlg).queryByLabelText(/Eve Executive/)).not.toBeInTheDocument(); // already in the team
     fireEvent.click(mia);
     fireEvent.click(within(dlg).getByRole("button", { name: "Add 1 member" }));
-    await waitFor(() => expect(teamApi.addMembers).toHaveBeenCalledWith(1, ["manager:1"]));
+    await waitFor(() => expect(teamApi.addMembers).toHaveBeenCalledWith(1, ["manager:1"], { reassign: true }));
   });
 
   test("archived teams are read-only and can be restored; server errors are shown", async () => {
@@ -320,5 +321,81 @@ describe("Team comparison", () => {
     teamApi.compare.mockRejectedValue({ response: { data: { message: "One or more teams were not found." } } });
     fireEvent.click(within(panel).getByRole("button", { name: /Compare/ }));
     expect(await within(panel).findByRole("alert")).toHaveTextContent("not found");
+  });
+});
+
+
+describe("Admin -> Manager assignment", () => {
+  const mgrEmployees = [
+    ...EMPLOYEES,
+    { key: "manager:2", kind: "manager", id: 2, name: "Max Manager", role: "Manager", active: true, currentTeam: null },
+    { key: "manager:3", kind: "manager", id: 3, name: "Off Manager", role: "Manager", active: false, currentTeam: null },
+  ];
+  beforeEach(() => teamApi.employees.mockResolvedValue({ employees: mgrEmployees }));
+
+  test("team cards show the Manager and the assigned Executives", async () => {
+    teamApi.overview.mockResolvedValue({
+      ...OVERVIEW,
+      teams: [team({ managerId: 1, managerName: "Mia Manager", executives: [{ key: "user:2", name: "Eve Executive" }, { key: "user:6", name: "Cy Busy" }] }), team({ id: 2, name: "Ops Beta", managerId: null, managerName: null, executives: [] })],
+    });
+    render(<TeamManagement />);
+    await screen.findByLabelText("Open Sales Alpha");
+    expect(screen.getByTestId("manager-1")).toHaveTextContent("Manager: Mia Manager");
+    expect(screen.getByTestId("manager-2")).toHaveTextContent("Manager: Not assigned");
+    expect(screen.getByText("Eve Executive")).toBeInTheDocument();
+    expect(screen.getByText("No Executives")).toBeInTheDocument();
+  });
+
+  test("creating a team sends the chosen manager plus the selected Executives; deactivated managers are not offered", async () => {
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /create team/i }));
+    const dialog = await screen.findByRole("dialog", { name: "Create team" });
+    const select = within(dialog).getByLabelText("Manager");
+    expect([...select.options].map((o) => o.textContent)).toEqual(["No manager", "Mia Manager", "Max Manager"]);
+    teamApi.create.mockResolvedValue({ team: team({ id: 9 }) });
+    fireEvent.change(within(dialog).getByLabelText("Team name *"), { target: { value: "North" } });
+    fireEvent.change(within(dialog).getByLabelText("Target value *"), { target: { value: "5" } });
+    fireEvent.change(select, { target: { value: "2" } });
+    fireEvent.change(within(dialog).getByLabelText("Filter by role"), { target: { value: "Executive" } });
+    expect(within(dialog).queryByLabelText(/Mia Manager/)).not.toBeInTheDocument(); // role filter
+    fireEvent.click(within(dialog).getByLabelText(/Eve Executive/));
+    fireEvent.click(within(dialog).getByLabelText(/Cy Busy/)); // moves out of Ops Beta
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create team" }));
+    await waitFor(() => expect(teamApi.create).toHaveBeenCalled());
+    expect(teamApi.create.mock.calls[0][0]).toMatchObject({ name: "North", managerId: 2, reassign: true });
+    expect(teamApi.create.mock.calls[0][0].memberKeys.sort()).toEqual(["user:2", "user:6"]);
+  });
+
+  test("editing can change the manager or clear it (null)", async () => {
+    teamApi.overview.mockResolvedValue({ ...OVERVIEW, teams: [team({ managerId: 1, managerName: "Mia Manager" })] });
+    teamApi.detail.mockResolvedValue({ ...DETAIL, team: team({ managerId: 1, managerName: "Mia Manager" }) });
+    render(<TeamManagement />);
+    fireEvent.click(await screen.findByLabelText("Open Sales Alpha"));
+    const drawer = await screen.findByRole("dialog", { name: "Team details" });
+    expect(await within(drawer).findByTestId("team-manager")).toHaveTextContent("Manager: Mia Manager");
+    teamApi.update.mockResolvedValue({ team: team() });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Edit team" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit team" });
+    const select = await within(dialog).findByLabelText("Manager");
+    expect(select.value).toBe("1");
+    fireEvent.change(select, { target: { value: "2" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(teamApi.update).toHaveBeenLastCalledWith(1, expect.objectContaining({ managerId: 2 })));
+
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Team details" })).getByRole("button", { name: "Edit team" }));
+    const again = await screen.findByRole("dialog", { name: "Edit team" });
+    fireEvent.change(await within(again).findByLabelText("Manager"), { target: { value: "" } });
+    fireEvent.click(within(again).getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(teamApi.update).toHaveBeenLastCalledWith(1, expect.objectContaining({ managerId: null })));
+  });
+
+  test("HR (canAssignManager=false) gets no manager field and cannot move people between teams", async () => {
+    render(<TeamManagement canAssignManager={false} />);
+    await screen.findByLabelText("Open Ops Beta");
+    fireEvent.click(screen.getByRole("button", { name: /create team/i }));
+    const dialog = await screen.findByRole("dialog", { name: "Create team" });
+    expect(within(dialog).queryByLabelText("Manager")).not.toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Cy Busy/)).toBeDisabled();
+    expect(within(dialog).getByText("In Ops Beta")).toBeInTheDocument();
   });
 });

@@ -26,6 +26,7 @@ import {
   faArrowLeft,
   faBell,
   faRobot,
+  faListCheck,
   faChevronDown,
   faRightFromBracket,
   faMugHot,
@@ -233,7 +234,8 @@ const SidebarandNavbar = ({ collapsed = false, onToggleCollapse = () => {} }) =>
               {navItem("/executive/follow-up", faList, "Follow-ups")}
               {navItem("/executive/customer", faCircleCheck, "Converted Leads")}
               {navItem("/executive/close-leads", faCircleXmark, "Closed Leads")}
-              <MessagingSidebarItem variant="exec" />
+              <MessagingSidebarItem variant="exec" active={isRoute("/executive/messaging")} />
+              {navItem("/executive/tasks", faListCheck, "My Tasks")}
               {navItem("/executive/elsa", faRobot, "ELSA AI")}
               {navItem("/executive/schedule", faFile, "Scheduled Meetings")}
               {navItem("/executive/settings", faGear, "Settings")}

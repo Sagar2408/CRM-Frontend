@@ -14,7 +14,8 @@ import {
   CalendarDays,
   LifeBuoy,
   BarChart,
-  Settings,Network
+  Settings,Network,
+  Sparkles,
 } from "lucide-react";
 
 const AdminSidebar = () => {
@@ -136,6 +137,12 @@ useEffect(() => {
             </li>
 */}
             <MessagingSidebarItem />
+            <li>
+              <Link to="/admin/elsa" className="admin-aside-link" data-tooltip="ELSA AI">
+                <Sparkles className="admin-aside-icon" />
+                <span className="sidebar-label">ELSA AI</span>
+              </Link>
+            </li>
             <li>
               <Link to="/admin/heirarchy" className="admin-aside-link" data-tooltip="Hierarchy">
                 <Network className="admin-aside-icon" /> 
