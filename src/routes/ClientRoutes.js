@@ -3,8 +3,7 @@ import "../styles/client.css";
 import ClientOverview from "../features/client-details/ClientOverview";
 import ClientDetailsOverview from "../features/follow-ups/ClientDetailsOverview";
 import { Routes, Route, useLocation } from "react-router-dom";
-import ProcessClientOverview from "../features/client-details/ProcessClientOverview";
-import ProcessClientDetailsOverview from "../features/follow-ups/ProcessClientDetailsOverview";
+import LegacyFollowUpRedirect from "../features/process-followup/LegacyFollowUpRedirect";
 const ClientRoutes = () => {
   const location = useLocation(); // ✅ import & use the hook properly
 
@@ -16,8 +15,9 @@ const ClientRoutes = () => {
         <Routes location={location} key={location.pathname}>
           <Route path=":clientId" element={<ClientOverview />} />
           <Route path=":clientId/details" element={<ClientDetailsOverview />} />
-             <Route path="/processperson/:clientId/:id" element={<ProcessClientOverview />} />
-                <Route path="/details/:clientId/:id" element={<ProcessClientDetailsOverview />} />
+          {/* Old Process Person follow-up links land on the new screen (/process/follow-up/:customerId). */}
+          <Route path="/processperson/:clientId/:id" element={<LegacyFollowUpRedirect />} />
+          <Route path="/details/:clientId/:id" element={<LegacyFollowUpRedirect />} />
         </Routes>
       </div>
     </div>

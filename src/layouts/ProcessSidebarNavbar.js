@@ -196,11 +196,16 @@ const ProcessSidebarNavbar = ({ clock, collapsed = false, onToggleCollapse = () 
                   <MessagingSidebarItem variant="exec" />
                   {navItem("/process/schedule", faFile, "Scheduled Meetings")}
                   {navItem("/process/elsa", faRobot, "ELSA AI")}
-                  {navItem("/processperson/client/all-clients", faAddressBook, "Manage Clients")}
                   {navItem("/process/process-settings", faGear, "Settings")}
                 </>
               )}
             </ul>
+            {/* Manage Clients is pinned to the very bottom of the sidebar (margin-top: auto in manageClients.css). */}
+            {!portal && (
+              <ul className="pp-nav-bottom" aria-label="Clients">
+                {navItem("/processperson/client", faAddressBook, "Manage Clients")}
+              </ul>
+            )}
           </nav>
         </section>
 

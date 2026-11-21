@@ -20,6 +20,7 @@ import ClientSignup from "./features/process-client/ClientSignup";
 import ExecutiveFormRoutes from "./routes/ExecutiveFormRoutes";
 import { CustomerPrivateRoute } from "./services/processAuth";
 import { ProcessPrivateRoute } from "./services/processAuth";
+import ClientPortalRoutes, { ClientPortalPrivateRoute } from "./features/client-portal/ClientPortalRoutes";
 import ManagerRoutes from "./routes/ManagerRoutes";
 import HrRoutes from "./routes/HrRoutes";
 import SettingsRouteWrapper from "./routes/SettingsRouteWrapper";
@@ -111,6 +112,8 @@ useEffect(() => {
     </PrivateRoute>
   }
 />
+{/* Client Portal: the dedicated client identity (type "client"); staff / customer sessions are redirected away. */}
+<Route path="/client-portal/*" element={<ClientPortalPrivateRoute><ClientPortalRoutes /></ClientPortalPrivateRoute>} />
 <Route path="/process/*" element={<ProcessPrivateRoute><ProcessRoutes /></ProcessPrivateRoute>} /> 
 <Route path="/processperson/*" element={<ProcessPrivateRoute><ProcessDashboardRoutes /></ProcessPrivateRoute>} />      
 <Route path="/customer/*" element={ <CustomerPrivateRoute>

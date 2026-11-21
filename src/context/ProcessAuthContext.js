@@ -7,6 +7,7 @@ import {
 } from "../services/processAuth";
 import { useProcessService } from "./ProcessServiceContext";
 import { toast } from "react-toastify";
+import { clearClientAccessGrant } from "../services/clientAccess";
 //Create Context
 const ProcessContext = createContext();
 
@@ -130,6 +131,7 @@ const signup = async (fullName, email, password, userType, companyCode) => {
     } catch (error) {
       console.error("Logout failed:", error.message);
     } finally {
+      clearClientAccessGrant(); // Manage Clients must ask for its password again after a new sign-in
       setUser(null);
       ["user", "token", "userType", "workStartTime", "breakStartTime", "pausedBreakSeconds"].forEach((k) =>
         localStorage.removeItem(k)

@@ -18,7 +18,7 @@ export const settingsMenuItems = [
 // `permissionKey` is the page-access key checked for Executives. Process Person has no
 // page-access rows (their identity is a different table), so their routes pass null and
 // rely on ProcessPrivateRoute + the server instead.
-const SettingsLayout = ({ permissionKey = "settings" }) => {
+const SettingsLayout = ({ permissionKey = "settings", menuItems = settingsMenuItems, basePath }) => {
   const { theme } = useContext(ThemeContext);
   const { isLoading, loadingText } = useLoading();
 
@@ -30,10 +30,12 @@ const SettingsLayout = ({ permissionKey = "settings" }) => {
         </header>
 
         <nav className="xs-nav" aria-label="Settings sections">
-          {settingsMenuItems.map((item) => (
+          {menuItems.map((item) => (
             <NavLink
               key={item.path}
-              to={item.path}
+              // `basePath` (absolute) is used where the layout sits under a splat route (Process Person);
+              // a relative target there resolves against the current URL and keeps appending segments.
+              to={basePath ? `${basePath.replace(/\/+$/, "")}/${item.path}` : item.path}
               className={({ isActive }) => `xs-nav-card${isActive ? " active" : ""}`}
             >
               <span className="xs-nav-icon" aria-hidden="true">{item.icon}</span>

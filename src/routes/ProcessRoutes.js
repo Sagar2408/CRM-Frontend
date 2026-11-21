@@ -24,6 +24,8 @@ import ProcessRejectedClients from "../features/process-client/ProcessRejectedCl
 import ProcessMeetingRoutes from "./ProcessMeetingRoutes";
 import ProcessNotification from "../features/process-client/ProcessNotification";
 import ProcessSettingsRoutes from "./ProcessSettingsRoutes";
+import ProcessFollowUpForm from "../features/process-followup/ProcessFollowUpForm";
+import ManageClientsGate from "../features/manage-clients/ManageClientsGate";
 
 const ProcessRoutes = () => {
   const { user } = useProcess();
@@ -43,6 +45,8 @@ const ProcessRoutes = () => {
         />
         <Route path="freshlead" element={<ProcessFreshlead />} />
         <Route path="process-follow-up/*" element={<ProcessFollowUpRoutes />} />
+        {/* Add / edit a follow-up for one assigned client (Fresh Leads + Follow-ups both open this). */}
+        <Route path="follow-up/:customerId" element={<ProcessFollowUpForm />} />
         <Route path="clients/*" element={<ClientRoutes />} />
         <Route path="customer/*" element={<CustomerRoutes />} />
         <Route path="rejected-leads/*" element={<ProcessRejectedClients />} />
@@ -64,10 +68,10 @@ const ProcessRoutes = () => {
         <Route path="client/notifications" element={<ProcessNotification />} />
         {user?.type === "processperson" && (
           <>
-            <Route path="client/upload/:id" element={<ClientUpload />} />
-            <Route path="client/dashboard/:id" element={<ClientDash />} />
-            <Route path="client/create-client" element={<CreateClient />} />
-            <Route path="client/all-clients" element={<AllClient />} />
+            <Route path="client/upload/:id" element={<ManageClientsGate><ClientUpload /></ManageClientsGate>} />
+            <Route path="client/dashboard/:id" element={<ManageClientsGate><ClientDash /></ManageClientsGate>} />
+            <Route path="client/create-client" element={<ManageClientsGate><CreateClient /></ManageClientsGate>} />
+            <Route path="client/all-clients" element={<ManageClientsGate><AllClient /></ManageClientsGate>} />
           </>
         )}
       </Route>

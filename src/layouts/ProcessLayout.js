@@ -8,6 +8,7 @@ import "../styles/executiveShell.css";
 import "../styles/executiveHeader.css";
 import "../styles/processModern.css";
 import "../styles/processPortal.css";
+import "../styles/manageClients.css";
 import ProcessSidebarNavbar from "./ProcessSidebarNavbar";
 import useProcessWorkClock from "../features/process-client/useProcessWorkClock";
 

@@ -85,7 +85,12 @@ export const getUserType = () => {
 };
 
 // ------------------------------PRIVATE ROUTES--------------------------- //
+// A Client Portal session (userType "client") has its own app at /client-portal and is never let into the
+// Process Person or legacy customer screens.
+const isClientSession = () => localStorage.getItem("userType") === "client";
+
 export const ProcessPrivateRoute = ({ children }) => {
+  if (isAuthenticated() && isClientSession()) return <Navigate to="/client-portal" replace />;
   return isAuthenticated()
     ? children
     : <Navigate to="/login" replace />;
@@ -95,6 +100,7 @@ export const CustomerPrivateRoute = ({ children }) => {
   const token = localStorage.getItem("token");
   const location = useLocation();
 
+  if (token && isClientSession()) return <Navigate to="/client-portal" replace />;
   if (!token) {
     // Save the full location (even nested) so it can be used post-login
     return <Navigate to="/login" state={{ from: location }} replace />;

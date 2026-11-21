@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+import { readClientAccessGrant } from "./clientAccess";
+
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 const BASE_HEADERS = {
   "Content-Type": "application/json",
@@ -7,6 +9,13 @@ const BASE_HEADERS = {
 
 
 // ✅ Dynamic headers with token
+// The Manage Clients access session (a server-signed grant, never the password) is attached when present.
+// The SERVER decides: the client Dashboard / Documents / stage APIs refuse a Process Person without a valid one.
+const accessHeader = () => {
+  const g = readClientAccessGrant();
+  return g ? { "X-Client-Access": g.token } : {};
+};
+
 const getHeaders = () => {
   const token = localStorage.getItem("token");
   if (!token) throw new Error("Token not found in localStorage");
@@ -14,6 +23,7 @@ const getHeaders = () => {
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
+    ...accessHeader(),
   };
 };
 
@@ -185,6 +195,7 @@ method: "POST",
 headers: {
   // "Content-Type": "multipart/formData",
        Authorization: `Bearer ${token}`,
+       ...accessHeader(),
 },
 credentials: "include",
 body: formData,
@@ -598,3 +609,46 @@ export const getProcessFollowUpTimelineApi = async (freshLeadId) => {
   if (!res.ok) throw new Error(data.message || data.error || "Failed to load follow-up history");
   return Array.isArray(data.data) ? data.data : [];
 };
+
+// ---- Process Person follow-up workspace (create / edit / client details / stages / documents) ----
+// One request helper: every non-2xx answer becomes an Error carrying the server's message (and its
+// field errors), so a failed save is never reported as a success.
+const sendJson = async (method, path, body, fallback) => {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: getHeaders(),
+    credentials: "include",
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = Array.isArray(data.errors) && data.errors.length ? ` (${data.errors.map((e) => e.message).join("; ")})` : "";
+    const err = new Error(`${data.message || data.error || fallback}${detail}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+};
+
+const cid = (v) => encodeURIComponent(v);
+
+export const createProcessFollowUpEntryApi = (payload) =>
+  sendJson("POST", "/process-history/process-followup/create", payload, "Failed to save the follow-up");
+export const updateProcessFollowUpEntryApi = (entryId, payload) =>
+  sendJson("PUT", `/process-history/process-followup/entry/${cid(entryId)}`, payload, "Failed to update the follow-up");
+export const createProcessMeetingApi = (payload) =>
+  sendJson("POST", "/process-history/process-followp/create-meeting", payload, "Failed to schedule the meeting");
+export const rejectProcessClientApi = (payload) =>
+  sendJson("POST", "/process-history/process-followup/reject", payload, "Failed to reject the client");
+export const moveProcessClientToFinalApi = (payload) => sendJson("POST", "/processed/create", payload, "Failed to move the client to the final stage");
+
+export const getProcessClientDetailsApi = (customerId) =>
+  sendJson("GET", `/processperson/customers/${cid(customerId)}/client-details`, undefined, "Failed to load client details").then((d) => d.client);
+export const updateProcessClientDetailsApi = (customerId, payload) =>
+  sendJson("PUT", `/processperson/customers/${cid(customerId)}/client-details`, payload, "Failed to save client details");
+
+export const getProcessDocumentTypesApi = () =>
+  sendJson("GET", "/processperson/document-types", undefined, "Failed to load document types").then((d) => d.documents || []);
+export const createProcessDocumentTypeApi = (name) => sendJson("POST", "/processperson/document-types", { name }, "Failed to add the document type");
+export const renameProcessDocumentTypeApi = (id, name) => sendJson("PUT", `/processperson/document-types/${cid(id)}`, { name }, "Failed to rename the document type");
+export const deleteProcessDocumentTypeApi = (id) => sendJson("DELETE", `/processperson/document-types/${cid(id)}`, undefined, "Failed to delete the document type");

@@ -162,3 +162,26 @@ describe("failures never create a session", () => {
     expect(authService.loginUser).not.toHaveBeenCalled();
   });
 });
+
+describe("Client Portal client (same login page, identity 'client')", () => {
+  test("stores the client session and goes to /client-portal; the role/type is taken from the server answer", async () => {
+    authService.loginUser.mockResolvedValue({ identity: "client", token: "client-tok", client: { id: 5, email: "asha@x.com", fullName: "Asha Rao" } });
+    const getApi = renderAuth();
+    await run(getApi, "asha@x.com", "Client#2024", "ACME01");
+    expect(authService.loginUser).toHaveBeenCalledWith("asha@x.com", "Client#2024", "ACME01");
+    expect(localStorage.getItem("token")).toBe("client-tok");
+    expect(localStorage.getItem("userType")).toBe("client");
+    expect(JSON.parse(localStorage.getItem("user"))).toMatchObject({ id: 5, type: "client", fullName: "Asha Rao" });
+    expect(window.location.href).toBe("/client-portal");
+    expect(mockNavigate).not.toHaveBeenCalled(); // not a staff dashboard
+  });
+
+  test("a disabled portal account is reported and nothing is stored", async () => {
+    authService.loginUser.mockRejectedValue(Object.assign(new Error("Your client portal access is disabled."), { code: "CLIENT_PORTAL_DISABLED" }));
+    const getApi = renderAuth();
+    await run(getApi, "asha@x.com", "Client#2024", "ACME01");
+    expect(localStorage.getItem("token")).toBeNull();
+    expect(localStorage.getItem("userType")).toBeNull();
+    expect(window.location.href).toBe("");
+  });
+});

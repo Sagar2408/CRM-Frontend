@@ -60,11 +60,19 @@ describe("Fresh Leads (Process Person)", () => {
     expect(screen.queryByText("Ben")).not.toBeInTheDocument();
   });
 
-  test("Add Follow-up opens the existing follow-up form; Executive History opens the read-only modal", async () => {
+  test("does not use the legacy .fresh-leads-main-content class (it overlapped the sidebar)", async () => {
+    renderPage();
+    await screen.findByText("Asha");
+    expect(document.querySelector(".fresh-leads-main-content")).toBeNull();
+    expect(document.querySelector(".pp-freshleads")).not.toBeNull();
+  });
+
+  test("Add Follow-up opens the NEW Process Person follow-up screen with the client id; Executive History opens the read-only modal", async () => {
     renderPage();
     await screen.findByText("Asha");
     fireEvent.click(screen.getAllByRole("button", { name: "Add Follow-up" })[0]);
-    expect(mockNavigate).toHaveBeenCalledWith("/process/clients/processperson/Asha/10", expect.objectContaining({ state: expect.objectContaining({ createFollowUp: true }) }));
+    expect(mockNavigate).toHaveBeenCalledWith("/process/follow-up/1", { state: { client: { id: 1, freshLeadId: 10, fullName: "Asha" } } });
+    expect(mockNavigate.mock.calls[0][0]).not.toMatch(/clients\/processperson/);
     fireEvent.click(screen.getAllByRole("button", { name: /Executive follow-up history for Asha/ })[0]);
     expect(screen.getByRole("dialog")).toHaveTextContent("history 1 Asha");
   });

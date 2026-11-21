@@ -8,6 +8,7 @@ import { clearActivity, markActivity } from "../utils/activityTracker";
 import { ThemeContext } from "../features/admin/ThemeContext";
 import { AuthContext } from "./authContextObject";
 import { emitSubscriptionExpired } from "../utils/authEvents";
+import { logoutClient } from "../services/clientPortalApi";
 // Removed unused import: import { useBreakTimer } from "./breakTimerContext";
 
 // 1. Create Auth Context
@@ -79,6 +80,18 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       const response = await authService.loginUser(email, password, companyCode);
+
+      // Client Portal client: dedicated identity (type "client"), own dashboard. Same login page, same endpoint.
+      if (response.identity === "client") {
+        localStorage.setItem("token", response.token);
+        localStorage.setItem("user", JSON.stringify({ ...response.client, type: "client" }));
+        localStorage.setItem("userType", "client");
+        loginSuccessToast();
+        setTimeout(() => {
+          window.location.href = "/client-portal";
+        }, 1500);
+        return;
+      }
 
       if (response.identity === "processperson" || response.identity === "customer") {
         const isCustomer = response.identity === "customer";
@@ -198,6 +211,16 @@ const handleLogoutManager = async () => {
   // Logout never gets stuck: the work session is saved first (bounded wait), but
   // a failed API call still ends the local session.
   const logout = async (opts) => {
+    // A Client Portal session (idle timeout or Sign out): revoke the token + server-side session first,
+    // so an expired session can never be reused. (Best effort: the local session always ends.)
+    if (localStorage.getItem("userType") === "client") {
+      try {
+        await logoutClient();
+      } catch (_) {
+        /* already revoked / offline: local state is cleared below */
+      }
+      ["userType"].forEach((k) => localStorage.removeItem(k));
+    }
     const reason = typeof opts?.reason === "string" ? opts.reason : "logout";
     let role = "";
     try {

@@ -362,3 +362,37 @@
   max-width: 100%;
   overflow-x: auto;
 }
+
+/* ---- Fresh Leads layout: fills the shell's content column, never wider than it ---- */
+.pp-freshleads {
+  padding: 8px 14px 28px;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.pp-freshleads .pp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.pp-freshleads .pp-search {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.pp-freshleads .pp-table td .pp-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+  .pp-freshleads .pp-table th,
+  .pp-freshleads .pp-table td {
+    padding: 10px;
+  }
+}

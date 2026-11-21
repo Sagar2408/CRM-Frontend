@@ -1,0 +1,428 @@
+/* Process Person follow-up form + Settings > Documents. Every rule is a .pfu-* class (nothing global);
+   colours come from the panel tokens defined in processModern.css (.pp-shell). */
+
+.pfu {
+  min-width: 0;
+  max-width: 1280px;
+}
+
+.pfu-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.pfu-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.pfu-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--pp-border, rgba(100, 116, 139, 0.26));
+  border-radius: var(--pp-radius, 14px);
+  background: var(--pp-surface, #fff);
+  color: var(--pp-text, #0f172a);
+}
+
+.pfu-card__title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: inherit;
+}
+
+.pfu-count {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.16);
+  font-size: 12px;
+  line-height: 22px;
+  text-align: center;
+}
+
+.pfu-hint,
+.pfu-muted {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: var(--pp-muted, #64748b);
+}
+
+.pfu-err {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+.pfu-msg {
+  font-size: 13px;
+}
+.pfu-msg--ok {
+  color: #15803d;
+}
+.pfu-msg--error {
+  color: #dc2626;
+}
+
+.pfu-skel {
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--pp-muted, #64748b);
+  font-size: 14px;
+}
+
+/* ---- fields ---- */
+.pfu-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pfu-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pfu-field--wide {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
+.pfu-field input,
+.pfu-field select,
+.pfu-field textarea,
+.pfu-doc-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--pp-border, rgba(100, 116, 139, 0.4));
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.pfu-field textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.pfu-field input:focus-visible,
+.pfu-field select:focus-visible,
+.pfu-field textarea:focus-visible,
+.pfu-doc-input:focus-visible,
+.pfu-seg__opt:focus-within,
+.pfu-stage:focus-visible,
+.pfu-link:focus-visible {
+  outline: 2px solid var(--pp-accent, #2563eb);
+  outline-offset: 2px;
+}
+
+.pfu-fields__actions {
+  grid-column: 1 / -1;
+}
+
+.pfu-fieldset {
+  min-width: 0;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+
+.pfu-fieldset legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pfu-fieldset:disabled {
+  opacity: 0.65;
+}
+
+.pfu-when {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* segmented radio group */
+.pfu-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pfu-seg__opt {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--pp-border, rgba(100, 116, 139, 0.4));
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pfu-seg__opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pfu-seg__opt.is-on {
+  border-color: var(--pp-accent, #2563eb);
+  background: var(--pp-accent, #2563eb);
+  color: #fff;
+}
+
+/* ---- actions / links ---- */
+.pfu-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pfu-inline {
+  display: flex;
+  gap: 14px;
+  margin: 6px 0 12px;
+}
+
+.pfu-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pp-accent, #2563eb);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pfu-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pfu-danger {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.pfu-more {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--pp-border, rgba(100, 116, 139, 0.4));
+}
+
+/* ---- stage picker ---- */
+.pfu-stagepicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pfu-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--pp-border, rgba(100, 116, 139, 0.4));
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pfu-stage.is-on {
+  border-color: var(--pp-accent, #2563eb);
+  background: rgba(37, 99, 235, 0.14);
+  box-shadow: inset 0 0 0 1px var(--pp-accent, #2563eb);
+}
+
+.pfu-stage__n {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.22);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.pfu-saved h3 {
+  margin: 18px 0 8px;
+  font-size: 15px;
+}
+
+.pfu-stagelist,
+.pfu-history,
+.pfu-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pfu-stagelist > li {
+  padding: 10px 0;
+  border-top: 1px solid var(--pp-border, rgba(100, 116, 139, 0.2));
+  overflow-wrap: anywhere;
+}
+
+.pfu-stagelist p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.pfu-stagelist__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pfu-history {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.pfu-history li {
+  padding: 4px 0;
+}
+
+/* ---- history timeline ---- */
+.pfu-timeline > li {
+  padding: 10px 0 10px 14px;
+  border-left: 3px solid var(--pp-border, rgba(100, 116, 139, 0.3));
+  margin-left: 4px;
+  overflow-wrap: anywhere;
+}
+
+.pfu-timeline > li + li {
+  margin-top: 6px;
+}
+
+.pfu-timeline > li.is-editing {
+  border-left-color: var(--pp-accent, #2563eb);
+  background: rgba(37, 99, 235, 0.07);
+}
+
+.pfu-timeline p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.pfu-tl__top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pfu-tl__edit {
+  margin-left: auto;
+}
+
+.pfu-tl__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 12px;
+}
+
+/* ---- Settings > Documents ---- */
+.pfu-docs {
+  max-width: 720px;
+}
+
+.pfu-docs__add {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0 16px;
+}
+
+.pfu-docs__add .pfu-doc-input {
+  flex: 1 1 220px;
+}
+
+.pfu-doclist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--pp-border, rgba(100, 116, 139, 0.26));
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pfu-doclist > li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.pfu-doclist > li + li {
+  border-top: 1px solid var(--pp-border, rgba(100, 116, 139, 0.2));
+}
+
+.pfu-doclist__name {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+/* ---- responsive ---- */
+@media (max-width: 1024px) {
+  .pfu-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .pfu-fields,
+  .pfu-when {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pfu-card {
+    padding: 14px;
+  }
+
+  .pfu-actions .pp-btn {
+    flex: 1 1 100%;
+  }
+
+  .pfu-seg__opt {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+  }
+}

@@ -2,9 +2,22 @@ import React, { useContext, useEffect, useMemo, useState, useCallback } from "re
 import { useNavigate, useLocation } from "react-router-dom";
 import { SearchContext } from "../../context/SearchContext";
 import { useProcessService } from "../../context/ProcessServiceContext";
-import { getProcessFollowUpTimelineApi } from "../../services/processService";
+import { useProcess } from "../../context/ProcessAuthContext";
+import { getProcessFollowUpTimelineApi, getProcessClientDetailsApi } from "../../services/processService";
+import {
+  EDITABLE_TYPES,
+  RATINGS,
+  ratingLabel,
+  ratingKey,
+  typeLabel,
+  contactLabel,
+  toDateTime,
+  formatWhen,
+  formatStamp,
+} from "../process-followup/followUpHelpers";
 import "../../styles/followUpWorkspace.css";
 import "../../styles/processModern.css";
+import "../../styles/processFollowUpForm.css";
 
 // Process Person follow-up categories (the stored follow_up_type values).
 export const TABS = [
@@ -12,37 +25,13 @@ export const TABS = [
   { key: "document", label: "Document Collection", match: "document collection" },
   { key: "payment", label: "Payment Follow-up", match: "payment follow-up" },
   { key: "visa", label: "Visa Filing", match: "visa filing" },
+  { key: "meeting", label: "Meeting", match: "meeting" },
 ];
 
-export const TYPE_LABELS = {
-  "document collection": "Document collection",
-  "payment follow-up": "Payment follow-up",
-  "visa filing": "Visa filing",
-  other: "Other",
-  rejected: "Rejected",
-  final: "Final",
-  meeting: "Meeting",
-};
+// A client is "in follow-up" once the first follow-up is saved (under_review) or a meeting is booked.
+export const FOLLOW_UP_STATUSES = ["under_review", "meeting"];
 
-// Stored ratings are "Agressive" | "Calm" | "Neutral" (spelling is part of the data).
-export const RATINGS = [
-  { value: "agressive", label: "Aggressive" },
-  { value: "calm", label: "Calm" },
-  { value: "neutral", label: "Neutral" },
-];
-const ratingLabel = (v) => RATINGS.find((r) => r.value === String(v || "").toLowerCase())?.label || v || "";
-
-const titleCase = (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : "");
-const typeLabel = (t) => TYPE_LABELS[String(t || "").toLowerCase()] || titleCase(t) || "-";
-
-// follow_up_date is a date-only string, follow_up_time "HH:MM:SS": combine as local time.
-export const toDateTime = (date, time) => {
-  if (!date) return null;
-  const [y, m, d] = String(date).slice(0, 10).split("-").map(Number);
-  const [hh = 0, mm = 0] = String(time || "00:00").split(":").map(Number);
-  const out = new Date(y, (m || 1) - 1, d || 1, hh, mm, 0, 0);
-  return Number.isNaN(+out) ? null : out;
-};
+export { RATINGS, toDateTime };
 
 export const relativeDay = (dt, now = new Date()) => {
   if (!dt) return "";
@@ -54,22 +43,18 @@ export const relativeDay = (dt, now = new Date()) => {
   return diff > 0 ? `In ${diff} days` : `${Math.abs(diff)} days ago`;
 };
 
-const formatWhen = (dt) =>
-  dt
-    ? `${dt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}, ${dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-    : "Not set";
-
 const latestOf = (c) => (Array.isArray(c.processfollowuphistories) ? c.processfollowuphistories[0] : null);
 const digits = (p) => String(p || "").replace(/[^\d]/g, "");
+const typeOf = (c) => String(latestOf(c)?.follow_up_type || "").toLowerCase().trim();
 
-// Process Person Follow-ups: the assigned clients that already have a follow-up
-// (customer status "under_review"), searchable list on the left, selected client's
-// current follow-up and timeline on the right. The API scopes every list to
-// Customer.process_person_id, so only the signed-in person's clients are ever shown.
-// "Update follow-up" opens the existing editor; nothing here writes data itself.
-const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi }) => {
+// Process Person Follow-ups: the assigned clients that already have a follow-up, a searchable list on
+// the left, the selected client's current follow-up, shared client details and history on the right.
+// The API scopes every list to Customer.process_person_id, so only the signed-in person's clients are
+// ever shown. Creating / correcting a follow-up happens on the follow-up form (/process/follow-up/:id).
+const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi, loadDetails = getProcessClientDetailsApi }) => {
   const { fetchCustomers, customers } = useProcessService();
   const { searchQuery, setActivePage } = useContext(SearchContext);
+  const { user } = useProcess() || {};
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -77,10 +62,12 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
   const [rating, setRating] = useState("all");
   const [sort, setSort] = useState("reminder");
   const [localQuery, setLocalQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(location.state?.focusCustomerId ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice] = useState(location.state?.notice || "");
   const [timeline, setTimeline] = useState({ loading: false, error: "", rows: [], forId: null });
+  const [details, setDetails] = useState({ loading: false, error: "", client: null, forId: null });
 
   const load = useCallback(async () => {
     setError("");
@@ -99,15 +86,15 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
     load();
   }, [load, setActivePage]);
 
-  const base = useMemo(() => (Array.isArray(customers) ? customers : []).filter((c) => c.status === "under_review"), [customers]);
+  const base = useMemo(() => (Array.isArray(customers) ? customers : []).filter((c) => FOLLOW_UP_STATUSES.includes(c.status)), [customers]);
 
   const visible = useMemo(() => {
     const q = `${localQuery} ${searchQuery || ""}`.trim().toLowerCase();
     const wanted = TABS.find((t) => t.key === tab)?.match;
     const list = base.filter((c) => {
       const latest = latestOf(c);
-      if (wanted && String(latest?.follow_up_type || "").toLowerCase().trim() !== wanted) return false;
-      if (rating !== "all" && String(latest?.interaction_rating || "").toLowerCase() !== rating) return false;
+      if (wanted && typeOf(c) !== wanted) return false;
+      if (rating !== "all" && ratingKey(latest?.interaction_rating) !== rating) return false;
       if (q) {
         const hay = `${c.fullName || ""} ${c.phone || ""} ${c.email || ""} ${c.freshLead?.name || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -125,7 +112,7 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
   const counts = useMemo(() => {
     const out = { all: base.length };
     TABS.forEach((t) => {
-      if (t.match) out[t.key] = base.filter((c) => String(latestOf(c)?.follow_up_type || "").toLowerCase().trim() === t.match).length;
+      if (t.match) out[t.key] = base.filter((c) => typeOf(c) === t.match).length;
     });
     return out;
   }, [base]);
@@ -134,7 +121,7 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
   const selectedLead = selected?.fresh_lead_id || selected?.freshLead?.id || null;
   const selectedKey = selected?.id ?? null;
 
-  // History of the selected client (only this Process Person's own follow-ups).
+  // History of the selected client.
   useEffect(() => {
     if (!selectedKey || !selectedLead) {
       setTimeline({ loading: false, error: "", rows: [], forId: selectedKey });
@@ -150,13 +137,26 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
     };
   }, [selectedKey, selectedLead, loadTimeline]);
 
-  const openEditor = (client) => {
-    const freshLeadId = client.fresh_lead_id || client.freshLead?.id;
-    if (!freshLeadId) return;
-    navigate(`/process/clients/details/${encodeURIComponent(freshLeadId)}/${freshLeadId}`, {
-      state: { client: { ...client.freshLead, fresh_lead_id: freshLeadId, id: client.id }, createFollowUp: false, from: "followup" },
+  // Shared client details: the latest values the Executive / Process Person saved.
+  useEffect(() => {
+    if (!selectedKey) {
+      setDetails({ loading: false, error: "", client: null, forId: null });
+      return undefined;
+    }
+    let alive = true;
+    setDetails({ loading: true, error: "", client: null, forId: selectedKey });
+    Promise.resolve(loadDetails(selectedKey))
+      .then((client) => alive && setDetails({ loading: false, error: "", client: client || null, forId: selectedKey }))
+      .catch((err) => alive && setDetails({ loading: false, error: err?.message || "Could not load client details.", client: null, forId: selectedKey }));
+    return () => {
+      alive = false;
+    };
+  }, [selectedKey, loadDetails]);
+
+  const openForm = (client, entryId) =>
+    navigate(`/process/follow-up/${encodeURIComponent(client.id)}${entryId ? `?entry=${entryId}` : ""}`, {
+      state: { client: { id: client.id, freshLeadId: client.fresh_lead_id, fullName: client.fullName } },
     });
-  };
 
   const now = new Date();
   const renderReminder = (c) => {
@@ -172,20 +172,27 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
   };
 
   const latest = selected ? latestOf(selected) : null;
-  const clientLead = selected?.freshLead?.lead?.clientLead || {};
+  const shared = details.forId === selectedKey ? details.client : null;
   const rows = timeline.rows;
+  const show = (v) => v || "-";
 
   return (
     <div className="fuw">
       <header className="fuw__header">
         <div>
           <h2>Follow-ups</h2>
-          <p>Clients you are actively working. Pick one to see the full picture and update it.</p>
+          <p>Clients you are actively working. Pick one to see the full picture, add a follow-up or correct an earlier one.</p>
         </div>
         <button type="button" className="fuw__ghost" onClick={load} disabled={loading}>
           {loading ? "Refreshing..." : "Refresh"}
         </button>
       </header>
+
+      {notice && (
+        <div className="pp-alert" role="status">
+          {notice}
+        </div>
+      )}
 
       <div className="fuw__toolbar">
         <div className="fuw__tabs" role="tablist" aria-label="Follow-up category">
@@ -205,7 +212,7 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
             <select value={rating} onChange={(e) => setRating(e.target.value)}>
               <option value="all">All</option>
               {RATINGS.map((r) => (
-                <option key={r.value} value={r.value}>
+                <option key={r.value} value={ratingKey(r.value)}>
                   {r.label}
                 </option>
               ))}
@@ -240,7 +247,7 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
           {visible.map((c) => {
             const l = latestOf(c);
             const active = selected && selected.id === c.id;
-            const ratingKey = String(l?.interaction_rating || "").toLowerCase();
+            const rKey = ratingKey(l?.interaction_rating);
             return (
               <li key={c.id}>
                 <button type="button" className={`fuw__item ${active ? "is-active" : ""}`} onClick={() => setSelectedId(c.id)}>
@@ -250,7 +257,7 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
                     <span className="fuw__sub">{c.phone || c.email || "No contact"}</span>
                     <span className="fuw__chips">
                       {l?.follow_up_type && <span className="fuw__chip fuw__chip--status">{typeLabel(l.follow_up_type)}</span>}
-                      {ratingKey && <span className={`fuw__chip fuw__chip--${ratingKey}`}>{ratingLabel(l.interaction_rating)}</span>}
+                      {rKey && <span className={`fuw__chip fuw__chip--${rKey}`}>{ratingLabel(l.interaction_rating)}</span>}
                     </span>
                   </span>
                   <span className="fuw__item-side">{renderReminder(c)}</span>
@@ -268,8 +275,8 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
               <div className="fuw__detail-head">
                 <span className="fuw__avatar fuw__avatar--lg" aria-hidden="true">{(selected.fullName || "?").charAt(0).toUpperCase()}</span>
                 <div>
-                  <h3>{selected.fullName || "Unnamed client"}</h3>
-                  <p>{[selected.country, clientLead.state].filter(Boolean).join(", ") || "Location not recorded"}</p>
+                  <h3>{shared?.fullName || selected.fullName || "Unnamed client"}</h3>
+                  <p>{[shared?.state, shared?.country || selected.country].filter(Boolean).join(", ") || "Location not recorded"}</p>
                 </div>
                 <div className="fuw__actions">
                   {digits(selected.phone).length > 1 && (
@@ -278,7 +285,10 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
                       <a className="fuw__btn" href={`https://wa.me/${digits(selected.phone)}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
                     </>
                   )}
-                  <button type="button" className="fuw__btn fuw__btn--primary" onClick={() => openEditor(selected)}>Update follow-up</button>
+                  <button type="button" className="fuw__btn" onClick={() => openForm(selected)}>Add follow-up</button>
+                  {latest?.id && EDITABLE_TYPES.includes(typeOf(selected)) && (
+                    <button type="button" className="fuw__btn fuw__btn--primary" onClick={() => openForm(selected, latest.id)}>Update follow-up</button>
+                  )}
                 </div>
               </div>
 
@@ -286,26 +296,29 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
                 <div className="fuw__card">
                   <h4>Current follow-up</h4>
                   <dl>
-                    <div><dt>Interaction type</dt><dd>{latest?.connect_via || "-"}</dd></div>
-                    <div><dt>Category</dt><dd>{typeLabel(latest?.follow_up_type)}</dd></div>
+                    <div><dt>Contact method</dt><dd>{contactLabel(latest?.connect_via)}</dd></div>
+                    <div><dt>Category</dt><dd>{typeLabel(latest?.follow_up_type)}{latest?.document_name ? ` - ${latest.document_name}` : ""}</dd></div>
                     <div><dt>Rating</dt><dd>{ratingLabel(latest?.interaction_rating) || "-"}</dd></div>
-                    <div><dt>Next follow-up</dt><dd>{formatWhen(toDateTime(latest?.follow_up_date, latest?.follow_up_time))}</dd></div>
+                    <div><dt>Scheduled</dt><dd>{formatWhen(toDateTime(latest?.follow_up_date, latest?.follow_up_time))}</dd></div>
                   </dl>
                   <div className="fuw__notes">
-                    <span>Notes</span>
-                    <p>{latest?.comments || "No notes recorded."}</p>
+                    <span>Comments</span>
+                    <p>{latest?.comments || "No comments recorded."}</p>
                   </div>
                 </div>
 
                 <div className="fuw__card">
                   <h4>Client details</h4>
+                  {details.loading && <p className="fuw__muted">Loading client details...</p>}
+                  {details.error && <p className="fuw__muted" role="alert">{details.error}</p>}
                   <dl>
-                    <div><dt>Email</dt><dd>{selected.email || "-"}</dd></div>
-                    <div><dt>Phone</dt><dd>{selected.phone || "-"}</dd></div>
-                    <div><dt>Education</dt><dd>{clientLead.education || "-"}</dd></div>
-                    <div><dt>Experience</dt><dd>{clientLead.experience || "-"}</dd></div>
-                    <div><dt>Date of birth</dt><dd>{clientLead.dob || "-"}</dd></div>
+                    <div><dt>Email</dt><dd>{show(shared?.email || selected.email)}</dd></div>
+                    <div><dt>Phone</dt><dd>{show(shared?.phone || selected.phone)}</dd></div>
+                    <div><dt>Education</dt><dd>{show(shared?.education)}</dd></div>
+                    <div><dt>Experience</dt><dd>{show(shared?.experience)}</dd></div>
+                    <div><dt>Date of birth</dt><dd>{show(shared?.dob)}</dd></div>
                   </dl>
+                  <button type="button" className="fuw__ghost" onClick={() => openForm(selected)}>Edit details</button>
                 </div>
               </div>
 
@@ -323,22 +336,27 @@ const ProcessFollowUpWorkspace = ({ loadTimeline = getProcessFollowUpTimelineApi
                   <ol className="fuw__timeline">
                     {rows.map((h, i) => {
                       const scheduled = toDateTime(h.follow_up_date, h.follow_up_time);
-                      const logged = h.createdAt ? new Date(h.createdAt) : null;
+                      const mine = user?.id != null && Number(h.process_person_id) === Number(user.id);
+                      const canEdit = mine && EDITABLE_TYPES.includes(String(h.follow_up_type).toLowerCase());
                       return (
                         <li key={h.id ?? i} className={i === 0 ? "is-latest" : ""}>
                           <div className="fuw__tl-top">
                             <strong>{typeLabel(h.follow_up_type)}</strong>
                             {i === 0 && <span className="fuw__chip fuw__chip--latest">Latest</span>}
-                            {h.connect_via && <span className="fuw__chip">{h.connect_via}</span>}
-                            {h.interaction_rating && <span className={`fuw__chip fuw__chip--${String(h.interaction_rating).toLowerCase()}`}>{ratingLabel(h.interaction_rating)}</span>}
-                            {logged && !Number.isNaN(+logged) && (
-                              <time className="fuw__tl-time" dateTime={h.createdAt}>
-                                Logged {logged.toLocaleDateString()}, {logged.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              </time>
-                            )}
+                            {h.document_name && <span className="fuw__chip">{h.document_name}</span>}
+                            {h.connect_via && <span className="fuw__chip">{contactLabel(h.connect_via)}</span>}
+                            {h.interaction_rating && <span className={`fuw__chip fuw__chip--${ratingKey(h.interaction_rating)}`}>{ratingLabel(h.interaction_rating)}</span>}
+                            {h.createdAt && <time className="fuw__tl-time" dateTime={h.createdAt}>Logged {formatStamp(h.createdAt)}</time>}
                           </div>
-                          <p>{h.comments || "No notes."}</p>
-                          {scheduled && <span className="fuw__tl-reminder">Follow-up: {formatWhen(scheduled)}</span>}
+                          <p>{h.comments || "No comments."}</p>
+                          <span className="fuw__tl-reminder">
+                            {scheduled ? `Follow-up: ${formatWhen(scheduled)}` : "Follow-up time not set"} &middot; Recorded by {h.recordedBy || "Process Person"}
+                          </span>
+                          {canEdit && (
+                            <button type="button" className="pfu-link" style={{ marginLeft: 10 }} onClick={() => openForm(selected, h.id)}>
+                              Edit
+                            </button>
+                          )}
                         </li>
                       );
                     })}

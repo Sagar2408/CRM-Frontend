@@ -13,6 +13,8 @@ import ExecutiveHistoryModal from "../process-client/ExecutiveHistoryModal";
 
 const PAGE_SIZE = 9;
 
+// (The page deliberately does NOT use the legacy .fresh-leads-main-content class: freshlead.css sizes that
+// to calc(100vw - 200px) / 100vh with a negative margin, which overlapped the sidebar and clipped content.)
 // Fresh Leads for the signed-in Process Person: assigned clients that have no follow-up
 // yet. The table turns into stacked cards on narrow screens (see .pp-table in
 // processPortal.css), so nothing is clipped or hidden at 390px. "Add Follow-up" and
@@ -70,29 +72,14 @@ function ProcessFreshlead() {
   const paginatedLeads = leadData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const handleAddFollowUp = (lead) => {
-    const clientLead = lead.freshLead?.lead?.clientLead || {};
-    const clientData = {
-      name: lead.fullName || clientLead.fullName || "",
-      email: lead.email || clientLead.email || "",
-      phone: lead.phone || clientLead.phone || "",
-      altPhone: lead.altPhone || clientLead.altPhone || "",
-      education: lead.education || clientLead.education || "",
-      experience: lead.experience || clientLead.experience || "",
-      state: lead.state || clientLead.state || "",
-      dob: lead.dob || clientLead.dob || "",
-      country: lead.country || clientLead.country || "",
-      assignDate: lead.assignDate || lead.assignmentDate || "",
-      freshLeadId: lead.fresh_lead_id,
-      id: lead.id,
-    };
-
-    navigate(`/process/clients/processperson/${encodeURIComponent(lead.fullName)}/${lead.fresh_lead_id}`, {
-      state: { client: clientData, createFollowUp: true, clientId: clientData.id },
+    // New Process Person follow-up screen, addressed by the customer id (survives a reload).
+    navigate(`/process/follow-up/${encodeURIComponent(lead.id)}`, {
+      state: { client: { id: lead.id, freshLeadId: lead.fresh_lead_id, fullName: lead.fullName } },
     });
   };
 
   return (
-    <div className="pp-page fresh-leads-main-content" style={{ position: "relative", minWidth: 0 }}>
+    <div className="pp-page pp-freshleads" style={{ position: "relative", minWidth: 0 }}>
       {isLoading && <LoadingSpinner text="Loading Fresh Leads..." />}
       <header className="pp-page__head">
         <div style={{ minWidth: 0 }}>
