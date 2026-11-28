@@ -158,7 +158,7 @@ const ToggleSwitch = ({ checked, onChange, label }) => (
 );
 
 const PageAccessControlInner = () => {
-  const { fetchUsers, fetchAllRolePermissions, fetchPermissionsForUser, createPermission, togglePermission } =
+  const { fetchUsers, fetchAllRolePermissions, fetchPermissionsForUser, createPermission, savePermissions } =
     usePermissionContext();
 
   const [users, setUsers] = useState([]);
@@ -318,16 +318,24 @@ const PageAccessControlInner = () => {
         if (!recordId) throw new Error("Create succeeded but no record id was returned.");
       }
 
-      const changedKeys = PERMISSION_DEFINITIONS.map((p) => p.key).filter(
-        (key) => !!editedPermissions[key] !== !!loadedPermissions[key]
-      );
-      for (const key of changedKeys) {
-        await togglePermission(recordId, key);
-      }
+      // Send exactly what the switches show. (Flipping only the "changed" keys inverted
+      // any key whose stored value differed from what this screen assumed, e.g.
+      // Messaging, which a new record turns on by default.)
+      const wanted = Object.fromEntries(PERMISSION_DEFINITIONS.map((p) => [p.key, !!editedPermissions[p.key]]));
+      const saved = (await savePermissions(recordId, wanted))?.updatedRecord;
+      if (!saved) throw new Error("The server did not return the saved permissions.");
 
+      // From here on the switches show what the server stored, not what was clicked.
+      const stored = Object.fromEntries(PERMISSION_DEFINITIONS.map((p) => [p.key, saved[p.key] === true]));
       setPermissionRecordId(recordId);
-      setLoadedPermissions(editedPermissions);
-      setSaveStatus({ type: "success", message: "Permissions saved successfully." });
+      setLoadedPermissions(stored);
+      setEditedPermissions(stored);
+      const rejected = PERMISSION_DEFINITIONS.filter((p) => stored[p.key] !== wanted[p.key]).map((p) => p.label);
+      setSaveStatus(
+        rejected.length
+          ? { type: "error", message: `Not saved: ${rejected.join(", ")}. Please try again.` }
+          : { type: "success", message: "Permissions saved successfully." }
+      );
       loadUsers();
     } catch (err) {
       console.error("Failed to save permissions:", err);

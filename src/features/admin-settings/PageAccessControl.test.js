@@ -49,7 +49,8 @@ function mockContext(overrides = {}) {
     fetchAllRolePermissions: jest.fn().mockResolvedValue(USERS_WITH_RECORD),
     fetchPermissionsForUser: jest.fn().mockRejectedValue({ response: { status: 404 } }),
     createPermission: jest.fn().mockResolvedValue({ record: { id: "new-perm-id" } }),
-    togglePermission: jest.fn().mockResolvedValue({}),
+    // like the server: answers with the record as stored
+    savePermissions: jest.fn(async (id, permissions) => ({ updatedRecord: { id, ...permissions } })),
     ...overrides,
   });
 }
@@ -149,11 +150,11 @@ describe("PageAccessControl — User Access Management", () => {
     expect(screen.queryByText(/No permissions configured yet/)).not.toBeInTheDocument();
   });
 
-  it("creates a new record then toggles changed keys when saving for a user with no prior record", async () => {
+  it("creates a new record then saves the exact switch values for a user with no prior record", async () => {
     const fetchPermissionsForUser = jest.fn().mockRejectedValue({ response: { status: 404 } });
     const createPermission = jest.fn().mockResolvedValue({ record: { id: "new-perm-id" } });
-    const togglePermission = jest.fn().mockResolvedValue({});
-    mockContext({ fetchPermissionsForUser, createPermission, togglePermission });
+    const savePermissions = jest.fn(async (id, permissions) => ({ updatedRecord: { id, ...permissions } }));
+    mockContext({ fetchPermissionsForUser, createPermission, savePermissions });
     render(<PageAccessControl />);
 
     await waitFor(() => expect(screen.getByText("Sagar — sagar")).toBeInTheDocument());
@@ -177,12 +178,16 @@ describe("PageAccessControl — User Access Management", () => {
       role: "Executive",
       user_id: 1,
     });
-    expect(togglePermission).toHaveBeenCalledWith("new-perm-id", "dashboard");
-    expect(togglePermission).toHaveBeenCalledTimes(1);
+    expect(savePermissions).toHaveBeenCalledTimes(1);
+    const [recordId, sent] = savePermissions.mock.calls[0];
+    expect(recordId).toBe("new-perm-id");
+    // every key is stated explicitly, so server-side defaults (messaging) cannot survive unseen
+    expect(sent).toMatchObject({ dashboard: true, messaging: false, settings: false, billing: false });
+    expect(Object.keys(sent)).toHaveLength(15);
     expect(await screen.findByText("Permissions saved successfully.")).toBeInTheDocument();
   });
 
-  it("only toggles changed keys (not createPermission) when saving for a user who already has a record", async () => {
+  it("saves to the existing record without creating another", async () => {
     const fetchPermissionsForUser = jest.fn().mockResolvedValue({
       id: "perm-9",
       role: "Manager",
@@ -190,8 +195,8 @@ describe("PageAccessControl — User Access Management", () => {
       invoice: false,
     });
     const createPermission = jest.fn();
-    const togglePermission = jest.fn().mockResolvedValue({});
-    mockContext({ fetchPermissionsForUser, createPermission, togglePermission });
+    const savePermissions = jest.fn(async (id, permissions) => ({ updatedRecord: { id, ...permissions } }));
+    mockContext({ fetchPermissionsForUser, createPermission, savePermissions });
     render(<PageAccessControl />);
 
     await waitFor(() => expect(screen.getByText("Alice Brown — alice.b")).toBeInTheDocument());
@@ -209,8 +214,50 @@ describe("PageAccessControl — User Access Management", () => {
     });
 
     expect(createPermission).not.toHaveBeenCalled();
-    expect(togglePermission).toHaveBeenCalledWith("perm-9", "invoice");
-    expect(togglePermission).toHaveBeenCalledTimes(1);
+    expect(savePermissions).toHaveBeenCalledWith("perm-9", expect.objectContaining({ dashboard: true, invoice: true }));
+    expect(savePermissions).toHaveBeenCalledTimes(1);
+  });
+
+  it("Enable All sends every permission as on and shows what the server stored", async () => {
+    const savePermissions = jest.fn(async (id, permissions) => ({ updatedRecord: { id, ...permissions, billing: false } }));
+    mockContext({ savePermissions });
+    render(<PageAccessControl />);
+    await waitFor(() => expect(screen.getByText("Sagar — sagar")).toBeInTheDocument());
+    await act(async () => {
+      await userEvent.click(screen.getByText("Sagar — sagar"));
+    });
+    await act(async () => {
+      await userEvent.click(await screen.findByText("Enable All"));
+    });
+    await act(async () => {
+      await userEvent.click(screen.getByText("Save Changes"));
+    });
+
+    const sent = savePermissions.mock.calls[0][1];
+    expect(Object.values(sent)).toEqual(Array(15).fill(true));
+    // the server did not store one key: the switch must not stay green, and the admin is told
+    expect(await screen.findByText(/Not saved: Payroll & Salary/)).toBeInTheDocument();
+    expect(screen.getByText("Payroll & Salary").closest(".pac-permission-row")).toHaveClass("pac-disabled");
+    expect(screen.getByText("Dashboard").closest(".pac-permission-row")).toHaveClass("pac-enabled");
+    expect(screen.queryByText("Permissions saved successfully.")).not.toBeInTheDocument();
+  });
+
+  it("a failed save is reported and the changes stay marked as unsaved", async () => {
+    mockContext({ savePermissions: jest.fn().mockRejectedValue(new Error("boom")) });
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    render(<PageAccessControl />);
+    await waitFor(() => expect(screen.getByText("Sagar — sagar")).toBeInTheDocument());
+    await act(async () => {
+      await userEvent.click(screen.getByText("Sagar — sagar"));
+    });
+    await act(async () => {
+      await userEvent.click(await screen.findByText("Enable All"));
+    });
+    await act(async () => {
+      await userEvent.click(screen.getByText("Save Changes"));
+    });
+    expect(await screen.findByText("Failed to save permissions. Please try again.")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
   });
 
   it("asks for confirmation before switching users with unsaved changes, and switches on confirm", async () => {

@@ -3,6 +3,7 @@ import { MessageNavIcon } from "../features/Messaging/MessagingNav";
 import { useAuth } from "../context/AuthContext";
 import { useApi } from "../context/ApiContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
+import { NotificationsUnavailableDot } from "../components/NotificationStatus";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FaSun,
@@ -22,7 +23,7 @@ function ManagerNavbar() {
     managerProfile, // Use managerProfile from ApiContext
     managerLoading, // Use managerLoading from ApiContext
     fetchNotifications,
-    notifications,
+    notificationsError,
     unreadCount,
     unreadMeetingsCount,
   } = useApi();
@@ -34,18 +35,14 @@ function ManagerNavbar() {
   const isHovering = useRef(false);
   const badgeRef = useRef(null);
 
+  // Once per signed-in manager. The dependencies are plain values on purpose: the parsed
+  // user object is new on every render, and an empty list is a normal answer - depending on
+  // either re-requested the list endlessly.
+  const userId = localStorageUser?.id;
+  const userRole = localStorageUser?.role;
   useEffect(() => {
-    if (
-      localStorageUser?.id &&
-      localStorageUser?.role &&
-      notifications.length === 0
-    ) {
-      fetchNotifications({
-        userId: localStorageUser.id,
-        userRole: localStorageUser.role,
-      });
-    }
-  }, [fetchNotifications, localStorageUser, notifications.length]);
+    if (userId && userRole) fetchNotifications({ userId, userRole });
+  }, [fetchNotifications, userId, userRole]);
 
   useEffect(() => {
     if (unreadCount > 0 && badgeRef.current) {
@@ -113,6 +110,7 @@ function ManagerNavbar() {
             onClick={() => navigate("/manager/notification")}
           >
             <FaBell size={20} />
+            <NotificationsUnavailableDot error={notificationsError} />
             {(unreadCount + unreadMeetingsCount) > 0 && (
               <span
                 key={location.key}

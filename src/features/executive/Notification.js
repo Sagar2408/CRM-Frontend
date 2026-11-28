@@ -3,12 +3,14 @@ import { useApi } from "../../context/ApiContext";
 import "../../styles/notification.css";
 import { useLoading } from "../../context/LoadingContext";
 import LoadingSpinner from "../spinner/LoadingSpinner";
+import { NotificationsError } from "../../components/NotificationStatus";
 
 function Notification() {
   const {
     notifications = [],
     setNotifications, // ✅ Added
     notificationsLoading,
+    notificationsError,
     fetchNotifications,
     markNotificationReadAPI,
     markMultipleAsRead
@@ -146,6 +148,14 @@ function Notification() {
     <div className="notification-container" style={{ position: "relative" }}>
       {isLoading && <LoadingSpinner text={loadingText || "Loading Notifications..."} />}
       <h2>Notifications</h2>
+
+      <NotificationsError
+        error={notificationsError}
+        onRetry={() => {
+          const user = JSON.parse(localStorage.getItem("user"));
+          if (user) fetchNotifications({ userId: user.id, userRole: user.role });
+        }}
+      />
 
       {notificationsLoading ? (
         <p className="loading-msg">Loading notifications...</p>

@@ -8,6 +8,8 @@ import "../../styles/alert.css";
 import { useLoading } from "../../context/LoadingContext";
 import AdminSpinner from "../spinner/AdminSpinner";
 import { useProcessService } from "../../context/ProcessServiceContext";
+import useCanAssignLeads from "../../hooks/useCanAssignLeads";
+import UnauthorizedAccess from "../admin-settings/UnauthorizedAccess";
 
 // Tab key -> label. The key is sent verbatim as the `status` query param and
 // mapped to ClientLead.status on the server (see LEAD_STATUS_FILTERS in
@@ -22,7 +24,17 @@ export const STATUS_TABS = [
   { key: "meeting", label: "Meeting", countKey: "Meeting" },
 ];
 
-const TaskManagement = () => {
+const readRole = () => {
+  try {
+    return String(JSON.parse(localStorage.getItem("user"))?.role || "").toLowerCase();
+  } catch {
+    return "";
+  }
+};
+
+const LeadAssignWorkspace = () => {
+  // Deleting a lead is Admin-only on the server, so only the Admin is offered it.
+  const canDelete = readRole() === "admin";
   const { getAllProcessPersons, createProcesstoConverted } = useProcessService();
   const {
     fetchAllClients,
@@ -42,6 +54,7 @@ const TaskManagement = () => {
   const [viewMode, setViewMode] = useState("executive"); // "executive" | "process"
   const [executives, setExecutives] = useState([]);
   const [processPersons, setProcessPersons] = useState([]);
+  const [listErrors, setListErrors] = useState({ executive: false, process: false });
   const [selectedExecutive, setSelectedExecutive] = useState("");
   const [selectedProcess, setSelectedProcess] = useState("");
 
@@ -105,8 +118,10 @@ const TaskManagement = () => {
     (async () => {
       try {
         setExecutives((await fetchExecutivesAPI()) || []);
+        setListErrors((prev) => ({ ...prev, executive: false }));
       } catch (error) {
         console.error("❌ Failed to load executives:", error);
+        setListErrors((prev) => ({ ...prev, executive: true }));
       }
     })();
   }, [fetchExecutivesAPI]);
@@ -116,8 +131,11 @@ const TaskManagement = () => {
       try {
         const persons = await getAllProcessPersons();
         setProcessPersons(persons?.processPersons || []);
+        // the service reports a refused / failed request by returning nothing
+        setListErrors((prev) => ({ ...prev, process: !persons }));
       } catch (err) {
         console.error("Failed to load process persons", err);
+        setListErrors((prev) => ({ ...prev, process: true }));
       }
     })();
   }, [getAllProcessPersons]);
@@ -445,6 +463,12 @@ const TaskManagement = () => {
             </div>
           </div>
         </div>
+        {listErrors[viewMode] && (
+          <div className="la-hint" role="alert">
+            Could not load the {isProcessMode ? "process person" : "executive"} list. Refresh the page; if this
+            continues, ask your administrator to check your Task Management access.
+          </div>
+        )}
         {isProcessMode && (
           <div className="la-hint">
             Process Persons can receive Converted leads only, whoever converted them.
@@ -575,9 +599,11 @@ const TaskManagement = () => {
                       <button className="edit" onClick={() => handleEditClick(lead)}>
                         Edit
                       </button>
-                      <button className="delete" onClick={() => handleDeleteClick(lead.id)}>
-                        Delete
-                      </button>
+                      {canDelete && (
+                        <button className="delete" onClick={() => handleDeleteClick(lead.id)}>
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -712,5 +738,8 @@ const TaskManagement = () => {
     </div>
   );
 };
+
+// Nothing of the page (and none of its requests) exists without the right to assign leads.
+const TaskManagement = () => (useCanAssignLeads() ? <LeadAssignWorkspace /> : <UnauthorizedAccess />);
 
 export default TaskManagement;

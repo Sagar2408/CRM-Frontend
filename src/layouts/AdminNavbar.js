@@ -4,6 +4,7 @@ import { MessageNavIcon } from "../features/Messaging/MessagingNav";
 import { useAuth } from "../context/AuthContext";
 import { useApi } from "../context/ApiContext";
 import { ThemeContext } from "../features/admin/ThemeContext";
+import { NotificationsUnavailableDot } from "../components/NotificationStatus";
 import { useNavigate, useLocation } from "react-router-dom";
 import { fetchAdminPhotoBlob } from "../services/apiService";
 import {
@@ -52,6 +53,7 @@ function AdminNavbar() {
     fetchAdmin,
     fetchNotifications,
     notifications,
+    notificationsError,
     unreadCount,
     unreadMeetingsCount,
   } = useApi();
@@ -144,6 +146,7 @@ function AdminNavbar() {
             onClick={() => navigate("/admin/notification")}
           >
             <FaBell size={20} />
+            <NotificationsUnavailableDot error={notificationsError} />
             {unreadCount + unreadMeetingsCount > 0 && (
               <span
                 key={location.key}

@@ -5,6 +5,8 @@ const mockFetchAllClients = jest.fn();
 const mockCreateProcess = jest.fn();
 const mockReassign = jest.fn();
 
+let mockPermissions = null;
+jest.mock("../../context/PermissionContext", () => ({ usePermissionContext: () => ({ permissions: mockPermissions }) }));
 jest.mock("../modal/alert", () => ({
   Alert: () => null,
   soundManager: { playSound: jest.fn() },
@@ -55,6 +57,8 @@ DATA.all = Object.values(DATA).flat();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  localStorage.setItem("user", JSON.stringify({ id: 1, role: "Admin" }));
+  mockPermissions = null;
   // CRA runs with resetMocks:true, so inline implementations must be set per test.
   mockApi.fetchExecutivesAPI.mockResolvedValue([{ id: 1, username: "exec1" }]);
   mockProcessSvc.getAllProcessPersons.mockResolvedValue({ processPersons: [{ id: 5, fullName: "Pat Process" }] });

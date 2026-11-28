@@ -4,11 +4,14 @@ import "../../styles/adminNotification.css";
 import SidebarToggle from "../admin/SidebarToggle";
 import { useLoading } from "../../context/LoadingContext";
 import AdminSpinner from "../spinner/AdminSpinner";
+import useCanAssignLeads from "../../hooks/useCanAssignLeads";
+import { NotificationsError } from "../../components/NotificationStatus";
 
 function HrNotification() {
   const {
     notifications = [],
     notificationsLoading,
+    notificationsError,
     fetchNotifications,
     markNotificationReadAPI,
     fetchExecutivesAPI,
@@ -18,6 +21,7 @@ function HrNotification() {
   } = useApi();
 
   const { isLoading, variant, showLoader, hideLoader } = useLoading();
+  const canListExecutives = useCanAssignLeads();
   const [hasFetchedMeetings, setHasFetchedMeetings] = useState(false);
   const [activeTab, setActiveTab] = useState("notifications");
   const [currentPage, setCurrentPage] = useState(1);
@@ -39,22 +43,36 @@ function HrNotification() {
         if (user?.id && user?.role) {
           await fetchNotifications({ userId: user.id, userRole: user.role });
         }
-
-        const execs = await fetchExecutivesAPI();
-        const map = {};
-        execs.forEach((exec) => {
-          map[String(exec.id)] = exec.username;
-        });
-        setExecutiveMap(map);
       } catch (err) {
-        console.error("❌ Failed to load notifications or executives:", err);
+        console.error("❌ Failed to load notifications:", err);
       } finally {
         hideLoader();
       }
     };
 
     loadInitialData();
-}, [fetchExecutivesAPI, fetchNotifications, hideLoader, showLoader, user.id, user.role]);
+}, [fetchNotifications, hideLoader, showLoader, user.id, user.role]);
+
+  // Executive names come from the lead-assignment list: only requested by someone allowed
+  // to read it (Admin, or HR / Manager with Task Management).
+  useEffect(() => {
+    if (!canListExecutives) {
+      // forget names read earlier (same object when already empty, so no re-render loop)
+      setExecutiveMap((prev) => (Object.keys(prev).length ? {} : prev));
+      return;
+    }
+    (async () => {
+      try {
+        const map = {};
+        (await fetchExecutivesAPI()).forEach((exec) => {
+          map[String(exec.id)] = exec.username;
+        });
+        setExecutiveMap(map);
+      } catch (err) {
+        console.error("❌ Failed to load executive names:", err);
+      }
+    })();
+  }, [canListExecutives, fetchExecutivesAPI]);
 
   useEffect(() => {
     const loadMeetings = async () => {
@@ -154,6 +172,13 @@ function HrNotification() {
             Meetings: {unreadMeetingsCount > 0 && <span className="m-badge">{unreadMeetingsCount}</span>}
           </button>
         </div>
+
+        {activeTab === "notifications" && (
+          <NotificationsError
+            error={notificationsError}
+            onRetry={() => fetchNotifications({ userId: user.id, userRole: user.role })}
+          />
+        )}
 
         {/* Notifications Tab */}
         {notificationsLoading && activeTab === "notifications" ? (

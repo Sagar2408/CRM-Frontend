@@ -17,6 +17,7 @@ jest.mock("axios", () => ({
     get: jest.fn(),
     post: jest.fn(),
     patch: jest.fn(),
+    put: jest.fn(),
   },
 }));
 
@@ -30,6 +31,16 @@ describe("permissionService URLs", () => {
     axios.get.mockResolvedValue({ data: [] });
     axios.post.mockResolvedValue({ data: {} });
     axios.patch.mockResolvedValue({ data: {} });
+    axios.put.mockResolvedValue({ data: {} });
+  });
+
+  it("savePermissions PUTs the exact values to /role-permissions/:id/permissions", async () => {
+    await permissionService.savePermissions("abc-123", { dashboard: true, billing: false });
+    expect(axios.put).toHaveBeenCalledWith(
+      expect.stringMatching(/\/role-permissions\/abc-123\/permissions$/),
+      { permissions: { dashboard: true, billing: false } },
+      expect.anything()
+    );
   });
 
   it("fetchUsers hits /role-permissions/get-managers-users", async () => {

@@ -279,6 +279,14 @@ const PayrollModal = ({ employee, period, onClose, onDone }) => {
   );
 };
 
+// The shared sidebars open on any right swipe and close on any left swipe, anywhere on the
+// screen. While the sidebar is closed, a swipe on the table means "scroll the table", so it
+// must not reach them.
+const keepSwipeInTable = (e) => {
+  if (!document.body.classList.contains("sidebar-expanded")) e.stopPropagation();
+};
+const SWIPE_GUARD = { onTouchStart: keepSwipeInTable, onTouchEnd: keepSwipeInTable };
+
 /* ---------------------------------- Page --------------------------------- */
 const AttendanceTable = () => {
   const role = getCurrentRole();
@@ -461,7 +469,7 @@ const AttendanceTable = () => {
               </span>
             </div>
 
-            <div className="ad-table-scroll" tabIndex={0}>
+            <div className="ad-table-scroll" tabIndex={0} {...SWIPE_GUARD}>
               {loading && <div className="ad-overlay">Loading attendance…</div>}
               <table className="ad-table">
                 <thead>
@@ -526,7 +534,7 @@ const AttendanceTable = () => {
             </div>
           </>
         ) : (
-          <div className="ad-table-scroll ad-payroll" tabIndex={0}>
+          <div className="ad-table-scroll ad-payroll" tabIndex={0} {...SWIPE_GUARD}>
             {loading && <div className="ad-overlay">Loading…</div>}
             <table className="ad-table">
               <thead>

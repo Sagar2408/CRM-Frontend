@@ -4,12 +4,15 @@ import "../../styles/adminNotification.css";
 import SidebarToggle from "./SidebarToggle";
 import { useLoading } from "../../context/LoadingContext";
 import AdminSpinner from "../spinner/AdminSpinner";
+import useCanAssignLeads from "../../hooks/useCanAssignLeads";
+import { NotificationsError } from "../../components/NotificationStatus";
 import AnnouncementsPanel from "./AnnouncementsPanel";
 
 function AdminNotification() {
   const {
     notifications = [],
     notificationsLoading,
+    notificationsError,
     fetchNotifications,
     markNotificationReadAPI,
     fetchExecutivesAPI,
@@ -19,6 +22,7 @@ function AdminNotification() {
   } = useApi();
 
   const { isLoading, variant, showLoader, hideLoader } = useLoading();
+  const canListExecutives = useCanAssignLeads();
   const [hasFetchedMeetings, setHasFetchedMeetings] = useState(false);
   const [activeTab, setActiveTab] = useState("notifications");
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,22 +44,36 @@ function AdminNotification() {
         if (user?.id && user?.role) {
           await fetchNotifications({ userId: user.id, userRole: user.role });
         }
-
-        const execs = await fetchExecutivesAPI();
-        const map = {};
-        execs.forEach((exec) => {
-          map[String(exec.id)] = exec.username;
-        });
-        setExecutiveMap(map);
       } catch (err) {
-        console.error("❌ Failed to load notifications or executives:", err);
+        console.error("❌ Failed to load notifications:", err);
       } finally {
         hideLoader();
       }
     };
 
     loadInitialData();
-}, [fetchExecutivesAPI, fetchNotifications, hideLoader, showLoader, user.id, user.role]);
+}, [fetchNotifications, hideLoader, showLoader, user.id, user.role]);
+
+  // Executive names come from the lead-assignment list: only requested by someone allowed
+  // to read it (Admin, or HR / Manager with Task Management).
+  useEffect(() => {
+    if (!canListExecutives) {
+      // forget names read earlier (same object when already empty, so no re-render loop)
+      setExecutiveMap((prev) => (Object.keys(prev).length ? {} : prev));
+      return;
+    }
+    (async () => {
+      try {
+        const map = {};
+        (await fetchExecutivesAPI()).forEach((exec) => {
+          map[String(exec.id)] = exec.username;
+        });
+        setExecutiveMap(map);
+      } catch (err) {
+        console.error("❌ Failed to load executive names:", err);
+      }
+    })();
+  }, [canListExecutives, fetchExecutivesAPI]);
 
   useEffect(() => {
     const loadMeetings = async () => {
@@ -161,18 +179,28 @@ const formatCopyMessage = (userId, message, createdAt) => {
           </button>
         </div>
 
+        {activeTab === "notifications" && (
+          <NotificationsError
+            error={notificationsError}
+            onRetry={() => fetchNotifications({ userId: user.id, userRole: user.role })}
+          />
+        )}
+
         {/* Notifications Tab */}
         {notificationsLoading && activeTab === "notifications" ? (
           <p className="admin-notification-loading">Loading notifications...</p>
         ) : activeTab === "notifications" ? (
           <div className="admin-notification-content">
             <ul className="admin-notification-list">
+              {!notificationsError && notifications.length === 0 && (
+                <p style={{ textAlign: "center", color: "#777" }}>No notifications yet.</p>
+              )}
               {currentNotifications
-                .filter((n) => !n.message.toLowerCase().includes("meeting"))
+                .filter((n) => n.targetRole === "manager" || !n.message.toLowerCase().includes("meeting"))
                 .map((n) => (
                   <li key={n.id} className={`admin-notification-item ${n.is_read ? "admin-notification-read" : ""}`}>
                     <div className="admin-notification-item-header">
-                      <strong>Copied</strong>
+                      <strong>{n.targetRole === "manager" ? "Notification" : "Copied"}</strong>
                       <div className="admin-notification-meta">
                         <span className="admin-notification-time">
                           {new Date(n.createdAt).toLocaleTimeString()}
@@ -189,7 +217,7 @@ const formatCopyMessage = (userId, message, createdAt) => {
                       </div>
                     </div>
                     <p className="admin-notification-message">
-                      {formatCopyMessage(n.userId, n.message, n.createdAt)}
+                      {n.targetRole === "manager" ? n.message : formatCopyMessage(n.userId, n.message, n.createdAt)}
                     </p>
                   </li>
                 ))}
@@ -201,9 +229,9 @@ const formatCopyMessage = (userId, message, createdAt) => {
                 Prev
               </button>
               <span className="admin-notification-page-info">
-                Page {currentPage} of {totalPages}
+                Page {currentPage} of {Math.max(totalPages, 1)}
               </span>
-              <button onClick={handleNextPage} disabled={currentPage === totalPages} className="admin-notification-pagination-btn">
+              <button onClick={handleNextPage} disabled={currentPage >= totalPages} className="admin-notification-pagination-btn">
                 Next
               </button>
             </div>

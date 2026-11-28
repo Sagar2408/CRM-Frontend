@@ -7,7 +7,10 @@ import {updateAdminProfile,changeAdminPassword,createEmailTemplate,getAllEmailTe
   addExecutiveToTeam,updateUserProfile,changeManagerPassword
 } from "../services/apiService"
 import { format } from "date-fns";
+import useNotificationStore from "../hooks/useNotificationStore";
 const ApiContext = createContext();
+// looked up at call time, so test doubles of apiService keep working
+const loadNotifications = (params) => apiService.fetchNotificationsByUser(params);
 
 export const ApiProvider = ({ children }) => {
   const [executiveInfo, setExecutiveInfo] = useState(null);
@@ -201,34 +204,18 @@ const fetchExecutives = useCallback(async () => {
     }
   }, []);
 
-  // ✅ Notifications
-  const [notifications, setNotifications] = useState([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  // ✅ Notifications (deduplicated, bounded retries, per session: hooks/useNotificationStore.js)
+  const {
+    notifications,
+    notificationsLoading,
+    notificationsError,
+    fetchNotifications,
+    setNotifications,
+  } = useNotificationStore(loadNotifications);
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.is_read).length,
     [notifications]
   );
-  const fetchNotifications = useCallback(async ({ userId, userRole }) => {
-    if (!userId || !userRole) {
-      console.warn(
-        "⚠️ User ID and User Role is required to fetch notifications"
-      );
-      return;
-    }
-
-    setNotificationsLoading(true);
-    try {
-      const data = await apiService.fetchNotificationsByUser({
-        userId,
-        userRole,
-      });
-      setNotifications(data || []);
-    } catch (error) {
-      console.error("❌ Error fetching notifications:", error);
-    } finally {
-      setNotificationsLoading(false);
-    }
-  }, []);
 
   const createCopyNotification = useCallback(async (userId, userRole, message) => {
     try {
@@ -242,10 +229,10 @@ const fetchExecutives = useCallback(async () => {
   const markNotificationReadAPI = async (notificationId) => {
     try {
       await apiService.markNotificationAsRead(notificationId);
-      const updated = notifications.map((n) =>
-        n.id === notificationId ? { ...n, is_read: true } : n
+      // from the latest list: several marks can finish close together
+      setNotifications((list) =>
+        list.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
-      setNotifications(updated);
     } catch (error) {
       console.error("❌ Failed to mark notification as read", error);
     }
@@ -254,8 +241,7 @@ const fetchExecutives = useCallback(async () => {
   const deleteNotificationAPI = async (notificationId) => {
     try {
       await apiService.deleteNotificationById(notificationId);
-      const filtered = notifications.filter((n) => n.id !== notificationId);
-      setNotifications(filtered);
+      setNotifications((list) => list.filter((n) => n.id !== notificationId));
     } catch (error) {
       console.error("❌ Failed to delete notification", error);
     }
@@ -1681,6 +1667,7 @@ summaryLoading,
         // ✅ Notifications
         notifications,
         notificationsLoading,
+        notificationsError,
         unreadCount,
         fetchNotifications,
         setNotifications,

@@ -39,6 +39,14 @@ export const permissionService = {
     return res.data;
   },
 
+  // Stores exactly these on/off values: { permissions: { dashboard: true, ... } }
+  async savePermissions(permissionId, permissions) {
+    const res = await axios.put(`${BASE_URL}/${permissionId}/permissions`, { permissions }, {
+      headers: getHeaders(),
+    });
+    return res.data;
+  },
+
   async fetchPermissionsForUser(userId, role) {
     const res = await axios.get(`${BASE_URL}/${role}/${userId}`, { headers: getHeaders() });
     return res.data;

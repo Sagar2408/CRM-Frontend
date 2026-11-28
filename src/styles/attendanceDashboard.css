@@ -1,6 +1,19 @@
+/* ---------------------------------------------------------------- page shell
+   Used by the Admin, HR and Manager attendance pages. The shell rules only apply
+   while this page is on screen (:has(.ad-page)), so no other screen is affected.
+
+   The panel is a flex row: [sidebar toggle][main]. The shared layout sizes main with
+   calc(100% - sidebar), ignoring the toggle's own width, and a flex item does not shrink
+   below its widest content (the date table) - so the page ran off the right edge.
+   Taking "whatever is left" with a zero minimum keeps it beside the sidebar in both
+   sidebar states; the sidebar itself is unchanged. */
+.admin-dashboard-container > .admin-main-content:has(.ad-page) { flex: 1 1 0%; min-width: 0; }
+.create-executive-container:has(> .ad-page) { min-width: 0; width: 100%; }
+
 .ad-page {
   padding: 24px;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   font-family: "Inter", "Segoe UI", sans-serif;
   color: #1f2937;
@@ -10,8 +23,8 @@
 .ad-muted { color: #6b7280; font-size: 13px; margin: 0; }
 .ad-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
-.ad-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.ad-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.ad-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.ad-card { min-width: 0; overflow-wrap: anywhere; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 .ad-card span { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
 .ad-card strong { font-size: 28px; line-height: 1; }
 .ad-card-present strong { color: #15803d; }
@@ -23,6 +36,8 @@
 .ad-filters input, .ad-filters select, .ad-field input, .ad-field select, .ad-field textarea, .ad-row input {
   height: 36px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #fff; color: #111827; box-sizing: border-box;
 }
+.ad-page .ad-filters label { min-width: 0; max-width: 100%; }
+.ad-page .ad-filters input, .ad-page .ad-filters select { max-width: 100%; min-width: 0; }
 .ad-field textarea { height: auto; padding: 8px 10px; font-family: inherit; resize: vertical; }
 .ad-grow { flex: 1 1 220px; }
 .ad-grow input { width: 100%; }
@@ -40,11 +55,14 @@
 .ad-alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 
 .ad-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 4px 0 10px; }
-.ad-legend-item { display: inline-flex; align-items: center; gap: 6px; color: #4b5563; }
+.ad-legend-item { display: inline-flex; align-items: center; gap: 6px; color: #4b5563; min-width: 0; }
 
 /* Scroll container: scrolls both ways; header row and first column stay put. */
 .ad-table-scroll {
   position: relative;
+  container-type: inline-size; /* its width comes from the page, never from the table */
+  max-width: 100%;
+  overscroll-behavior-x: contain; /* swiping the dates does not drag the page */
   overflow: auto;
   max-height: calc(100vh - 360px);
   min-height: 260px;
@@ -58,8 +76,13 @@
 .ad-table thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; font-weight: 600; color: #374151; border-bottom: 1px solid #e2e8f0; }
 .ad-table .ad-sticky { position: sticky; left: 0; z-index: 2; text-align: left; border-right: 2px solid #e2e8f0; }
 .ad-table thead th.ad-sticky { z-index: 5; }
+/* adminDashboard.css also has an ".ad-table" and fades its headers; here a faded header let
+   the dates scrolling underneath show through the pinned columns. */
+.ad-table-scroll .ad-table th { opacity: 1; }
 .ad-emp-col { min-width: 210px; max-width: 260px; }
-.ad-emp-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.ad-table td.ad-emp-col { white-space: normal; overflow-wrap: anywhere; } /* full names, never cut off */
+.ad-emp-name { font-weight: 600; }
+.ad-table-scroll .ad-table .ad-sticky { box-shadow: 6px 0 8px -6px rgba(15, 23, 42, .22); } /* separates the employee from the dates */
 .ad-emp-col small { color: #6b7280; }
 .ad-sum-col { min-width: 44px; background: #fafafa !important; }
 .ad-day { min-width: 74px; }
@@ -72,7 +95,7 @@
 .ad-empty { padding: 36px !important; color: #6b7280; text-align: center !important; }
 .ad-overlay { position: sticky; top: 0; left: 0; z-index: 6; padding: 8px 14px; background: rgba(255,255,255,.9); color: #374151; font-size: 13px; }
 
-.ad-badge { position: relative; display: inline-block; min-width: 52px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.4; }
+.ad-badge { position: relative; display: inline-block; white-space: nowrap; min-width: 52px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.4; }
 .ad-present { background: #dcfce7; color: #166534; }
 .ad-absent { background: #fee2e2; color: #991b1b; }
 .ad-leave { background: #fef3c7; color: #92400e; }
@@ -94,8 +117,62 @@
 .ad-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .ad-row input[type="text"] { flex: 1 1 140px; }
 
+/* Wide enough table area: the summary columns stay put beside the employee, and only the
+   date columns scroll. The offsets below are the fixed column widths added up. */
+@container (min-width: 640px) {
+  .ad-table-scroll:not(.ad-payroll) .ad-emp-col { box-sizing: border-box; width: 210px; min-width: 210px; max-width: 210px; }
+  .ad-table-scroll:not(.ad-payroll) .ad-table .ad-sticky { box-shadow: none; }
+  .ad-table .ad-sum-col { position: sticky; z-index: 2; box-sizing: border-box; width: 48px; min-width: 48px; max-width: 48px; padding-left: 2px; padding-right: 2px; }
+  .ad-table thead th.ad-sum-col { z-index: 5; }
+  .ad-table tr > .ad-sum-col:nth-child(2) { left: 210px; }
+  .ad-table tr > .ad-sum-col:nth-child(3) { left: 258px; }
+  .ad-table tr > .ad-sum-col:nth-child(4) { left: 306px; }
+  .ad-table tr > .ad-sum-col:nth-child(5) { left: 354px; border-right: 2px solid #cbd5e1; box-shadow: 6px 0 8px -6px rgba(15, 23, 42, .22); }
+}
+
+/* Narrow table area (phones): only the employee column stays; summaries scroll with the dates. */
+@container (max-width: 639.98px) {
+  .ad-table-scroll:not(.ad-payroll) .ad-emp-col { box-sizing: border-box; width: 128px; min-width: 128px; max-width: 128px; }
+}
+
+/* The shared layout hides the sidebar off-canvas from this width down. */
+@media (max-width: 820px) {
+  /* !important: the shared layout forces an 80px margin / 25px padding with !important */
+  .admin-dashboard-container > .admin-main-content:has(.ad-page) { flex: 1 1 auto; width: 100% !important; min-width: 0; margin-left: 0 !important; padding: 0 !important; }
+  /* The layout dims the page and blocks touches while the sidebar is CLOSED
+     (body.sidebar-mobile-active), which would make the table impossible to swipe. */
+  body.sidebar-mobile-active:has(.ad-page)::after { content: none; }
+  body.sidebar-mobile-active .admin-main-content:has(.ad-page) { pointer-events: auto; }
+  /* The menu button's icon is white (it relied on that dimming): give it its own background. */
+  body:has(.ad-page) .admin-menu_toggle { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; top: 10px; left: 10px; border-radius: 10px; background: #4f52bb; }
+}
+
 @media (max-width: 768px) {
   .ad-page { padding: 12px; }
   .ad-emp-col { min-width: 150px; }
   .ad-table-scroll { max-height: calc(100vh - 300px); }
+
+  .ad-page .ad-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; }
+  .ad-page .ad-filters .ad-grow, .ad-page .ad-filters > .ad-btn { grid-column: 1 / -1; }
+  .ad-page .ad-filters input, .ad-page .ad-filters select { width: 100%; font-size: 16px; } /* 16px: no zoom on focus in iOS */
+  .ad-page .ad-legend { gap: 8px 12px; }
+}
+
+/* Five cards on a tablet: three, then two filling the row (no lone card). */
+@media (min-width: 601px) and (max-width: 820px) {
+  .ad-cards { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .ad-card { grid-column: span 2; }
+  .ad-card:nth-child(n + 4) { grid-column: span 3; }
+}
+
+/* Phones: month and role get a full row so their text is not cut off; From / To share one. */
+@media (max-width: 480px) {
+  .ad-page .ad-filters label:first-child, .ad-page .ad-filters label:has(select) { grid-column: 1 / -1; }
+}
+
+@media (max-width: 600px) {
+  .ad-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ad-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .ad-card { padding: 12px; }
+  .ad-title { font-size: 22px; }
 }

@@ -172,3 +172,37 @@ describe("AttendanceTable", () => {
     expect(api.processPayroll.mock.calls[1][1]).toMatchObject({ reprocess: true, gross_salary: 30000, user_id: 2 });
   });
 });
+
+describe("swiping the table on a touch screen", () => {
+  const windowTouches = jest.fn();
+  beforeEach(() => {
+    windowTouches.mockClear();
+    ["touchstart", "touchend"].forEach((t) => window.addEventListener(t, windowTouches)); // how the sidebars listen
+  });
+  afterEach(() => {
+    ["touchstart", "touchend"].forEach((t) => window.removeEventListener(t, windowTouches));
+    document.body.className = "";
+  });
+  const swipe = (element) => {
+    fireEvent.touchStart(element, { changedTouches: [{ screenX: 50 }] });
+    fireEvent.touchEnd(element, { changedTouches: [{ screenX: 250 }] });
+  };
+
+  test("with the sidebar closed the swipe stays in the table; elsewhere it still reaches the sidebar", async () => {
+    document.body.className = "sidebar-collapsed";
+    render(<AttendanceTable />);
+    await screen.findByText("Eve Ex");
+    swipe(screen.getByText("Eve Ex"));
+    expect(windowTouches).not.toHaveBeenCalled();
+    swipe(screen.getByText("Attendance Management"));
+    expect(windowTouches).toHaveBeenCalledTimes(2);
+  });
+
+  test("with the sidebar open, a swipe on the table still reaches it so it can close", async () => {
+    document.body.className = "sidebar-expanded";
+    render(<AttendanceTable />);
+    await screen.findByText("Eve Ex");
+    swipe(screen.getByText("Eve Ex"));
+    expect(windowTouches).toHaveBeenCalledTimes(2);
+  });
+});
