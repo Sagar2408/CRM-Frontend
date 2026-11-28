@@ -5,6 +5,7 @@ import ControlCenterDashboard from "../features/masteruser/center/ControlCenterD
 import CompaniesPage from "../features/masteruser/center/CompaniesPage";
 import CompanyDetails from "../features/masteruser/center/CompanyDetails";
 import PromotionsPage from "../features/masteruser/center/PromotionsPage";
+import SubscriptionPlansPage from "../features/masteruser/center/SubscriptionPlansPage";
 import SupportQueries from "../features/masteruser/SupportQueries";
 
 // Every Master page shares one shell (header, navigation, logout).
@@ -17,6 +18,7 @@ const MasterRoutes = () => (
       <Route path="companies/new" element={<CompanyDetails />} />
       <Route path="companies/:id" element={<CompanyDetails />} />
       <Route path="promotions" element={<PromotionsPage />} />
+      <Route path="subscription-plans" element={<SubscriptionPlansPage />} />
       <Route path="support" element={<SupportQueries />} />
     </Route>
   </Routes>

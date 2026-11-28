@@ -1,0 +1,46 @@
+/* Company Admin "Subscription & Billing" (sb- prefix). Colours come from the settings theme. */
+.sb-root { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.sb-root h4 { margin: 0 0 0.75rem; font-size: 1.15rem; font-weight: 600; color: var(--text-color); }
+.sb-root h5 { margin: 1.25rem 0 0.6rem; font-size: 0.95rem; font-weight: 600; color: var(--text-color); }
+.sb-root p { margin: 0; }
+.sb-card { border: 1px solid var(--border-color); border-radius: 14px; padding: 1.25rem 1.5rem; background: var(--card-bg); min-width: 0; }
+.sb-muted { color: var(--text-secondary); font-size: 0.87rem; }
+.sb-empty { text-align: center; color: var(--text-secondary); padding: 1.25rem 0.5rem; }
+
+.sb-hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem 2rem; flex-wrap: wrap; padding-bottom: 1.1rem; border-bottom: 1px solid var(--border-color); }
+.sb-hero-main { flex: 1 1 260px; min-width: 0; }
+.sb-hero-main h4 { font-size: 1.6rem; margin: 0.15rem 0 0.5rem; overflow-wrap: anywhere; }
+.sb-hero-main > .sb-muted { margin-top: 0.6rem; white-space: pre-wrap; }
+.sb-hero-side { text-align: right; }
+.sb-eyebrow { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+.sb-price { font-size: 1.7rem; font-weight: 700; color: var(--primary-color); }
+.sb-remaining { margin-top: 0.35rem !important; font-weight: 600; color: var(--text-secondary); }
+.sb-remaining.urgent { color: var(--danger-color); }
+.sb-tags { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+.sb-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; margin: 1.1rem 0 0; }
+.sb-facts dt { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); }
+.sb-facts dd { margin: 0.2rem 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.sb-features { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.4rem 1.25rem; list-style: none; margin: 0; padding: 0; }
+.sb-features li { display: flex; gap: 0.5rem; font-size: 0.92rem; overflow-wrap: anywhere; }
+.sb-features li::before { content: "✓"; color: var(--success-color); font-weight: 700; }
+
+.sb-table-wrap { overflow-x: auto; }
+.sb-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.sb-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; color: var(--text-secondary); background: var(--table-header); padding: 0.65rem 0.75rem; white-space: nowrap; }
+.sb-table td { padding: 0.75rem; border-top: 1px solid var(--border-color); vertical-align: middle; }
+.sb-nowrap { white-space: nowrap; }
+
+.sb-badge { display: inline-block; padding: 0.1rem 0.65rem; border-radius: 999px; font-size: 0.74rem; font-weight: 700; background: #eef2ff; color: #3730a3; white-space: nowrap; }
+.sb-active, .sb-pay-paid { background: #d1fae5; color: #065f46; }
+.sb-expiring_soon, .sb-trial, .sb-pay-pending { background: #fef3c7; color: #92400e; }
+.sb-expired, .sb-suspended, .sb-pay-failed { background: #fee2e2; color: #991b1b; }
+.sb-not_configured, .sb-pay-refunded { background: #e5e7eb; color: #374151; }
+.sb-custom { background: #ede9fe; color: #5b21b6; }
+.sb-skel { height: 20px; border-radius: 6px; margin: 0.6rem 0; background: var(--border-color); opacity: 0.6; }
+
+@media (max-width: 576px) {
+  .sb-card { padding: 1rem; }
+  .sb-hero-side { text-align: left; }
+  .sb-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

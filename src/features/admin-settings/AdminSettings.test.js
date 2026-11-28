@@ -18,6 +18,7 @@ jest.mock("../../context/LoadingContext", () => ({
 jest.mock("../admin/SidebarToggle", () => () => null);
 jest.mock("../spinner/AdminSpinner", () => () => null);
 jest.mock("./PageAccessControl", () => () => <div>PAGE-ACCESS-CONTROLLER</div>);
+jest.mock("./SubscriptionBilling", () => () => <div>SUBSCRIPTION-BILLING</div>);
 jest.mock("../modal/alert", () => ({
   Alert: ({ alerts }) => (
     <div data-testid="alerts">
@@ -68,10 +69,12 @@ describe("validators", () => {
 });
 
 describe("tabs", () => {
-  test("Team, Plan and Billing are gone; Page Access Controller still works", async () => {
+  test("the old Team, Plan and Billing placeholders are gone; Subscription & Billing and Page Access Controller work", async () => {
     render(<AdminSettings />);
     const tabs = within(document.querySelector(".settings-tabs")).getAllByRole("button").map((b) => b.textContent);
-    expect(tabs).toEqual(["Profile", "Password", "Page Access Controller", "Auto Logout", "Integrations"]);
+    expect(tabs).toEqual(["Profile", "Password", "Page Access Controller", "Auto Logout", "Subscription & Billing", "Integrations"]);
+    fireEvent.click(screen.getByText("Subscription & Billing"));
+    expect(screen.getByText("SUBSCRIPTION-BILLING")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Page Access Controller"));
     expect(screen.getByText("PAGE-ACCESS-CONTROLLER")).toBeInTheDocument();
   });

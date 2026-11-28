@@ -154,7 +154,7 @@ const CompanyDetails = () => {
   const shared = { company: isNew ? null : company, reload: load, setDirty };
   const body = {
     Overview: <OverviewTab key={isNew ? "new" : company.updatedAt} {...shared} goTab={goTab} onCreated={onCreated} />,
-    Subscription: <SubscriptionTab key={company?.updatedAt} {...shared} />,
+    Subscription: <SubscriptionTab key={company?.id} {...shared} />,
     "Admin Users": <AdminTab {...shared} />,
     Activity: <Activity company={company} />,
     Promotions: <CompanyPromotions company={company} />,

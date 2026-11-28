@@ -33,6 +33,7 @@ jest.mock("../../../services/masterAdminService", () => {
       expiryReminder: jest.fn(), admins: jest.fn(), activity: jest.fn(),
       createDraft: jest.fn(), updateCode: jest.fn(), database: jest.fn(), saveDatabase: jest.fn(), testDatabase: jest.fn(), invitation: jest.fn(), generateInvitation: jest.fn(), revokeInvitation: jest.fn(), activate: jest.fn(), features: jest.fn(), updateFeatures: jest.fn(),
       promotions: jest.fn(), promotion: jest.fn(), createPromotion: jest.fn(), updatePromotion: jest.fn(), cancelPromotion: jest.fn(),
+      plans: jest.fn(), subscriptionDetails: jest.fn(),
     },
     announcements: { list: jest.fn(), get: jest.fn(), markRead: jest.fn() },
   };
@@ -157,6 +158,7 @@ describe("Company details", () => {
   test("subscription tab saves and renews without touching anything else", async () => {
     masterAdmin.updateSubscription.mockResolvedValue({});
     masterAdmin.renew.mockResolvedValue({});
+    window.confirm = jest.fn(() => true); // renewals now ask for confirmation
     render(<CompanyDetails />);
     fireEvent.click(await screen.findByRole("tab", { name: "Subscription" }));
     fireEvent.change(screen.getByLabelText("Employee / user limit"), { target: { value: "40" } });

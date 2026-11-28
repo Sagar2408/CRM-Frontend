@@ -3,6 +3,7 @@ import "../../styles/adminsettings.css";
 import SidebarToggle from "../admin/SidebarToggle";
 import PageAccessControl from "./PageAccessControl";
 import InactivityLogoutSettings from "./InactivityLogoutSettings";
+import SubscriptionBilling from "./SubscriptionBilling";
 import { useApi } from "../../context/ApiContext";
 import { useLoading } from "../../context/LoadingContext";
 import AdminSpinner from "../spinner/AdminSpinner";
@@ -250,6 +251,7 @@ const AdminSettings = () => {
     { key: "password", label: "Password" },
     { key: "pageAccess", label: "Page Access Controller" },
     { key: "autoLogout", label: "Auto Logout" },
+    { key: "billing", label: "Subscription & Billing" },
     { key: "integrations", label: "Integrations" },
   ];
 
@@ -261,6 +263,8 @@ const AdminSettings = () => {
         return <PageAccessControl />;
       case "autoLogout":
         return <InactivityLogoutSettings onNotify={pushAlert} />;
+      case "billing":
+        return <SubscriptionBilling />;
       case "integrations":
         return (
           <>

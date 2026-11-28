@@ -46,6 +46,22 @@ export const masterAdmin = {
   features: async (id) => (await masterApi.get(`${base}/companies/${id}/features`)).data.modules,
   updateFeatures: async (id, features) => (await masterApi.put(`${base}/companies/${id}/features`, { features })).data.modules,
 
+  // Subscription plans, assignment and manually recorded payments
+  plans: async (params) => (await masterApi.get(`${base}/plans`, { params: clean(params) })).data,
+  createPlan: async (body) => (await masterApi.post(`${base}/plans`, body)).data,
+  updatePlan: async (id, body) => (await masterApi.put(`${base}/plans/${id}`, body)).data,
+  setPlanStatus: async (id, status) => (await masterApi.patch(`${base}/plans/${id}/status`, { status })).data,
+  subscriptionDetails: async (id) => (await masterApi.get(`${base}/companies/${id}/subscription-details`)).data,
+  assignPlan: async (id, body) => (await masterApi.post(`${base}/companies/${id}/subscription/assign`, body)).data,
+  recordPayment: async (id, body) => (await masterApi.post(`${base}/companies/${id}/payments`, body)).data,
+  updatePaymentStatus: async (id, paymentId, body) => (await masterApi.patch(`${base}/companies/${id}/payments/${paymentId}/status`, body)).data,
+  uploadReceipt: async (id, paymentId, file) => {
+    const form = new FormData();
+    form.append("attachment", file);
+    return (await masterApi.post(`${base}/companies/${id}/payments/${paymentId}/receipt`, form)).data;
+  },
+  receipt: async (id, paymentId) => (await masterApi.get(`${base}/companies/${id}/payments/${paymentId}/receipt`, { responseType: "blob" })).data,
+
   promotions: async (params) => (await masterApi.get(`${base}/promotions`, { params: clean(params) })).data,
   promotion: async (id) => (await masterApi.get(`${base}/promotions/${id}`)).data,
   createPromotion: async (body) => (await masterApi.post(`${base}/promotions`, body)).data,

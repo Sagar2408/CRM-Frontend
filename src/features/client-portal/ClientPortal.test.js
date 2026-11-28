@@ -20,7 +20,15 @@ const overview = {
   status: { code: "under_review", label: "In progress" },
   roadmap: { total: 4, current: 2, stages: [1, 2, 3, 4].map((n) => ({ number: n, label: `Stage ${n}`, state: n < 2 ? "completed" : n === 2 ? "current" : "upcoming" })) },
   followUps: [{ id: 1, category: "Document collection", date: "2026-12-05", time: "09:30:00", document: "Passport" }],
-  documents: [{ name: "Passport", status: "Received" }, { name: "Bank Statement", status: "Requested" }],
+  documents: [],
+  documentRequests: [
+    { name: "Passport", requestedAt: "2026-11-01T10:00:00Z", status: "Received", uploadedAt: "2026-11-02T10:00:00Z", documentId: 5 },
+    { name: "Bank Statement", requestedAt: "2026-11-03T10:00:00Z", status: "Pending", uploadedAt: null, documentId: null },
+  ],
+  uploads: [
+    { id: 5, fileName: "Passport.pdf", mimeType: "application/pdf", uploadedAt: "2026-11-02T10:00:00Z", status: "Submitted", previewable: true, forRequest: true },
+    { id: 6, fileName: "notes.docx", mimeType: "application/msword", uploadedAt: "2026-11-04T10:00:00Z", status: "Submitted", previewable: false, forRequest: false },
+  ],
   updates: [{ id: 9, message: "Reminder: please upload your bank statement", createdAt: "2026-11-20T10:00:00Z" }],
 };
 
@@ -42,24 +50,50 @@ describe("Client Portal dashboard", () => {
     expect(steps[1]).toHaveAttribute("aria-current", "step");
     expect(screen.getByText("asha@x.com")).toBeInTheDocument();
     const docs = screen.getByRole("heading", { name: "Documents" }).closest("section");
+    expect(within(docs).getByText("Documents Requested")).toBeInTheDocument();
+    expect(within(docs).getByText("My Uploaded Documents")).toBeInTheDocument();
     expect(within(docs).getByText("Received")).toBeInTheDocument();
-    expect(within(docs).getByText("Requested")).toBeInTheDocument();
+    expect(within(docs).getByText("Pending")).toBeInTheDocument();
+    expect(within(docs).getByText("Passport.pdf")).toBeInTheDocument();
     expect(screen.getByText(/Document collection - Passport/)).toBeInTheDocument();
     expect(screen.getByText("Reminder: please upload your bank statement")).toBeInTheDocument();
   });
 
-  test("renders nothing editable: no inputs, forms or save actions", async () => {
+  test("only pending requests offer an Upload; previews only for previewable files", async () => {
     render(<ClientPortalDashboard />);
     await screen.findByRole("heading", { name: "Welcome, Asha" });
-    expect(document.querySelectorAll("input, textarea, select, form")).toHaveLength(0);
-    expect(screen.queryByRole("button", { name: /save|edit|update|delete|upload/i })).toBeNull();
+    expect(screen.getByLabelText("Upload Bank Statement")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Upload Passport")).toBeNull();
+    expect(screen.getByRole("button", { name: "Preview Passport.pdf" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview notes.docx" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Download notes.docx" })).toBeInTheDocument();
+  });
+
+  test("uploading against a request sends that request name, then reloads the overview", async () => {
+    api.uploadClientDocument.mockResolvedValue({});
+    render(<ClientPortalDashboard />);
+    await screen.findByRole("heading", { name: "Welcome, Asha" });
+    const file = new File(["x"], "bank.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Upload Bank Statement"), { target: { files: [file] } });
+    await waitFor(() => expect(api.uploadClientDocument).toHaveBeenCalledWith(file, "Bank Statement"));
+    expect(await screen.findByText("Bank Statement uploaded.")).toBeInTheDocument();
+    expect(api.getClientOverview).toHaveBeenCalledTimes(2);
+  });
+
+  test("a failed upload shows the error and keeps the page", async () => {
+    api.uploadClientDocument.mockRejectedValue(new Error("Unsupported file type."));
+    render(<ClientPortalDashboard />);
+    await screen.findByRole("heading", { name: "Welcome, Asha" });
+    fireEvent.change(screen.getByLabelText("Upload another document"), { target: { files: [new File(["x"], "a.exe")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unsupported file type.");
   });
 
   test("empty sections show friendly messages", async () => {
-    api.getClientOverview.mockResolvedValue({ ...overview, roadmap: { total: 0, current: 0, stages: [] }, followUps: [], documents: [], updates: [] });
+    api.getClientOverview.mockResolvedValue({ ...overview, roadmap: { total: 0, current: 0, stages: [] }, followUps: [], documents: [], documentRequests: [], uploads: [], updates: [] });
     render(<ClientPortalDashboard />);
     expect(await screen.findByText(/roadmap will appear here/)).toBeInTheDocument();
     expect(screen.getByText("No documents have been requested yet.")).toBeInTheDocument();
+    expect(screen.getByText("You have not uploaded any documents yet.")).toBeInTheDocument();
     expect(screen.getByText("Nothing scheduled right now.")).toBeInTheDocument();
     expect(screen.getByText("No updates yet.")).toBeInTheDocument();
   });
@@ -117,11 +151,26 @@ describe("Client Portal route guard", () => {
 
 describe("responsive layout (CSS contract; real-browser check is done separately)", () => {
   const css = fs.readFileSync(path.join(__dirname, "../../styles/clientPortal.css"), "utf8");
-  test("single column grid at tablet width, compact header on phones, no fixed-width overflow", () => {
-    expect(css).toMatch(/@media \(max-width: 860px\)[\s\S]*\.cp-grid[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
-    expect(css).toMatch(/@media \(max-width: 560px\)/);
-    expect(css).toMatch(/\.cp-roadmap\s*\{[^}]*repeat\(auto-fill, minmax\(84px, 1fr\)\)/); // wraps, never scrolls sideways
-    expect(css).toMatch(/\.cp-card\s*\{[^}]*min-width: 0/);
-    expect(css).toMatch(/\.cp-main\s*\{[^}]*max-width: 1100px/);
+  test("light theme sets explicit readable text colours", () => {
+    expect(css).toMatch(/--cp-text: #0f172a/);
+    expect(css).toContain(".cp-shell :where(h1, h2, h3, p, li, dd) {");
+  });
+
+  test("two-column areas collapse at tablet width, journey turns vertical and header compacts on phones", () => {
+    const block = (sel) => {
+      const i = css.indexOf(sel + " {");
+      return i < 0 ? "" : css.slice(i, css.indexOf("}", i));
+    };
+    const media = (w) => {
+      const i = css.indexOf("@media (max-width: " + w + "px)");
+      return i < 0 ? "" : css.slice(i, css.indexOf("\n}\n", i));
+    };
+    expect(media(860)).toContain(".cp-grid");
+    expect(media(860)).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(media(640)).toContain("flex-direction: column");
+    expect(media(560)).toContain(".cp-header__inner");
+    expect(block(".cp-roadmap")).toContain("overflow-x: auto");
+    expect(block(".cp-card")).toContain("min-width: 0");
+    expect(block(".cp-main")).toContain("max-width: 1100px");
   });
 });

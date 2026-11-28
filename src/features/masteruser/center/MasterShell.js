@@ -7,6 +7,7 @@ export const MASTER_NAV = [
   { to: "/master/dashboard", label: "Dashboard" },
   { to: "/master/companies", label: "Companies" },
   { to: "/master/promotions", label: "Promotions" },
+  { to: "/master/subscription-plans", label: "Subscription Plans" },
   { to: "/master/support", label: "Support" },
 ];
 
